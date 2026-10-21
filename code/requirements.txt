@@ -1,0 +1,2 @@
+# Baseline application and tests use only the Python 3.10+ standard library.
+# No pip install is required. Material-generation dependencies are separate.

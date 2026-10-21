@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第11组 · 产业报告工作台</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="masthead"><span>软件工程管理 / 第11组</span><span class="edition">BASELINE 01</span></header>
+  <main>
+    <section class="intro"><p class="eyebrow">资料与报告</p><h1>产业研究工作台</h1><p>整理原文，生成有出处的草稿，再由人核对。</p><p class="scope">本版支持资料录入与报告生成。流程编排、恢复与系统评测尚未接入。</p></section>
+    <div id="message" role="status" aria-live="polite"></div>
+    <div class="workspace">
+      <section aria-labelledby="source-heading" class="sources">
+        <div class="section-heading"><span class="number">01</span><h2 id="source-heading">收集资料</h2></div>
+        <form id="source-form">
+          <label>资料标题<input name="title" required maxlength="160" placeholder="例如：某机构发布的产业报告"></label>
+          <div class="two-fields"><label>发布机构<input name="publisher" maxlength="160"></label><label>发布日期<input name="published_at" type="date"></label></div>
+          <label>来源链接<input name="url" type="url" placeholder="可选，仅保存链接，不自动抓取"></label>
+          <label>原文内容<textarea name="body" required maxlength="50000" rows="7" placeholder="粘贴可核对的原文。不要将待验证判断写成原始数据。"></textarea></label>
+          <button type="submit" class="secondary">保存资料</button>
+        </form>
+        <div class="library-heading"><h3>资料库</h3><button id="refresh" type="button" class="text-button">刷新</button></div>
+        <div id="sources" class="source-list"><p class="empty">正在读取…</p></div>
+      </section>
+      <section class="report" aria-labelledby="report-heading">
+        <div class="section-heading"><span class="number">02</span><h2 id="report-heading">编写草稿</h2></div>
+        <form id="report-form">
+          <label>研究主题<input name="topic" required maxlength="160" placeholder="限定一个具体产业与研究问题"></label>
+          <div class="generation-row"><label>生成方式<select name="mode"><option value="excerpt">资料摘录演示 · 无模型调用</option><option value="model">模型草稿 · 需配置接口</option></select></label><button type="submit" id="generate">生成草稿</button></div>
+          <p class="hint">从左侧勾选1至10份资料。模型模式会将所选原文发送到配置的服务。</p>
+        </form>
+        <div class="result-heading"><h3>报告内容</h3><a id="download" hidden>下载 Markdown</a></div>
+        <div id="warnings" class="warnings" hidden></div>
+        <pre id="report-content" class="document">选择资料并输入研究主题后，草稿会出现在这里。引用标记用于定位资料，事实与观点仍需人工核验。</pre>
+        <details id="evidence-panel" hidden><summary>查看本次引用原文</summary><div id="evidence"></div></details>
+        <div class="history-heading"><h3>历史报告</h3></div><div id="reports" class="history"></div>
+      </section>
+    </div>
+  </main>
+  <footer>第11组课程项目基线 / 本地 SQLite 保存 / 摘录与模型结果明确区分</footer>
+</body>
+</html>

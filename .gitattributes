@@ -1,0 +1,12 @@
+* text=auto
+*.md text eol=lf
+*.csv text eol=lf
+*.json text eol=lf
+*.py text eol=lf
+*.mjs text eol=lf
+*.pdf binary
+*.pptx binary
+*.docx binary
+*.png binary
+*.ttf binary
+"课程报告与评分细则.md" whitespace=-blank-at-eof,cr-at-eol

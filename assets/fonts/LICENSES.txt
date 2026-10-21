@@ -1,0 +1,43 @@
+FILE: LXGWWenKai-Medium.ttf
+Name ID 0:
+Copyright 2021-2026 LXGW (https://github.com/lxgw/LxgwWenKai)
+Copyright 2020 The Klee Project Authors (https://github.com/fontworks-fonts/Klee)
+
+Name ID 1:
+LXGW WenKai Medium
+霞鹜文楷 Medium
+
+Name ID 13:
+This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org
+
+Name ID 14:
+https://openfontlicense.org
+
+FILE: LXGWWenKai-Regular.ttf
+Name ID 0:
+Copyright 2021-2026 LXGW (https://github.com/lxgw/LxgwWenKai)
+Copyright 2020 The Klee Project Authors (https://github.com/fontworks-fonts/Klee)
+
+Name ID 1:
+LXGW WenKai
+霞鹜文楷
+
+Name ID 13:
+This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org
+
+Name ID 14:
+https://openfontlicense.org
+
+FILE: SmileySans-Oblique.ttf
+Name ID 0:
+Copyright © 2022–2024 atelierAnchor. All rights reserved.
+
+Name ID 1:
+Smiley Sans Oblique
+得意黑
+
+Name ID 13:
+This Font Software is licensed under the SIL Open Font License, Version 1.1. This Font Software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the SIL Open Font License for the specific language, permissions and limitations governing your use of this Font Software.
+
+Name ID 14:
+https://scripts.sil.org/OFL

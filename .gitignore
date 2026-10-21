@@ -1,0 +1,14 @@
+.DS_Store
+.build/
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+.env
+**/.env
+code/runtime/
+*.sqlite3
+*.sqlite3-*
+*.log
+*.tmp
+materials/private/
