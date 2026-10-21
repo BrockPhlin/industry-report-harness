@@ -2,6 +2,7 @@
 from pathlib import Path
 import csv
 import json
+import os
 import re
 import zipfile
 import xml.etree.ElementTree as ET
@@ -21,7 +22,11 @@ for item in required:
 for stage in ["02-midterm", "03-final"]:
     for kind in ["report", "ppt"]:
         assert (ROOT/"presentations"/stage/kind).is_dir()
-assert not (ROOT/".git").exists(), "Do not package a nested Git history"
+# A checkout has root Git metadata; only embedded repositories are invalid.
+for directory, children, files in os.walk(ROOT):
+    if Path(directory) != ROOT:
+        assert ".git" not in children + files, f"Nested Git history: {directory}"
+    children[:] = [name for name in children if name not in {".git", ".build", "node_modules", ".venv"}]
 with (ROOT/"team/claims.csv").open() as f:
     claims=list(csv.DictReader(f))
 assert [r["task_id"] for r in claims] == [f"T{i}" for i in range(6)]
