@@ -59,6 +59,26 @@ class BaselineTests(unittest.TestCase):
             self.source(body="  ")
         self.assertEqual(self.app.store.list_sources(), [])
 
+    def test_source_library_excludes_bodies_but_detail_preserves_them(self):
+        sources = [self.source(f"构造资料{i}", "测" * 50000) for i in range(10)]
+        summaries = self.app.store.list_sources()
+        self.assertEqual([s["id"] for s in summaries], [s["id"] for s in sources])
+        for summary, source in zip(summaries, sources):
+            self.assertNotIn("body", summary)
+            self.assertEqual(summary["body_length"], 50000)
+            self.assertEqual({k: v for k, v in summary.items() if k != "body_length"},
+                             {k: v for k, v in source.items() if k != "body"})
+            self.assertEqual(self.app.store.get_source(source["id"]), source)
+        # Bound transferred bytes for this fixture, not execution time.
+        self.assertLess(len(json.dumps(summaries, ensure_ascii=False).encode()), 10000)
+        report = self.app.generate(dict(topic="完整正文", source_ids=[sources[0]["id"]]))
+        self.assertEqual(report["sources"][0]["body"], sources[0]["body"])
+        self.assertIn(sources[0]["body"], report["markdown"])
+
+    def test_source_character_count_includes_unicode_and_newlines(self):
+        source = self.source(body="中文\nA😀e\u0301")
+        self.assertEqual(self.app.store.list_sources()[0]["body_length"], len(source["body"]))
+
     def test_unconfigured_model_does_not_silently_fallback(self):
         source = self.source()
         with self.assertRaises(AppError) as ctx:
@@ -148,6 +168,25 @@ class HttpTests(unittest.TestCase):
             self.request("/api/sources", {"title": "x", "body": "x"}, {"Origin": "https://other.invalid"})
         self.assertEqual(ctx.exception.code, 403)
         self.assertEqual(self.service.store.list_sources(), [])
+
+    def test_source_list_and_detail_http_contract(self):
+        with self.request("/api/sources", {"title": "原文", "body": "完整证据😀"}) as r:
+            source = json.load(r)
+        with self.request("/api/sources") as r:
+            summaries = json.load(r)
+        self.assertEqual(summaries[0]["body_length"], len(source["body"]))
+        self.assertNotIn("body", summaries[0])
+        with self.request(f"/api/sources/{source['id']}") as r:
+            self.assertEqual(json.load(r), source)
+
+    def test_source_detail_rejects_extra_or_empty_path_segments(self):
+        source = self.service.add_source({"title": "原文", "body": "完整证据"})
+        for path in [f"/api/sources/extra/{source['id']}",
+                     f"/api/sources//{source['id']}",
+                     f"/api/sources/{source['id']}/", "/api/sources/"]:
+            with self.subTest(path=path), self.assertRaises(HTTPError) as ctx:
+                self.request(path)
+            self.assertEqual(ctx.exception.code, 404)
 
     def test_static_paths_are_allowlisted(self):
         for path in ["/../run.py", "/.env", "/api/reports/missing/unknown"]:

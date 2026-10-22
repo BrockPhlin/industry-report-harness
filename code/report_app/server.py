@@ -51,7 +51,10 @@ def make_server(service, host="127.0.0.1", port=8000):
                     if path == "/api/sources":
                         return self.respond(200, service.store.list_sources())
                     if path.startswith("/api/sources/"):
-                        return self.respond(200, service.store.get_source(path.rsplit("/", 1)[-1]))
+                        parts = path.split("/")
+                        if len(parts) != 4 or not parts[3]:
+                            raise AppError("接口不存在", 404, "not_found")
+                        return self.respond(200, service.store.get_source(parts[3]))
                     if path == "/api/reports":
                         return self.respond(200, service.store.list_reports())
                     if path.startswith("/api/reports/"):

@@ -7,3 +7,5 @@
 `node tools/build_slides.mjs`生成原生可编辑文字和表格的PPTX，并在.build保存预览与验证收据。使用@oai/artifact-tool及@napi-rs/canvas，默认读取Codex托管运行环境；可用ARTIFACT_NODE_MODULES、ARTIFACT_TOOL_MODULE、PRESENTATION_SKILL_DIR、RUNTIME_PYTHON指定。该SDK不是应用运行依赖，不承诺公开npm可安装。团队可直接编辑PPTX，不依赖此生成器。
 
 每次变更后人工检查页面。若直接编辑PPTX，应记录该稿为主，避免生成器覆盖手工修改。本目录所有源文件与资源都在内部，不依赖原桌面软需或父目录。字体来源见assets/README.md。
+
+`python3 tools/measure_source_payload.py`用临时数据库中的10份构造资料比较旧版全正文列表与当前摘要列表的UTF-8 JSON字节数，仅使用Python标准库。结果只反映该输入的响应体积，不证明运行速度或真实产业分析质量。
