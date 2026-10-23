@@ -47,8 +47,13 @@ class Store:
         return row
 
     def list_sources(self):
+        """Return library metadata; load full bodies only for detail/generation."""
         with closing(self.connect()) as conn:
-            return [dict(r) for r in conn.execute("SELECT * FROM sources ORDER BY created_at, rowid")]
+            return [dict(r) for r in conn.execute("""
+                SELECT id, title, publisher, published_at, url, created_at,
+                       length(body) AS body_length
+                FROM sources ORDER BY created_at, rowid
+            """)]
 
     def get_source(self, source_id):
         with closing(self.connect()) as conn:

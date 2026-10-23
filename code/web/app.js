@@ -18,7 +18,7 @@ async function loadSources(selected) {
     const item = make('div', undefined, 'source-item'); const label = make('label', undefined, 'source-check');
     const input = make('input'); input.type = 'checkbox'; input.name = 'source_id'; input.value = source.id; input.checked = keep.has(source.id);
     label.append(input, make('span', source.title, 'source-title'));
-    item.append(label, make('div', `${source.publisher || '机构未填'} / ${source.published_at || '日期未填'} / ${source.body.length}字`, 'source-meta'));
+    item.append(label, make('div', `${source.publisher || '机构未填'} / ${source.published_at || '日期未填'} / ${source.body_length}字`, 'source-meta'));
     $('sources').append(item);
   });
 }
