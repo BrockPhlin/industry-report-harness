@@ -47,7 +47,7 @@ assert all(not r["owner"] or r["owner"] in names for r in claims)
 for source in ROOT.rglob("*.md"):
     if ".build" in source.parts:
         continue
-    for target in re.findall(r"\[[^\]]+\]\(([^)]+)\)",source.read_text()):
+    for target in re.findall(r"\[[^\]]+\]\(([^)]+)\)",source.read_text(encoding="utf-8")):
         if target.startswith(("http:","https:","#")):
             continue
         assert (source.parent/target.split("#")[0]).exists(), f"Broken link in {source}: {target}"
@@ -83,7 +83,7 @@ assert totals(leaves,'work_package')==totals(parents,'work_package')
 assert totals(leaves,'person')==totals(parents,'person')
 assert sum(int(row['total_hours']) for row in leaves)==268
 from plan_math import calculate
-plan=calculate(json.loads((ROOT/'team/core-schedule.json').read_text()))
+plan=calculate(json.loads((ROOT/'team/core-schedule.json').read_text(encoding='utf-8')))
 assert plan['finish_days']==23 and plan['buffered_days']==26
 assert plan['critical']==['A','B','C','D','E'] and plan['pert_hours']==56
 print('Package checks passed: current artifacts, links, 11 presentation slides with speech, WBS allocations and preliminary schedule.')
