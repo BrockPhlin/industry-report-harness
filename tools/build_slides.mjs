@@ -11,6 +11,8 @@ import {fileURLToPath, pathToFileURL} from 'node:url';
 import {createRequire} from 'node:module';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const skill=process.env.PRESENTATION_SKILL_DIR || path.join(os.homedir(),'.codex/plugins/cache/openai-primary-runtime/presentations/26.1022.11436/skills/presentations');
+const {finalizePresentation,applyPresentationChartFont}=await import(pathToFileURL(path.join(skill,'container_tools/artifact_tool_utils.mjs')).href);
 const modules = process.env.ARTIFACT_NODE_MODULES || path.join(os.homedir(), '.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules');
 // Validation runs a child process which resolves the same SDK independently.
 process.env.RUNTIME_NODE_MODULES ||= modules;
@@ -63,6 +65,20 @@ function flow(slide,item) {
     text(slide,{text:body,x:x+15,y:y+63,w:w-30,h:35,size:23});
   }
 }
+async function chart(slide,item) {
+  const data=JSON.parse(await fs.readFile(path.join(root,item.data_path),'utf8')).chart;
+  const native=slide.charts.add('bar',{
+    position:{left:item.x,top:item.y,width:item.w,height:item.h},
+    categories:data.categories,
+    series:[{name:data.unit,values:data.values,fill:BLUE,points:[{idx:0,fill:BLUE},{idx:1,fill:'#AD5D23'}]}],
+    hasLegend:false,
+    barOptions:{direction:'column',grouping:'clustered',gapWidth:130},
+    xAxis:{tickLabelPosition:'low',textStyle:{fontSize:23,fill:INK}},
+    yAxis:{min:-.4,max:.2,majorUnit:.1,numberFormatCode:'0%',textStyle:{fontSize:20,fill:MUTED}},
+    dataLabels:{showValue:true,position:'outEnd',numberFormatCode:'0.0%;-0.0%',textStyle:{fontSize:26,fill:INK}},
+  });
+  applyPresentationChartFont(native,{fontFamily:'LXGW WenKai'});
+}
 
 for(const [idx,specSlide] of spec.slides.entries()) {
   const slide=presentation.slides.add();
@@ -79,9 +95,11 @@ for(const [idx,specSlide] of spec.slides.entries()) {
     else if(item.type==='table') table(slide,item);
     else if(item.type==='flow') flow(slide,item);
     else if(item.type==='image') await picture(slide,item);
+    else if(item.type==='box') box(slide,item.x,item.y,item.w,item.h,item.fill);
+    else if(item.type==='chart') await chart(slide,item);
     else throw new Error(`Unknown slide item ${item.type}`);
   }
-  text(slide,{text:'开题草案 v0.4 / 计划与实际分开记录',x:65,y:682,w:1040,h:25,size:17,color:MUTED});
+  text(slide,{text:`第11组 / 开题评阅稿 ${spec.version}`,x:65,y:682,w:1040,h:25,size:17,color:MUTED});
   text(slide,{text:`${String(idx+1).padStart(2,'0')} / ${spec.slides.length}`,x:1135,y:682,w:100,h:25,size:17,color:MUTED});
   slide.speakerNotes.text=specSlide.notes;
 }
@@ -95,15 +113,15 @@ for(const [idx,slide] of presentation.slides.items.entries()) {
   console.log(`Rendered slide ${idx+1}`);
 }
 
-const skill=process.env.PRESENTATION_SKILL_DIR || path.join(os.homedir(),'.codex/plugins/cache/openai-primary-runtime/presentations/26.1020.11127/skills/presentations');
-const {finalizePresentation}=await import(pathToFileURL(path.join(skill,'container_tools/artifact_tool_utils.mjs')).href);
-const final=path.join(root,'presentations/01-opening/ppt/第11组_开题展示_模板_v0.4.pptx');
+
+const final=path.join(root,`presentations/01-opening/ppt/第11组_开题展示_${spec.version}.pptx`);
 // The finalizer never overwrites a published output. Rebuild to a fresh private
 // final and only then replace the repository draft atomically.
 const checkedDir=path.join(root,'.build/validated');
 await fs.mkdir(checkedDir,{recursive:true});
 const checked=path.join(checkedDir,`checked-${Date.now()}.pptx`);
 const tableOwners=spec.slides.flatMap((s,i)=>s.items.some(x=>x.type==='table')?[i+1]:[]);
+const chartOwners=spec.slides.flatMap((s,i)=>s.items.some(x=>x.type==='chart')?[i+1]:[]);
 const python=process.env.RUNTIME_PYTHON || path.join(os.homedir(),'.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3');
 const receipt=path.join(build,`validation-${Date.now()}.json`);
 const result=await finalizePresentation({workspaceDir:root,candidatePath:candidate,finalPath:checked,
@@ -113,6 +131,8 @@ const result=await finalizePresentation({workspaceDir:root,candidatePath:candida
   layoutArgs:['--expected-slide-size-emu','12192000,6858000','--validate-bullet-geometry','--validate-heading-fit',...tableOwners.flatMap(n=>['--require-native-table-slide',String(n)])],
   explicitTotalSlideCount:spec.slides.length,
   requiredNativeTableOwnerSlides:tableOwners,
+  requiredNativeChartOwnerSlides:chartOwners,
+  materializeLiteralChartWorkbooks:true,
   fontPolicy:{basis:'design',families:['LXGW WenKai','Smiley Sans Oblique']},
   verifyArtifactToolImport:true,
   receiptPath:receipt});

@@ -1,0 +1,21 @@
+{
+  "time": "2026-10-24T14:46:00.758Z",
+  "mode": "excerpt",
+  "source_file": "assets/opening/example-data.json",
+  "model_called": false,
+  "source_ids": [
+    "97f5a963aac44caba7d62ce8d8f42ff2",
+    "e69abc34ae35430bb0731e190cfd895b"
+  ],
+  "url": "http://127.0.0.1:8766",
+  "steps": [
+    "录入公开统计的人工整理",
+    "勾选两份资料",
+    "摘录生成",
+    "检查588GW与来源标记"
+  ],
+  "image": "prototype-detail.png",
+  "capture": "实际页面#report-content顶部800px，未修改应用样式；公开数据人工整理",
+  "baseline": "0d6890e",
+  "python": "3.12.14"
+}
