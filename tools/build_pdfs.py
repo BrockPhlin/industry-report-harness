@@ -128,7 +128,7 @@ def visible_character_count(source):
 
 
 def build_report():
-    source = (PROPOSAL / "report/report.md").read_text()
+    source = (PROPOSAL / "report/report.md").read_text(encoding="utf-8")
     sections = re.split(r"<!--\s*pagebreak\s*-->", source)
     if len(sections) != 7:
         raise ValueError("Expected seven explicitly paginated report sections")
@@ -140,20 +140,19 @@ def build_report():
     margin = 48
     width = w - 2 * margin
     pdf = canvas.Canvas(buf, pagesize=A4, pageCompression=1)
-    pdf.setTitle("产业智能报告生成系统项目计划书 v0.4")
-    pdf.setAuthor("第11组，程文博统筹，其余任务待认领")
+    pdf.setTitle("Industry Report Generation System Project Plan v0.8")
+    pdf.setAuthor("Team 11")
     remaining = []
     for i, section in enumerate(sections, 1):
         pdf.setFillColor(colors.HexColor(MUTED)); pdf.setFont("Body", 8.5)
-        pdf.drawString(margin, h-32, "软件工程管理 / 项目计划书 / v0.4")
-        pdf.drawRightString(w-margin, h-32, "第11组 · 2026-10-21")
+        pdf.drawString(margin, h-32, "软件工程管理 / 项目计划书 / v0.8")
+        pdf.drawRightString(w-margin, h-32, "第11组 · 2026-10-23")
         pdf.setStrokeColor(colors.HexColor(BLUE)); pdf.setLineWidth(.6)
         pdf.line(margin, h-43, w-margin, h-43)
         y = h-65
         blocks = list(report_blocks(section, width))
         if i == len(sections):
-            note = (f"源文件编辑工具：Codex（Markdown）。生成器可见非空白字符计数：{count}；"
-                    "此计数用于保守自查，正式提交前由统稿人补充编辑器字数统计。")
+            note = f"源文件：Markdown；编辑工具：Codex；生成器可见非空白字符计数：{count}。"
             blocks.append(Paragraph(note, ParagraphStyle("count", fontName="Body", fontSize=8.5,
                                                         leading=12, wordWrap="CJK", textColor=colors.HexColor(MUTED))))
         for flowable in blocks:
@@ -165,11 +164,11 @@ def build_report():
             y -= fh + getattr(flowable, "spaceAfter", 0)
         remaining.append(round(y-51, 1))
         pdf.setFont("Body", 8.5); pdf.setFillColor(colors.HexColor(MUTED))
-        pdf.drawString(margin, 29, "开题草案，计划与实际结果分别记录")
+        pdf.drawString(margin, 29, "第11组产业智能报告生成系统项目计划书")
         pdf.drawRightString(w-margin, 29, f"{i} / {len(sections)}")
         pdf.showPage()
     pdf.save()
-    output = PROPOSAL / "report/第11组_项目计划书_模板_v0.4.pdf"
+    output = PROPOSAL / "report/第11组_项目计划书_v0.8.pdf"
     output.write_bytes(buf.getvalue())
     print(json.dumps({"report_pages": len(sections), "visible_character_count": count,
                       "page_remaining_pt": remaining}, ensure_ascii=False))
