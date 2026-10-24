@@ -14,7 +14,7 @@
     "local_availability": "原文件已提供并读取；保留在用户指定目录",
     "sha256_basis": "本次读取原文件重新计算",
     "verification_status": "已通读所提供文件中的课程内容；引用页及页码/标题已对照；截图不冒充未提供的完整课件",
-    "repository_distribution": "课件原文件仅保留本地；公开仓库发布来源记录与映射，不包含原文件",
+    "repository_distribution": "按用户2026-10-25要求，课件原文件随本分支一并发布；文件内容保持原样",
     "checked_at": "2026-10-25",
     "slides": 47,
     "historical_file_name": "P4 项目计划与工作分解47页版.pptx",
@@ -36,7 +36,7 @@
     "local_availability": "原文件已提供并读取；保留在用户指定目录",
     "sha256_basis": "本次读取原文件重新计算",
     "verification_status": "已通读所提供文件中的课程内容；引用页及页码/标题已对照；截图不冒充未提供的完整课件",
-    "repository_distribution": "课件原文件仅保留本地；公开仓库发布来源记录与映射，不包含原文件",
+    "repository_distribution": "按用户2026-10-25要求，课件原文件随本分支一并发布；文件内容保持原样",
     "checked_at": "2026-10-25",
     "slides": 45,
     "historical_file_name": "P5 项目估算与进度管理.pptx",
@@ -58,7 +58,7 @@
     "local_availability": "原文件已提供并读取；保留在用户指定目录",
     "sha256_basis": "本次读取原文件重新计算",
     "verification_status": "已通读所提供文件中的课程内容；引用页及页码/标题已对照；截图不冒充未提供的完整课件",
-    "repository_distribution": "课件原文件仅保留本地；公开仓库发布来源记录与映射，不包含原文件",
+    "repository_distribution": "按用户2026-10-25要求，课件原文件随本分支一并发布；文件内容保持原样",
     "checked_at": "2026-10-25"
   },
   {
@@ -76,7 +76,7 @@
     "local_availability": "原文件已提供并读取；保留在用户指定目录",
     "sha256_basis": "本次读取原文件重新计算",
     "verification_status": "已通读所提供文件中的课程内容；引用页及页码/标题已对照；截图不冒充未提供的完整课件",
-    "repository_distribution": "课件原文件仅保留本地；公开仓库发布来源记录与映射，不包含原文件",
+    "repository_distribution": "按用户2026-10-25要求，课件原文件随本分支一并发布；文件内容保持原样",
     "checked_at": "2026-10-25"
   },
   {
@@ -94,7 +94,7 @@
     "local_availability": "原文件已提供并读取；保留在用户指定目录",
     "sha256_basis": "本次读取原文件重新计算",
     "verification_status": "已通读所提供文件中的课程内容；引用页及页码/标题已对照；截图不冒充未提供的完整课件",
-    "repository_distribution": "课件原文件仅保留本地；公开仓库发布来源记录与映射，不包含原文件",
+    "repository_distribution": "按用户2026-10-25要求，课件原文件随本分支一并发布；文件内容保持原样",
     "checked_at": "2026-10-25"
   },
   {
@@ -112,7 +112,7 @@
     "local_availability": "原文件已提供并读取；保留在用户指定目录",
     "sha256_basis": "本次读取原文件重新计算",
     "verification_status": "已通读所提供文件中的课程内容；引用页及页码/标题已对照；截图不冒充未提供的完整课件",
-    "repository_distribution": "课件原文件仅保留本地；公开仓库发布来源记录与映射，不包含原文件",
+    "repository_distribution": "按用户2026-10-25要求，课件原文件随本分支一并发布；文件内容保持原样",
     "checked_at": "2026-10-25"
   },
   {
@@ -130,7 +130,7 @@
     "local_availability": "原文件已提供并读取；保留在用户指定目录",
     "sha256_basis": "本次读取原文件重新计算",
     "verification_status": "已通读所提供文件中的课程内容；引用页及页码/标题已对照；截图不冒充未提供的完整课件",
-    "repository_distribution": "课件原文件仅保留本地；公开仓库发布来源记录与映射，不包含原文件",
+    "repository_distribution": "按用户2026-10-25要求，课件原文件随本分支一并发布；文件内容保持原样",
     "checked_at": "2026-10-25"
   }
 ]
