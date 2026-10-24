@@ -19,11 +19,13 @@ required = [
     f"presentations/01-opening/ppt/第11组_开题展示_{deck['version']}.pptx",
     f"presentations/01-opening/ppt/第11组_开题展示_{deck['version']}.pdf",
     "materials/references/课程报告与评分细则.md",
+    'presentations/01-opening/speech/演讲稿.md',
+    f"presentations/01-opening/speech/第11组_开题演讲稿_{deck['version']}.pdf",
 ]
 for item in required:
     assert (ROOT/item).is_file(), f"Missing {item}"
 expected_outputs={Path(item) for item in required if Path(item).suffix in {'.pdf','.pptx'}}
-actual_outputs={p.relative_to(ROOT) for folder in ['report','ppt']
+actual_outputs={p.relative_to(ROOT) for folder in ['report','ppt','speech']
                 for p in (ROOT/'presentations/01-opening'/folder).iterdir()
                 if p.suffix in {'.pdf','.pptx'}}
 assert actual_outputs==expected_outputs, 'Keep only the current generated report/deck outputs'
@@ -49,8 +51,10 @@ for source in ROOT.rglob("*.md"):
         if target.startswith(("http:","https:","#")):
             continue
         assert (source.parent/target.split("#")[0]).exists(), f"Broken link in {source}: {target}"
-assert len(deck["slides"]) == 14 and sum(s["seconds"] for s in deck["slides"]) == 400
-assert deck["formal_slides"] == 12 and all(s["seconds"] == 0 for s in deck["slides"][12:])
+assert len(deck["slides"]) == 11 and sum(s["seconds"] for s in deck["slides"]) == 400
+assert deck["formal_slides"] == len(deck['slides']) and all(s['seconds']>0 for s in deck['slides'])
+assert all(s.get('speech') and s['speech'] in s['notes'] for s in deck['slides'])
+assert all('备用' not in s['title'] for s in deck['slides'])
 assert deck["report_version"] == report_version, "Deck points to a different report version"
 with zipfile.ZipFile(ROOT/required[7]) as z:
     slides=[p for p in z.namelist() if re.fullmatch(r"ppt/slides/slide\d+\.xml",p)]
@@ -82,4 +86,4 @@ from plan_math import calculate
 plan=calculate(json.loads((ROOT/'team/core-schedule.json').read_text()))
 assert plan['finish_days']==23 and plan['buffered_days']==26
 assert plan['critical']==['A','B','C','D','E'] and plan['pert_hours']==56
-print('Package checks passed: current artifacts, links, 12 formal + 2 backup slides, WBS allocations and preliminary schedule.')
+print('Package checks passed: current artifacts, links, 11 presentation slides with speech, WBS allocations and preliminary schedule.')

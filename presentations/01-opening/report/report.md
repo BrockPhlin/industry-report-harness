@@ -1,6 +1,6 @@
 # 第11组产业智能报告生成系统项目计划书
 
-**版本**：v1.1 评阅稿　**日期**：2026-10-24　**开题展示**：2026-10-26
+**版本**：v1.2　**日期**：2026-10-24　**开题展示**：2026-10-26
 
 **组长**：程文博　**组员**：田亦洁、李佳雨、许子萌、崔大元、郭润航　**展示人**：郭润航
 
@@ -139,7 +139,7 @@ P5第6页用本课题说明采集接口、模板输入、预览导出、查询�
 
 按P5第17—21页，先定义依赖再排时间。以下是核心流程的工作日试排，假设资料与需求先就绪，前端页面可并行准备，审阅导出要等生成接口和页面完成。
 
-![图3 核心链试排：23个工作日，另留3日缓冲；不含终期前三周集中系统测试](../../../assets/opening/core-gantt.png)
+![图3 核心开发顺序：23个工作日，另留3日缓冲；不含终期前三周集中系统测试](../../../assets/opening/core-schedule.png)
 
 关键路径A→B→C→D→E，工期5+3+6+4+5=23日；前端F历时3日，有6日总浮动。3日缓冲放在核心联调之后。计算见team/core-schedule.json及tools/plan_math.py；试排不等同于所有268人时的资源排程，待个人每周可用时间与正式日期确认后重排。
 
@@ -200,6 +200,6 @@ P5第6页用本课题说明采集接口、模板输入、预览导出、查询�
 | D1/D2 | [工信部2024光伏制造](https://www.miit.gov.cn/gyhxxhb/jgsj/dzxxs/dzjc/art/2025/art_da51f7f47c75477ea1fa6732155536db.html)；[国家能源局2024并网运行](https://obor.nea.gov.cn/detail2/21770.html) | 产量、价格、装机口径 |
 | D3 | [工信部2024汽车工业运行](https://www.miit.gov.cn/jgsj/zbys/gzdt/art/2025/art_e4f577dfac694724a108cbdca9a612d3.html) | 第二产业候选资料 |
 
-课程页码见materials/课程内容映射.csv；指纹与外部来源见materials/references的teacher-files.json和research-notes.md。课件不随仓库分发；ChronoMemo仅借鉴版式与叙事。
+课程页码见materials/课程内容映射.csv；指纹与外部来源见materials/references的teacher-files.json和research-notes.md。课件不随仓库分发。
 
-本次交计划书PDF、PPTX及展示PDF并保留源码，提交以通知为准。v1.1补充课程应用、公开例子、WBS和排期；工作目录仅留当前稿，旧稿由Git历史保留。
+本次交计划书PDF、PPTX及展示PDF并保留源码，提交以通知为准。v1.2统一开题展示、逐页讲稿与进度图；工作目录仅留当前稿，旧稿由Git历史保留。

@@ -1,9 +1,9 @@
 id,course_topic,teacher_file,file_version,page_or_slide,original_point,project_application,report_location,ppt_slide,evidence_path,owner,status
-C1-07,课题2与通用报告引擎,P4 项目计划与工作分解47页版.pptx,dd6c4bd614610dd9ebcb2c6c7419bc9567e236f53264ec1aa52f1b79299a8b9a,7,模板化、结构化、可溯源、可定制,模板与产业资料分离,§1/§3,2/6,materials/references/teacher-files.json,崔大元,本次已对照
+C1-07,课题2与通用报告引擎,P4 项目计划与工作分解47页版.pptx,dd6c4bd614610dd9ebcb2c6c7419bc9567e236f53264ec1aa52f1b79299a8b9a,7,模板化、结构化、可溯源、可定制,模板与产业资料分离,§1/§3,6,materials/references/teacher-files.json,崔大元,本次已对照
 C1-24,滚动计划,P4 项目计划与工作分解47页版.pptx,dd6c4bd614610dd9ebcb2c6c7419bc9567e236f53264ec1aa52f1b79299a8b9a,24,初步计划与详细计划分阶段细化,正式日期及可用时间确定后重排,§7,9,team/core-schedule.json,程文博,本次已对照
 C1-32,责任矩阵,P4 项目计划与工作分解47页版.pptx,dd6c4bd614610dd9ebcb2c6c7419bc9567e236f53264ec1aa52f1b79299a8b9a,32,区分执行、评审与批准,牵头人、交叉审阅及T0确认,§5,8,team/长期分工.md,程文博,本次已对照
 C1-43,三级WBS,P4 项目计划与工作分解47页版.pptx,dd6c4bd614610dd9ebcb2c6c7419bc9567e236f53264ec1aa52f1b79299a8b9a,43,至少三层的工作分解,项目—W0至W6—可验收子任务,§6,7,team/wbs.csv,田亦洁,本次已对照
-C2-06,报告系统功能划分,P5 项目估算与进度管理.pptx,9bd3afb08acdff0a623052ad74ccfbcf89a320ba01612edab72d3e1a131fba7d,6,采集接口、模板输入、预览导出、查询与存储,D1—D6及模块边界,§3,2/6,presentations/01-opening/report/report.md,田亦洁,本次已对照
-C2-12,三点估算PERT,P5 项目估算与进度管理.pptx,9bd3afb08acdff0a623052ad74ccfbcf89a320ba01612edab72d3e1a131fba7d,12,E=(O+4M+P)/6,Harness采用40/52/88人时情景估算,§6,7/13,team/core-schedule.json,程文博,本次已对照
-C2-21,依赖与关键路径,P5 项目估算与进度管理.pptx,9bd3afb08acdff0a623052ad74ccfbcf89a320ba01612edab72d3e1a131fba7d,17—21,活动排序、甘特图、零浮动关键活动,23工作日核心流程试排与3日缓冲,§7,9/13,team/core-schedule.json,郭润航,本次已对照
+C2-06,报告系统功能划分,P5 项目估算与进度管理.pptx,9bd3afb08acdff0a623052ad74ccfbcf89a320ba01612edab72d3e1a131fba7d,6,采集接口、模板输入、预览导出、查询与存储,D1—D6及模块边界,§3,6,presentations/01-opening/report/report.md,田亦洁,本次已对照
+C2-12,三点估算PERT,P5 项目估算与进度管理.pptx,9bd3afb08acdff0a623052ad74ccfbcf89a320ba01612edab72d3e1a131fba7d,12,E=(O+4M+P)/6,Harness采用40/52/88人时情景估算,§6,7,team/core-schedule.json,程文博,本次已对照
+C2-21,依赖与关键路径,P5 项目估算与进度管理.pptx,9bd3afb08acdff0a623052ad74ccfbcf89a320ba01612edab72d3e1a131fba7d,17—21,活动排序、甘特图、零浮动关键活动,23工作日核心流程试排与3日缓冲,§7,9,team/core-schedule.json,郭润航,本次已对照
 C2-28,里程碑监控,P5 项目估算与进度管理.pptx,9bd3afb08acdff0a623052ad74ccfbcf89a320ba01612edab72d3e1a131fba7d,28—30,以交付物和实际数据检查偏差,按验收及实际工时跟踪，不用提交次数代替完成,§9,11,docs/后续流程与验证.md,郭润航,本次已对照

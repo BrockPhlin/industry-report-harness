@@ -99,7 +99,7 @@ for(const [idx,specSlide] of spec.slides.entries()) {
     else if(item.type==='chart') await chart(slide,item);
     else throw new Error(`Unknown slide item ${item.type}`);
   }
-  text(slide,{text:`第11组 / 开题评阅稿 ${spec.version}`,x:65,y:682,w:1040,h:25,size:17,color:MUTED});
+  text(slide,{text:'产业智能报告生成系统 · 第11组',x:65,y:682,w:1040,h:25,size:17,color:MUTED});
   text(slide,{text:`${String(idx+1).padStart(2,'0')} / ${spec.slides.length}`,x:1135,y:682,w:100,h:25,size:17,color:MUTED});
   slide.speakerNotes.text=specSlide.notes;
 }

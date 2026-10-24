@@ -243,7 +243,7 @@ def build_slide_pdf():
             pdf.drawImage(str(ROOT/'assets/brand/char_blue.png'),1100,720-30-39,width=115,height=39,
                           preserveAspectRatio=True,mask='auto')
         draw_items(pdf, slide['items'])
-        slide_text(pdf,dict(text=f"第11组 / 开题评阅稿 {deck['version']}",x=65,y=682,w=1040,h=25,size=17,color=MUTED))
+        slide_text(pdf,dict(text='产业智能报告生成系统 · 第11组',x=65,y=682,w=1040,h=25,size=17,color=MUTED))
         slide_text(pdf,dict(text=f"{idx+1:02d} / {len(deck['slides']):02d}",x=1135,y=682,w=100,h=25,size=17,color=MUTED))
         pdf.showPage()
     pdf.save()
@@ -300,7 +300,7 @@ def build_figures():
     """Technical report figures reuse slide source; no separate copied numbers."""
     import pypdfium2 as pdfium
     deck=json.loads((PROPOSAL/'ppt/slides.json').read_text())
-    figures=[(2,'pv-example',(60,155,1150,450)),(4,'harness-plan',(60,170,1150,390)),(8,'core-gantt',(60,150,1150,455))]
+    figures=[(2,'pv-example',(60,155,1150,450)),(4,'harness-plan',(60,170,1150,440)),(8,'core-schedule',(60,195,1150,410))]
     folder=ROOT/'assets/opening'
     for index,name,(x,y,w,h) in figures:
         buf=io.BytesIO();pdf=canvas.Canvas(buf,pagesize=(1280,720))
