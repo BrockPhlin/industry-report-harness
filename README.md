@@ -31,6 +31,8 @@ python3 code/run.py
 
 浏览器打开 http://127.0.0.1:8000 。录入原文并保存，勾选资料，输入主题，选择“资料摘录演示”，生成草稿并下载Markdown。SQLite自动创建在忽略目录code/runtime，重启后记录保留。示例资料在code/examples/demo-source.json，标明为人工构造，不能当真实产业数据。
 
+另有[公开统计人工整理样例](code/examples/public-sources.json)：光伏两份、新能源汽车一份，含发布机构、日期和原始链接。它是历史事实的简短转述，非网页全文；可将其中的`title`、`publisher`、`published_at`、`url`、`body`逐份录入页面。先用两份光伏资料试生成，核对588GW对应组件产量、2.78亿千瓦对应新增装机。来源、操作与检查边界见[T5代码交接记录](docs/T5代码交接与核验.md)。
+
 可选模型模式：把code/.env.example复制为code/.env，填写完整MODEL_ENDPOINT、MODEL_NAME和MODEL_API_KEY，再启动。使用Chat Completions兼容格式，模型由团队自行选择。未配置时明确报错，不静默切换成摘录。只有选择模型模式才发送资料到所配置服务。真实模型未做联调验证。
 
 ```bash
