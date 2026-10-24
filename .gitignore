@@ -12,3 +12,5 @@ code/runtime/
 *.log
 *.tmp
 materials/private/
+
+.chart-data-*/

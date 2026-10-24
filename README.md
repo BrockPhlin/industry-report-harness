@@ -4,16 +4,17 @@
 
 ```text
 code/                         可运行的Python基线、静态页面、实际测试
-team/                         本次任务认领与长期职责待认领表
+team/                         开题任务与已安排的学期职责
 presentations/
-  01-opening/report/          本次报告Markdown源码与PDF模板
-  01-opening/ppt/             本次幻灯片JSON源码、可编辑PPTX、PDF模板
+  01-opening/report/          本次报告Markdown源码与PDF
+  01-opening/ppt/             本次幻灯片JSON源码、可编辑PPTX、PDF
+  01-opening/speech/          逐页演讲稿Markdown与可打印PDF
   02-midterm/report/          中期报告预留，仅.gitkeep
   02-midterm/ppt/             中期PPT预留，仅.gitkeep
   03-final/report/            终期报告预留，仅.gitkeep
   03-final/ppt/               终期PPT预留，仅.gitkeep
-materials/course-slides/      老师课件入口，当前为空
-materials/references/         已有选题说明和课程评分细则
+materials/course-slides/      老师课件定位与使用边界
+materials/references/         选题、评分细则、课程指纹与公开来源
 materials/课程内容映射.csv    课件页码、课程概念、项目证据与汇报位置
 docs/                        架构解释、基线边界、后续扩展与上传说明
 tools/                       报告与PPT生成工具
@@ -41,14 +42,16 @@ python3 -m unittest discover -s tests -v
 
 ## 改本次报告与PPT
 
-报告作者编辑presentations/01-opening/report/report.md，PPT作者可直接修改可编辑PPTX，或修改ppt/slides.json并重新生成。开题模板采用第11组信息，职责均按待认领处理，旧的实名分配未复制进来。
+当前开题材料为项目计划书v1.2与PPTX v0.9，入口见 [本次开题材料](presentations/01-opening/README.md)。报告作者编辑report/report.md，PPT作者可修改对应ppt/slides.json并重新生成，或直接编辑PPTX；本次职责以team/claims.csv为准。
 
-运行 `python3 tools/build_pdfs.py` 生成报告和展示PDF，需要tools/requirements.txt中的材料依赖。PPT源代码的生成入口为tools/build_slides.mjs，使用Codex的@oai/artifact-tool运行环境；直接编辑PPTX无需该SDK。详细说明见tools/README.md。
+运行 `python3 tools/build_pdfs.py` 生成报告和展示PDF，`python3 tools/build_speech.py`生成逐页演讲稿，需要tools/requirements.txt中的材料依赖。`node tools/build_slides.mjs`读取同一幻灯片源码生成PPTX；直接编辑PPTX无需该SDK。字体与跨环境构建说明见tools/README.md。
 
 ## 资料与证据
 
-老师课件尚未提供到此目录。资料整理任务的负责人应先上传允许共享的课件，填写实际文件名、版本与页码，再把课堂概念映射到项目安排和汇报页，不能根据评分细则虚构老师上课原话。
+已阅读组长提供的P4、P5课件，按实际页码填写课程映射，加入三级WBS、责任矩阵、三点估算与关键路径。原课件保留在提供位置，仓库仅保存文件指纹与应用映射；公开例子和官方Harness来源见materials/references/research-notes.md。
 
-报告和PPT是可填写模板，包含待补信息；任何测试、访谈、会议和真实模型结果都须由实际记录支持。初始化由AI辅助，接手代码的成员需读docs/code-guide.md、运行测试并记录理解、修改与核验。
+当前展示共11页，配有逐页演讲稿；真实调研、模型验证及团队确认需按进展补充；任何测试、访谈、会议和真实模型结果都须由实际记录支持。初始化由AI辅助，接手代码的成员需读docs/code-guide.md、运行测试并记录理解、修改与核验。
 
 协作方式见 [仓库协作说明](docs/上传说明.md)，接口与数据流见 [代码接手指南](docs/code-guide.md)。学号、私有课件、密钥和运行数据库按实际访问权限处理。
+
+新稿生成并逐页检查通过后删除旧生成稿，仅保留当前PDF/PPTX及对应源码；历史版本通过Git查阅。

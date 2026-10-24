@@ -1,0 +1,41 @@
+{
+  "reviewed_on": "2026-10-24",
+  "period": "2024全年",
+  "chart": {
+    "title": "2024年光伏组件：产量与价格同比",
+    "categories": [
+      "组件产量",
+      "组件价格"
+    ],
+    "values": [
+      0.135,
+      -0.297
+    ],
+    "unit": "比上一年变化",
+    "source_id": "D1"
+  },
+  "sources": [
+    {
+      "title": "2024年光伏制造：组件产量与价格",
+      "publisher": "工业和信息化部电子信息司",
+      "published_at": "2025-02-27",
+      "url": "https://www.miit.gov.cn/gyhxxhb/jgsj/dzxxs/dzjc/art/2025/art_da51f7f47c75477ea1fa6732155536db.html",
+      "body": "2024年，全国光伏组件产量588GW，同比增长13.5%；组件价格同比下降29.7%。这是制造环节的统计。"
+    },
+    {
+      "title": "2024年光伏发电：新增装机",
+      "publisher": "国家能源局",
+      "published_at": "2025-03-13",
+      "url": "https://obor.nea.gov.cn/detail2/21770.html",
+      "body": "2024年，全国光伏新增装机2.78亿千瓦，即278GW。该指标是光伏发电新增装机，不是光伏组件制造产量。"
+    },
+    {
+      "title": "2024年新能源汽车：全年产销",
+      "publisher": "工业和信息化部装备工业一司；数据来自中国汽车工业协会",
+      "published_at": "2025-01-13",
+      "url": "https://www.miit.gov.cn/jgsj/zbys/gzdt/art/2025/art_e4f577dfac694724a108cbdca9a612d3.html",
+      "body": "2024年，新能源汽车产量1288.8万辆，销量1286.6万辆。产量与销量是不同指标，应分别表述。"
+    }
+  ],
+  "usage": "公开统计的人工整理示例；不是模型生成结果，也不是已完成的两产业效果评测。"
+}
