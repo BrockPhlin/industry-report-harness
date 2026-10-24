@@ -13,4 +13,9 @@ code/runtime/
 *.tmp
 materials/private/
 
+# Original course materials stay local; publish mapping and source metadata only.
+materials/course-slides/*.pdf
+materials/course-slides/*.pptx
+materials/course-slides/*.docx
+
 .chart-data-*/
