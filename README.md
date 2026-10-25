@@ -44,7 +44,7 @@ python3 -m unittest discover -s tests -v
 
 ## 改本次报告与PPT
 
-当前开题材料为项目计划书v1.4与PPTX v1.1，入口见 [本次开题材料](presentations/01-opening/README.md)。报告作者编辑report/report.md，PPT作者可修改对应ppt/slides.json并重新生成，或直接编辑PPTX；本次职责以team/claims.csv为准。
+当前开题材料为项目计划书v1.4与PPTX v1.2，入口见 [本次开题材料](presentations/01-opening/README.md)。报告作者编辑report/report.md，PPT作者可修改对应ppt/slides.json并重新生成，或直接编辑PPTX；本次职责以team/claims.csv为准。
 
 运行 `python3 tools/build_pdfs.py` 生成报告和展示PDF，`python3 tools/build_speech.py`生成逐页演讲稿，需要tools/requirements.txt中的材料依赖。`node tools/build_slides.mjs`读取同一幻灯片源码生成PPTX；直接编辑PPTX无需该SDK。字体与跨环境构建说明见tools/README.md。
 
