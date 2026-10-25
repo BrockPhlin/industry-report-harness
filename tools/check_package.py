@@ -14,13 +14,13 @@ report_version = re.search(r"\*\*版本\*\*：([^\s]+)", report_source).group(1)
 required = [
     "README.md", "code/run.py", "code/tests/test_baseline.py", "team/claims.csv",
     "presentations/01-opening/report/report.md",
-    f"presentations/01-opening/report/第11组_项目计划书_{report_version}.pdf",
+    'presentations/01-opening/report/第11组_项目计划书.pdf',
     "presentations/01-opening/ppt/slides.json",
     f"presentations/01-opening/ppt/第11组_开题展示_{deck['version']}.pptx",
-    f"presentations/01-opening/ppt/第11组_开题展示_{deck['version']}.pdf",
+    'presentations/01-opening/ppt/第11组_开题展示.pdf',
     "materials/references/课程报告与评分细则.md",
     'presentations/01-opening/speech/演讲稿.md',
-    f"presentations/01-opening/speech/第11组_开题演讲稿_{deck['version']}.pdf",
+    'presentations/01-opening/speech/第11组_开题演讲稿.pdf',
 ]
 for item in required:
     assert (ROOT/item).is_file(), f"Missing {item}"
@@ -51,7 +51,7 @@ for source in ROOT.rglob("*.md"):
         if target.startswith(("http:","https:","#")):
             continue
         assert (source.parent/target.split("#")[0]).exists(), f"Broken link in {source}: {target}"
-assert len(deck["slides"]) == 11 and sum(s["seconds"] for s in deck["slides"]) == 400
+assert len(deck["slides"]) == 12 and sum(s["seconds"] for s in deck["slides"]) == 400
 assert deck["formal_slides"] == len(deck['slides']) and all(s['seconds']>0 for s in deck['slides'])
 assert all(s.get('speech') and s['speech'] in s['notes'] for s in deck['slides'])
 assert all('备用' not in s['title'] for s in deck['slides'])
@@ -86,4 +86,6 @@ from plan_math import calculate
 plan=calculate(json.loads((ROOT/'team/core-schedule.json').read_text(encoding='utf-8')))
 assert plan['finish_days']==23 and plan['buffered_days']==26
 assert plan['critical']==['A','B','C','D','E'] and plan['pert_hours']==56
-print('Package checks passed: current artifacts, links, 11 presentation slides with speech, WBS allocations and preliminary schedule.')
+assert deck['slides'][8]['id']=='github-collaboration'
+assert (ROOT/'assets/opening/github-collaborators.png').is_file()
+print('Package checks passed: current artifacts, links, 12 presentation slides with collaboration and speech, WBS allocations and preliminary schedule.')

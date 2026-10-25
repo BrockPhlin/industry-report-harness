@@ -183,7 +183,7 @@ def build_report():
         pdf.drawRightString(w-margin, 29, f"{i} / {len(sections)}")
         pdf.showPage()
     pdf.save()
-    output = PROPOSAL / f"report/第11组_项目计划书_{version}.pdf"
+    output = PROPOSAL / 'report/第11组_项目计划书.pdf'
     output.write_bytes(buf.getvalue())
     print(json.dumps({"report_pages": len(sections), "visible_character_count": count,
                       "page_remaining_pt": remaining}, ensure_ascii=False))
@@ -243,11 +243,11 @@ def build_slide_pdf():
             pdf.drawImage(str(ROOT/'assets/brand/char_blue.png'),1100,720-30-39,width=115,height=39,
                           preserveAspectRatio=True,mask='auto')
         draw_items(pdf, slide['items'])
-        slide_text(pdf,dict(text='产业智能报告生成系统 · 第11组',x=65,y=682,w=1040,h=25,size=17,color=MUTED))
+        slide_text(pdf,dict(text=f"第11组 · 开题展示 {deck['version']}",x=65,y=682,w=1040,h=25,size=17,color=MUTED))
         slide_text(pdf,dict(text=f"{idx+1:02d} / {len(deck['slides']):02d}",x=1135,y=682,w=100,h=25,size=17,color=MUTED))
         pdf.showPage()
     pdf.save()
-    (PROPOSAL / f"ppt/第11组_开题展示_{deck['version']}.pdf").write_bytes(buf.getvalue())
+    (PROPOSAL / 'ppt/第11组_开题展示.pdf').write_bytes(buf.getvalue())
     print(f"Slide PDF: {len(deck['slides'])} pages, selectable text")
 
 
@@ -300,11 +300,12 @@ def build_figures():
     """Technical report figures reuse slide source; no separate copied numbers."""
     import pypdfium2 as pdfium
     deck=json.loads((PROPOSAL/'ppt/slides.json').read_text())
-    figures=[(2,'pv-example',(60,155,1150,450)),(4,'harness-plan',(60,170,1150,440)),(8,'core-schedule',(60,195,1150,410))]
+    figures=[('pv-example',(60,155,1150,450)),('harness-plan',(60,170,1150,440)),('core-schedule',(60,195,1150,410))]
     folder=ROOT/'assets/opening'
-    for index,name,(x,y,w,h) in figures:
+    for name,(x,y,w,h) in figures:
+        slide=next(row for row in deck['slides'] if row.get('id')==name)
         buf=io.BytesIO();pdf=canvas.Canvas(buf,pagesize=(1280,720))
-        draw_items(pdf,deck['slides'][index]['items']);pdf.showPage();pdf.save()
+        draw_items(pdf,slide['items']);pdf.showPage();pdf.save()
         doc=pdfium.PdfDocument(buf.getvalue())
         # PDFium crop is measured from left, bottom, right, top in PDF points.
         bitmap=doc[0].render(scale=2,crop=(x,720-y-h,1280-x-w,y))

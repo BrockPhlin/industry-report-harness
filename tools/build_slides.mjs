@@ -11,7 +11,7 @@ import {fileURLToPath, pathToFileURL} from 'node:url';
 import {createRequire} from 'node:module';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const skill=process.env.PRESENTATION_SKILL_DIR || path.join(os.homedir(),'.codex/plugins/cache/openai-primary-runtime/presentations/26.1022.11436/skills/presentations');
+const skill=process.env.PRESENTATION_SKILL_DIR || path.join(os.homedir(),'.codex/plugins/cache/openai-primary-runtime/presentations/26.1024.11018/skills/presentations');
 const {finalizePresentation,applyPresentationChartFont}=await import(pathToFileURL(path.join(skill,'container_tools/artifact_tool_utils.mjs')).href);
 const modules = process.env.ARTIFACT_NODE_MODULES || path.join(os.homedir(), '.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules');
 // Validation runs a child process which resolves the same SDK independently.
@@ -99,7 +99,7 @@ for(const [idx,specSlide] of spec.slides.entries()) {
     else if(item.type==='chart') await chart(slide,item);
     else throw new Error(`Unknown slide item ${item.type}`);
   }
-  text(slide,{text:'产业智能报告生成系统 · 第11组',x:65,y:682,w:1040,h:25,size:17,color:MUTED});
+  text(slide,{text:`第11组 · 开题展示 ${spec.version}`,x:65,y:682,w:1040,h:25,size:17,color:MUTED});
   text(slide,{text:`${String(idx+1).padStart(2,'0')} / ${spec.slides.length}`,x:1135,y:682,w:100,h:25,size:17,color:MUTED});
   slide.speakerNotes.text=specSlide.notes;
 }

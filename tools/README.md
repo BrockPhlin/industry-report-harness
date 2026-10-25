@@ -12,7 +12,7 @@
 
 `python3 tools/build_speech.py`读取slides.json的speech、cue、seconds字段，生成逐页演讲稿Markdown和4页打印PDF；正文同PPT备注，来源链接不混入朗读部分。每页最多安排3张幻灯片的讲稿，排版溢出会报错。
 
-`python3 tools/build_pdfs.py`读取Markdown与slides.json，先生成三张技术图，再生成9页计划书和11页可选中文字的展示PDF，依赖requirements.txt。Markdown仅支持受控的标题、段落、表格、图片和HTTPS链接；篇幅或版面超限会停止。示例图、恢复流程与进度图复用幻灯片源码，避免另抄数值。
+`python3 tools/build_pdfs.py`读取Markdown与slides.json，先生成三张技术图，再生成10页计划书和12页可选中文字的展示PDF，依赖requirements.txt。Markdown仅支持受控的标题、段落、表格、图片和HTTPS链接；篇幅或版面超限会停止。示例图、恢复流程与进度图复用幻灯片源码，避免另抄数值。
 
 `node tools/build_slides.mjs`用@oai/artifact-tool生成可编辑PPTX。表格、柱状图及技术流程由原生对象组成，流程节点、连线和文字可编辑；图表内嵌当前公开数据快照。候选文件先检查几何、字体、原生对象及重新导入，成功后替换当前输出；私有逐页预览和收据位于.build/slides。
 
@@ -23,3 +23,5 @@ SDK属于材料构建依赖，业务运行不需要它。默认读取Codex托管
 `python3 tools/check_package.py`检查当前版本文件、链接、分工、页数、WBS合计及排期。`python3 -m unittest discover -s tests -v`在code目录运行应用基线测试；模型响应为模拟值，不能替代真实模型与业务验证。
 
 `python3 tools/measure_source_payload.py`用临时数据库中的构造资料比较列表JSON字节数，只依赖标准库，不证明运行速度或产业分析质量。
+
+PDF沿用组长改好的无版本号文件名，版本与日期在文档内标明；PPTX以版本号区分，更新检查通过后删旧稿。报告中的技术图按slides.json的id定位，插入协作页不会导致取错进度图。
