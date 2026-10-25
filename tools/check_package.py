@@ -88,4 +88,10 @@ assert plan['finish_days']==23 and plan['buffered_days']==26
 assert plan['critical']==['A','B','C','D','E'] and plan['pert_hours']==56
 assert deck['slides'][8]['id']=='github-collaboration'
 assert (ROOT/'assets/opening/github-collaborators.png').is_file()
+assert deck['slides'][6]['id']=='semester-timeline'
+timeline=json.loads((ROOT/'team/semester-timeline.json').read_text(encoding='utf-8'))
+timeline_text={item['text'] for item in deck['slides'][6]['items'] if item['type']=='text'}
+for row in timeline['rows']:
+    assert row['phase'] in timeline_text
+    assert all(cell['period'] in timeline_text and cell['work'] in timeline_text for cell in row['cells'])
 print('Package checks passed: current artifacts, links, 12 presentation slides with collaboration and speech, WBS allocations and preliminary schedule.')
