@@ -95,3 +95,9 @@ for row in timeline['rows']:
     assert row['phase'] in timeline_text
     assert all(cell['period'] in timeline_text and cell['work'] in timeline_text for cell in row['cells'])
 print('Package checks passed: current artifacts, links, 12 presentation slides with collaboration and speech, WBS allocations and preliminary schedule.')
+
+assert 'cash_budget_cny' not in json.loads((ROOT/'team/core-schedule.json').read_text())
+for text in [report_source, json.dumps(deck,ensure_ascii=False)]:
+    assert not any(amount in text for amount in ['160元','40元','200元']), 'Unsupported cash estimate remains'
+assert '逐步形成自己的创新' in json.dumps(deck,ensure_ascii=False)
+assert '目录' in report_source and '逐步形成自己的创新' in report_source

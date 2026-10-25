@@ -63,6 +63,8 @@ def make_table(lines, width):
         widths = [.14, .25, .61]
     elif rows[0][0].startswith("工作包"):
         widths = [.24, .61, .15]
+    elif rows[0][0] == '章节':
+        widths = [.12, .76, .12]
     elif rows[0][0] == "时间":
         widths = [.23, .43, .34]
     elif rows[0][0] == "项目":
@@ -70,7 +72,17 @@ def make_table(lines, width):
     style = ParagraphStyle("cell", fontName="Body", fontSize=10.8, leading=16,
                            textColor=colors.HexColor(INK), wordWrap="CJK")
     strong = ParagraphStyle("header", parent=style, fontName="Strong", textColor=colors.HexColor(BLUE))
-    data = [[Paragraph(inline(c), strong if i == 0 else style) for c in row] for i, row in enumerate(values)]
+    data = []
+    for i, row in enumerate(values):
+        cells = []
+        for j, value in enumerate(row):
+            content = inline(value)
+            if rows[0][0] == '章节' and i > 0 and j == 2:
+                if not value.isdigit() or not 1 <= int(value) <= 10:
+                    raise ValueError('Contents page must target report page 1 to 10')
+                content = f'<link href="#report-page-{value}" color="{BLUE}">{value}</link>'
+            cells.append(Paragraph(content, strong if i == 0 else style))
+        data.append(cells)
     result = Table(data, colWidths=[width * f for f in widths], hAlign="LEFT")
     result.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(PALE)),
@@ -84,7 +96,7 @@ def make_table(lines, width):
     return result
 
 
-def report_blocks(section, width):
+def report_blocks(section, width, cover=False):
     styles = {
         "body": ParagraphStyle("body", fontName="Body", fontSize=12, leading=18.5,
                                textColor=colors.HexColor(INK), wordWrap="CJK", spaceAfter=8),
@@ -95,6 +107,9 @@ def report_blocks(section, width):
         "h3": ParagraphStyle("h3", fontName="Strong", fontSize=12, leading=19,
                              textColor=colors.HexColor(BLUE), spaceBefore=7, spaceAfter=5),
     }
+    if cover:
+        styles['h1'].fontSize = 26
+        styles['h1'].leading = 36
     lines = section.strip().splitlines()
     i = 0
     while i < len(lines):
@@ -109,13 +124,16 @@ def report_blocks(section, width):
             yield make_table(block, width)
             yield Spacer(1, 9)
             continue
-        image = re.fullmatch(r"!\[([^\]]*)\]\(([^)]+)\)", line)
+        image = re.fullmatch(r"!\[([^\]]*)\]\(([^)]+)\)(?:\{width=(\d{1,3})%\})?", line)
         if image:
             from PIL import Image as PILImage
             file = (PROPOSAL / 'report' / image.group(2)).resolve()
             with PILImage.open(file) as original:
                 iw, ih = original.size
-            yield Image(str(file), width=width, height=width*ih/iw)
+            factor = int(image.group(3) or '100') / 100
+            if not .25 <= factor <= 1:
+                raise ValueError('Report image width must be 25 to 100 percent')
+            yield Image(str(file), width=width*factor, height=width*factor*ih/iw, hAlign='CENTER')
             yield Paragraph(inline(image.group(1)), ParagraphStyle('caption', fontName='Body', fontSize=9, leading=13, textColor=colors.HexColor(MUTED), spaceAfter=9, wordWrap='CJK'))
             i += 1
             continue
@@ -133,6 +151,7 @@ def report_blocks(section, width):
 def visible_character_count(source):
     """Conservative visible-character count, NOT an editor word-count substitute."""
     source = re.sub(r"<!--.*?-->", "", source, flags=re.S)
+    source = re.sub(r'\{width=\d{1,3}%\}', '', source)
     source = re.sub(r"!?\[([^\]]*)\]\([^)]+\)", r"\1", source)
     source = re.sub(r"^\|[\s|:\-]+\|\s*$", "", source, flags=re.M)
     source = re.sub(r"^[#]+\s+", "", source, flags=re.M)
@@ -159,23 +178,25 @@ def build_report():
     pdf.setAuthor("Team 11")
     remaining = []
     for i, section in enumerate(sections, 1):
+        pdf.bookmarkPage(f'report-page-{i}')
         pdf.setFillColor(colors.HexColor(MUTED)); pdf.setFont("Body", 8.5)
         pdf.drawString(margin, h-32, f"软件工程管理 / 项目计划书 / {version}")
         pdf.drawRightString(w-margin, h-32, f"第11组 · {date}")
         pdf.setStrokeColor(colors.HexColor(BLUE)); pdf.setLineWidth(.6)
         pdf.line(margin, h-43, w-margin, h-43)
         y = h-65
-        blocks = list(report_blocks(section, width))
+        blocks = list(report_blocks(section, width, cover=i == 1))
         if i == len(sections):
             note = f"可见非空白字符计数：{count}（含表格；提交前按课程统计口径复核）。"
             blocks.append(Paragraph(note, ParagraphStyle("count", fontName="Body", fontSize=8.5,
                                                         leading=12, wordWrap="CJK", textColor=colors.HexColor(MUTED))))
         for flowable in blocks:
             y -= getattr(flowable, "spaceBefore", 0)
-            _, fh = flowable.wrap(width, h)
+            fw, fh = flowable.wrap(width, h)
             if y-fh < 51:
                 raise ValueError(f"Report page {i} overflows by {51-(y-fh):.1f}pt")
-            flowable.drawOn(pdf, margin, y-fh)
+            left = margin + (width-fw)/2 if isinstance(flowable, Image) else margin
+            flowable.drawOn(pdf, left, y-fh)
             y -= fh + getattr(flowable, "spaceAfter", 0)
         remaining.append(round(y-51, 1))
         pdf.setFont("Body", 8.5); pdf.setFillColor(colors.HexColor(MUTED))
