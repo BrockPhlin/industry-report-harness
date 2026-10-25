@@ -76,11 +76,13 @@ def model_report(topic, sources, config, opener=urlopen):
             raise AppError("模型响应过大", 502, "model_response_invalid")
         result = json.loads(raw)
         choice = result["choices"][0]
+        if choice.get("finish_reason") == "length":
+            raise AppError("模型输出被截断，请缩小任务后重试", 502, "model_output_truncated")
+        if choice.get("finish_reason") != "stop":
+            raise AppError("模型未正常完成文本输出，请人工检查后重试", 502, "model_output_incomplete")
         content = choice["message"]["content"]
         if not isinstance(content, str) or not content.strip():
             raise ValueError("empty completion")
-        if choice.get("finish_reason") == "length":
-            raise AppError("模型输出被截断，请缩小任务后重试", 502, "model_output_truncated")
     except HTTPError as exc:
         # Never forward the provider response body, URL or credentials to UI.
         raise AppError(f"模型服务返回HTTP {exc.code}，请检查服务与配置", 502, "model_http_error") from None

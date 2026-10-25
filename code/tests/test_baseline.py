@@ -122,6 +122,16 @@ class BaselineTests(unittest.TestCase):
             model_report("主题", [self.source()], config, opener=fake)
         self.assertEqual(ctx.exception.code, "model_output_truncated")
 
+    def test_non_stop_model_output_is_rejected(self):
+        @contextmanager
+        def fake(request, timeout):
+            yield BytesIO(json.dumps({"choices": [{"message": {"content": content}, "finish_reason": "content_filter"}]}).encode())
+        config = dict(MODEL_ENDPOINT="https://example.invalid/chat", MODEL_NAME="test", MODEL_API_KEY="test")
+        for content in ["partial", None]:
+            with self.subTest(content=content), self.assertRaises(AppError) as ctx:
+                model_report("主题", [self.source()], config, opener=fake)
+            self.assertEqual(ctx.exception.code, "model_output_incomplete")
+
     def test_json_safe_storage_and_source_snapshot(self):
         source = self.source(title="x'); DROP TABLE sources; --", body="<script>alert('x')</script>")
         report = self.app.generate(dict(topic="test", source_ids=[source["id"]]))
@@ -162,6 +172,22 @@ class HttpTests(unittest.TestCase):
             self.assertIn("验证资料", r.read().decode())
         with self.request("/") as r:
             self.assertIn("产业研究工作台", r.read().decode())
+
+    def test_public_sample_to_download_keeps_distinct_metrics(self):
+        sample = json.loads((Path(__file__).parents[1] / "examples/public-sources.json").read_text(encoding="utf-8"))
+        ids = []
+        for item in sample["sources"][:2]:
+            with self.request("/api/sources", item) as response:
+                ids.append(json.load(response)["id"])
+        with self.request("/api/reports", {"topic": sample["topic"], "source_ids": ids}) as response:
+            report = json.load(response)
+        with self.request(f"/api/reports/{report['id']}/download") as response:
+            markdown = response.read().decode("utf-8")
+        self.assertIn("588GW", markdown)
+        self.assertIn("2.78亿千瓦", markdown)
+        self.assertIn("[S1]", markdown)
+        self.assertIn("[S2]", markdown)
+        self.assertEqual([s["id"] for s in report["sources"]], ids)
 
     def test_cross_site_post_rejected_without_writes(self):
         with self.assertRaises(HTTPError) as ctx:
