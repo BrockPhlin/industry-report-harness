@@ -1,0 +1,45 @@
+{
+  "purpose": "外部结构和版式参考，非本组系统输出",
+  "sources": [
+    {
+      "id": "R4",
+      "filename": "mckinsey technology trends outlook 2026_vf.pdf",
+      "title": "Technology Trends Outlook 2026",
+      "organization": "McKinsey & Company",
+      "pdf_pages": 143,
+      "sha256": "737085e501a8108c4e8402db22c078f9f84e1f48c7772e6a541049a5084b2993",
+      "observed_pdf_pages": [
+        3,
+        5,
+        13
+      ],
+      "observed_printed_pages": [
+        1,
+        3,
+        11
+      ],
+      "preview_pdf_page": 13,
+      "preview_path": "assets/references/mckinsey-2026-page13.png"
+    },
+    {
+      "id": "R5",
+      "filename": "ai_index_report_2026.pdf",
+      "title": "Artificial Intelligence Index Report 2026",
+      "organization": "Stanford HAI / AI Index",
+      "pdf_pages": 425,
+      "sha256": "fff5ac1df971cee7daf847fa5ed00dd7444db693092821c3e691debc1eaada09",
+      "observed_pdf_pages": [
+        2,
+        14,
+        20
+      ],
+      "observed_printed_pages": [
+        1,
+        13,
+        19
+      ],
+      "preview_pdf_page": 20,
+      "preview_path": "assets/references/ai-index-2026-page20.png"
+    }
+  ]
+}

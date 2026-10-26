@@ -62,7 +62,11 @@ def make_table(lines, width):
     elif rows[0][0] == "成员" and ncols == 3:
         widths = [.14, .25, .61]
     elif rows[0][0].startswith("工作包"):
-        widths = [.24, .61, .15]
+        widths = [.22, .45, .33]
+    elif rows[0][0] == 'McKinsey参考页':
+        widths = [.50, .50]
+    elif rows[0][0] == '章节':
+        widths = [.12, .76, .12]
     elif rows[0][0] == "时间":
         widths = [.23, .43, .34]
     elif rows[0][0] == "项目":
@@ -70,7 +74,25 @@ def make_table(lines, width):
     style = ParagraphStyle("cell", fontName="Body", fontSize=10.8, leading=16,
                            textColor=colors.HexColor(INK), wordWrap="CJK")
     strong = ParagraphStyle("header", parent=style, fontName="Strong", textColor=colors.HexColor(BLUE))
-    data = [[Paragraph(inline(c), strong if i == 0 else style) for c in row] for i, row in enumerate(values)]
+    data = []
+    for i, row in enumerate(values):
+        cells = []
+        for j, value in enumerate(row):
+            picture = re.fullmatch(r"!\[([^\]]*)\]\(([^)]+)\)", value)
+            if picture:
+                from reportlab.lib.utils import ImageReader
+                file = (PROPOSAL/'report'/picture.group(2)).resolve()
+                iw, ih = ImageReader(str(file)).getSize()
+                scale = min((width*widths[j]-12)/iw, 220/ih)
+                cells.append(Image(str(file), width=iw*scale, height=ih*scale, hAlign='CENTER'))
+                continue
+            content = inline(value)
+            if rows[0][0] == '章节' and i > 0 and j == 2:
+                if not value.isdigit() or not 1 <= int(value) <= 10:
+                    raise ValueError('Contents page must target report page 1 to 10')
+                content = f'<link href="#report-page-{value}" color="{BLUE}">{value}</link>'
+            cells.append(Paragraph(content, strong if i == 0 else style))
+        data.append(cells)
     result = Table(data, colWidths=[width * f for f in widths], hAlign="LEFT")
     result.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(PALE)),
@@ -81,10 +103,12 @@ def make_table(lines, width):
         ("TOPPADDING", (0, 0), (-1, -1), 7),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
     ]))
+    if rows[0][0] == 'McKinsey参考页':
+        result.setStyle(TableStyle([('ALIGN', (0,1), (-1,-1), 'CENTER')]))
     return result
 
 
-def report_blocks(section, width):
+def report_blocks(section, width, cover=False):
     styles = {
         "body": ParagraphStyle("body", fontName="Body", fontSize=12, leading=18.5,
                                textColor=colors.HexColor(INK), wordWrap="CJK", spaceAfter=8),
@@ -95,6 +119,9 @@ def report_blocks(section, width):
         "h3": ParagraphStyle("h3", fontName="Strong", fontSize=12, leading=19,
                              textColor=colors.HexColor(BLUE), spaceBefore=7, spaceAfter=5),
     }
+    if cover:
+        styles['h1'].fontSize = 26
+        styles['h1'].leading = 36
     lines = section.strip().splitlines()
     i = 0
     while i < len(lines):
@@ -109,13 +136,16 @@ def report_blocks(section, width):
             yield make_table(block, width)
             yield Spacer(1, 9)
             continue
-        image = re.fullmatch(r"!\[([^\]]*)\]\(([^)]+)\)", line)
+        image = re.fullmatch(r"!\[([^\]]*)\]\(([^)]+)\)(?:\{width=(\d{1,3})%\})?", line)
         if image:
             from PIL import Image as PILImage
             file = (PROPOSAL / 'report' / image.group(2)).resolve()
             with PILImage.open(file) as original:
                 iw, ih = original.size
-            yield Image(str(file), width=width, height=width*ih/iw)
+            factor = int(image.group(3) or '100') / 100
+            if not .25 <= factor <= 1:
+                raise ValueError('Report image width must be 25 to 100 percent')
+            yield Image(str(file), width=width*factor, height=width*factor*ih/iw, hAlign='CENTER')
             yield Paragraph(inline(image.group(1)), ParagraphStyle('caption', fontName='Body', fontSize=9, leading=13, textColor=colors.HexColor(MUTED), spaceAfter=9, wordWrap='CJK'))
             i += 1
             continue
@@ -133,6 +163,7 @@ def report_blocks(section, width):
 def visible_character_count(source):
     """Conservative visible-character count, NOT an editor word-count substitute."""
     source = re.sub(r"<!--.*?-->", "", source, flags=re.S)
+    source = re.sub(r'\{width=\d{1,3}%\}', '', source)
     source = re.sub(r"!?\[([^\]]*)\]\([^)]+\)", r"\1", source)
     source = re.sub(r"^\|[\s|:\-]+\|\s*$", "", source, flags=re.M)
     source = re.sub(r"^[#]+\s+", "", source, flags=re.M)
@@ -143,11 +174,18 @@ def visible_character_count(source):
 def build_report():
     source = (PROPOSAL / "report/report.md").read_text(encoding="utf-8")
     sections = re.split(r"<!--\s*pagebreak\s*-->", source)
-    if not 1 <= len(sections) <= 10:
-        raise ValueError("Report must contain 1 to 10 explicitly paginated pages")
-    version = re.search(r"\*\*版本\*\*：([^\s]+)", source).group(1)
+    # Title and contents share one unnumbered front page.
+    if len(sections) < 2 or '\n## 目录' not in sections[0]:
+        raise ValueError('Report requires a combined title and contents page')
+    body_sections = sections[1:]
+    if not 1 <= len(body_sections) <= 10:
+        raise ValueError('Report body must contain 1 to 10 explicitly paginated pages')
     date = re.search(r"\*\*日期\*\*：([0-9-]+)", source).group(1)
-    count = visible_character_count(source)
+    # Course limit excludes cover/contents/references; table text and captions
+    # remain in this conservative counter. It is not an editor word count.
+    body_source = '\n'.join(body_sections)
+    counted_source = body_source.split('### 9.1 可定位来源', 1)[0]
+    count = visible_character_count(counted_source)
     if count > 6000:
         raise ValueError(f"Conservative visible-character count {count} exceeds 6000")
     buf = io.BytesIO()
@@ -155,37 +193,49 @@ def build_report():
     margin = 56
     width = w - 2 * margin
     pdf = canvas.Canvas(buf, pagesize=A4, pageCompression=1)
-    pdf.setTitle(f"第11组产业智能报告生成系统项目计划书 {version}")
+    pdf.setTitle("第11组产业智能报告生成系统项目计划书")
     pdf.setAuthor("Team 11")
     remaining = []
     for i, section in enumerate(sections, 1):
+        body_page = i-1
+        bookmark = f'report-page-{body_page}' if body_page > 0 else 'report-front'
+        pdf.bookmarkPage(bookmark)
         pdf.setFillColor(colors.HexColor(MUTED)); pdf.setFont("Body", 8.5)
-        pdf.drawString(margin, h-32, f"软件工程管理 / 项目计划书 / {version}")
+        pdf.drawString(margin, h-32, "软件工程管理 / 项目计划书")
         pdf.drawRightString(w-margin, h-32, f"第11组 · {date}")
         pdf.setStrokeColor(colors.HexColor(BLUE)); pdf.setLineWidth(.6)
         pdf.line(margin, h-43, w-margin, h-43)
         y = h-65
-        blocks = list(report_blocks(section, width))
+        blocks = list(report_blocks(section, width, cover=i == 1))
         if i == len(sections):
-            note = f"可见非空白字符计数：{count}（含表格；提交前按课程统计口径复核）。"
+            note = f"正文可见非空白字符：{count}（含表格图注，不含封面、目录、参考文献；非编辑器字数）。"
             blocks.append(Paragraph(note, ParagraphStyle("count", fontName="Body", fontSize=8.5,
                                                         leading=12, wordWrap="CJK", textColor=colors.HexColor(MUTED))))
         for flowable in blocks:
             y -= getattr(flowable, "spaceBefore", 0)
-            _, fh = flowable.wrap(width, h)
+            fw, fh = flowable.wrap(width, h)
             if y-fh < 51:
                 raise ValueError(f"Report page {i} overflows by {51-(y-fh):.1f}pt")
-            flowable.drawOn(pdf, margin, y-fh)
+            left = margin + (width-fw)/2 if isinstance(flowable, Image) else margin
+            flowable.drawOn(pdf, left, y-fh)
             y -= fh + getattr(flowable, "spaceAfter", 0)
         remaining.append(round(y-51, 1))
         pdf.setFont("Body", 8.5); pdf.setFillColor(colors.HexColor(MUTED))
         pdf.drawString(margin, 29, "第11组产业智能报告生成系统项目计划书")
-        pdf.drawRightString(w-margin, 29, f"{i} / {len(sections)}")
+        if body_page > 0:
+            pdf.drawRightString(w-margin, 29, f"{body_page} / {len(body_sections)}")
         pdf.showPage()
     pdf.save()
-    output = PROPOSAL / f"report/第11组_项目计划书_{version}.pdf"
-    output.write_bytes(buf.getvalue())
-    print(json.dumps({"report_pages": len(sections), "visible_character_count": count,
+    output = PROPOSAL / 'report/第11组_项目计划书.pdf'
+    # Viewer labels follow printed body numbering as well as contents links.
+    from pypdf import PdfReader, PdfWriter
+    writer = PdfWriter(clone_from=PdfReader(io.BytesIO(buf.getvalue())))
+    writer.set_page_label(0, 0, prefix='标题与目录')
+    writer.set_page_label(1, len(sections)-1, style='/D', start=1)
+    final = io.BytesIO()
+    writer.write(final)
+    output.write_bytes(final.getvalue())
+    print(json.dumps({"report_pages": len(sections), "front_matter_pages": 1, "body_pages": len(body_sections), "visible_character_count": count,
                       "page_remaining_pt": remaining}, ensure_ascii=False))
 
 
@@ -243,11 +293,11 @@ def build_slide_pdf():
             pdf.drawImage(str(ROOT/'assets/brand/char_blue.png'),1100,720-30-39,width=115,height=39,
                           preserveAspectRatio=True,mask='auto')
         draw_items(pdf, slide['items'])
-        slide_text(pdf,dict(text='产业智能报告生成系统 · 第11组',x=65,y=682,w=1040,h=25,size=17,color=MUTED))
+        slide_text(pdf,dict(text=f"第11组 · 开题展示 {deck['version']}",x=65,y=682,w=1040,h=25,size=17,color=MUTED))
         slide_text(pdf,dict(text=f"{idx+1:02d} / {len(deck['slides']):02d}",x=1135,y=682,w=100,h=25,size=17,color=MUTED))
         pdf.showPage()
     pdf.save()
-    (PROPOSAL / f"ppt/第11组_开题展示_{deck['version']}.pdf").write_bytes(buf.getvalue())
+    (PROPOSAL / 'ppt/第11组_开题展示.pdf').write_bytes(buf.getvalue())
     print(f"Slide PDF: {len(deck['slides'])} pages, selectable text")
 
 
@@ -300,11 +350,12 @@ def build_figures():
     """Technical report figures reuse slide source; no separate copied numbers."""
     import pypdfium2 as pdfium
     deck=json.loads((PROPOSAL/'ppt/slides.json').read_text())
-    figures=[(2,'pv-example',(60,155,1150,450)),(4,'harness-plan',(60,170,1150,440)),(8,'core-schedule',(60,195,1150,410))]
+    figures=[('pv-example',(60,155,1150,450)),('harness-plan',(60,170,1150,440)),('semester-timeline',(60,170,1150,450))]
     folder=ROOT/'assets/opening'
-    for index,name,(x,y,w,h) in figures:
+    for name,(x,y,w,h) in figures:
+        slide=next(row for row in deck['slides'] if row.get('id')==name)
         buf=io.BytesIO();pdf=canvas.Canvas(buf,pagesize=(1280,720))
-        draw_items(pdf,deck['slides'][index]['items']);pdf.showPage();pdf.save()
+        draw_items(pdf,slide['items']);pdf.showPage();pdf.save()
         doc=pdfium.PdfDocument(buf.getvalue())
         # PDFium crop is measured from left, bottom, right, top in PDF points.
         bitmap=doc[0].render(scale=2,crop=(x,720-y-h,1280-x-w,y))

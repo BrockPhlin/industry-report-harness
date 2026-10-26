@@ -5,7 +5,7 @@
 | 编号 | 资料 | 本次采用内容 | 放入材料的位置 |
 | --- | --- | --- | --- |
 | C1 | 邵健《P4 项目计划与工作分解47页版.pptx》 | p.7课题2；p.24滚动计划；p.32执行/评审/批准责任；p.43三级WBS | 报告§1、§5—6；展示第2、7—9页 |
-| C2 | 《P5 项目估算与进度管理.pptx》 | p.6直接以报告系统讲功能划分；p.12三点估算；p.17—21依赖、甘特与关键路径；p.28—30里程碑与进度监控 | 报告§6—8；展示第7、9—11页 |
+| C2 | 《P5 项目估算与进度管理.pptx》 | p.6直接以报告系统讲功能划分；p.12三点估算；p.17—21依赖、甘特与关键路径；p.28—30里程碑与进度监控 | 报告§6—8；展示第7、10—12页 |
 | R1 | [Anthropic：Effective harnesses for long-running agents](https://www.anthropic.com/research/effective-harnesses-for-long-running-agents)，2025-11-26 | 分段推进并留下可接续的进度与产物；借鉴思想，不复刻其编码Agent或声称其性能 | 报告§4；展示第5页 |
 | R2 | [Anthropic：Building effective agents](https://www.anthropic.com/research/building-effective-agents)，2024-12-19 | 区分固定工作流与模型自主决策；本项目先用明确步骤及检查 | 报告§4；展示第5页 |
 | R3 | [LangGraph：Persistence](https://docs.langchain.com/oss/python/langgraph/persistence) | 检查点持久化用于恢复；内存保存不代表进程重启后可恢复。当前仅作技术参考，未确定采用该框架 | 报告§4；展示第5页 |
@@ -17,11 +17,15 @@
 
 ## 学长分享的引用边界
 
-“上节课学长分享Harness”这一课堂背景来自组长本次说明；没有收到学长原始PPT或逐字记录。讲稿只说明其给我们的启发，不将外部文档细节、用词或演示归为学长原话。技术细节分别引用R1—R3。
+“上节课学长分享Harness”这一课堂背景来自组长本次说明；课堂分享记录及定位现已由T4归档到课程映射。讲稿只说明其给我们的启发，不将外部文档细节、用词或演示归为学长原话。技术细节分别引用R1—R3。
 
 ## 实际素材
 
-- teacher-files.json记录两份课件SHA-256、页数和对应页码；原课件留在用户提供的项目目录，不随仓库对外分发。
+- teacher-files.json记录两份课件SHA-256、页数和对应页码；课件与课堂记录的仓库存放位置以materials/course-slides/README.md为准。
 - assets/opening/example-data.json保存手工核对的事实与URL、绘图输入和统计口径。
 - 原型截图来自本项目实际启动后的浏览器，输入为上述公开事实的简短人工整理，生成方式为“资料摘录”，没有调用真实模型。
 - 进度图是核心开发流程的排程试算，PERT的40/52/88人时是情景假设；均不作为实测工期或承诺。268人时沿用现有工作量估计，正式日期与个人可用时间确认后重排。
+
+协作截图由组长于2026-10-26提供，原图在assets/opening/github-collaborators.png，指纹与使用边界在team/collaboration-evidence.json。用于报告§5.1和展示第9页，说明共享仓库及PR协作方式。
+
+学期阶段节点依据课程介绍PDF文件顺序第47页《课时安排》：10月26日开题、11月30日中期、12月28日课程收尾。阶段内日期在team/semester-timeline.json中作为本组暂排，正式提交及终期答辩以最新通知为准。

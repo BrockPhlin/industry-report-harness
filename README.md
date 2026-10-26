@@ -40,11 +40,11 @@ cd code
 python3 -m unittest discover -s tests -v
 ```
 
-基线已经提供资料持久化、一次性生成、来源快照、历史记录和Markdown下载。复杂Harness、恢复重试、审批流程、图表、PDF/DOCX导出、权限与业务评测留作后续工作。基本功能测试不等于课程系统测试报告或产业效果证明。
+基线已经提供资料持久化、一次性生成、来源快照、历史记录和Markdown下载。复杂Harness、恢复重试、审批流程、图表、双版式PDF导出、权限与业务评测留作后续工作。基本功能测试不等于课程系统测试报告或产业效果证明。
 
 ## 改本次报告与PPT
 
-当前开题材料为项目计划书v1.2与PPTX v0.9，入口见 [本次开题材料](presentations/01-opening/README.md)。报告作者编辑report/report.md，PPT作者可修改对应ppt/slides.json并重新生成，或直接编辑PPTX；本次职责以team/claims.csv为准。
+当前开题材料为项目计划书提交稿与PPTX v1.7，入口见 [本次开题材料](presentations/01-opening/README.md)。报告作者编辑report/report.md，PPT作者可修改对应ppt/slides.json并重新生成，或直接编辑PPTX；本次职责以team/claims.csv为准。
 
 运行 `python3 tools/build_pdfs.py` 生成报告和展示PDF，`python3 tools/build_speech.py`生成逐页演讲稿，需要tools/requirements.txt中的材料依赖。`node tools/build_slides.mjs`读取同一幻灯片源码生成PPTX；直接编辑PPTX无需该SDK。字体与跨环境构建说明见tools/README.md。
 
@@ -52,8 +52,14 @@ python3 -m unittest discover -s tests -v
 
 已阅读组长提供的P4、P5课件，按实际页码填写课程映射，加入三级WBS、责任矩阵、三点估算与关键路径。原课件保留在提供位置，仓库仅保存文件指纹与应用映射；公开例子和官方Harness来源见materials/references/research-notes.md。
 
-当前展示共11页，配有逐页演讲稿；真实调研、模型验证及团队确认需按进展补充；任何测试、访谈、会议和真实模型结果都须由实际记录支持。初始化由AI辅助，接手代码的成员需读docs/code-guide.md、运行测试并记录理解、修改与核验。
+当前展示共12页，配有逐页演讲稿；真实调研、模型验证及团队确认需按进展补充；任何测试、访谈、会议和真实模型结果都须由实际记录支持。初始化由AI辅助，接手代码的成员需读docs/code-guide.md、运行测试并记录理解、修改与核验。
 
 协作方式见 [仓库协作说明](docs/上传说明.md)，接口与数据流见 [代码接手指南](docs/code-guide.md)。学号、私有课件、密钥和运行数据库按实际访问权限处理。
 
 新稿生成并逐页检查通过后删除旧生成稿，仅保留当前PDF/PPTX及对应源码；历史版本通过Git查阅。
+
+共同维护方式：成员在各自分支按任务修改，PR交叉检查后由组长确认合并，再同步最新版本；协作截图和具体步骤见开题展示第9页、计划书§5.1与docs/上传说明.md。
+
+目标输出方案：Markdown维护报告内容，内容模板与PDF版式模板分开；同一确认稿导出研究版或简报版PDF。[外部成品参考](materials/references/output-report-targets.md)用于说明目标。每周一下午软工管课后简单讨论进展与下周任务。上述PDF流程仍待业务实现。
+
+计划改进：[参考报告检索工具](docs/参考报告检索工具设计.md)，让模型写前查结构和写法，事实仍由当前资料支撑，效果以有无工具的对照验证。
