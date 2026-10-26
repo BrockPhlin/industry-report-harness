@@ -139,3 +139,8 @@ for source in reference_manifest['sources']:
 assert '每周一下午' in product_text and '课后' in product_text
 assert '内容模板' in product_text and '版式模板' in product_text and 'Markdown' in product_text
 assert '周一晚上' not in product_text
+
+assert '参考报告检索工具' in product_text
+assert '效果待验证' in product_text
+assert '对照有无工具' in report_source
+assert (ROOT/'docs/参考报告检索工具设计.md').is_file()

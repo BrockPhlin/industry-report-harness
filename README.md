@@ -44,7 +44,7 @@ python3 -m unittest discover -s tests -v
 
 ## 改本次报告与PPT
 
-当前开题材料为项目计划书v1.7与PPTX v1.6，入口见 [本次开题材料](presentations/01-opening/README.md)。报告作者编辑report/report.md，PPT作者可修改对应ppt/slides.json并重新生成，或直接编辑PPTX；本次职责以team/claims.csv为准。
+当前开题材料为项目计划书v1.8与PPTX v1.7，入口见 [本次开题材料](presentations/01-opening/README.md)。报告作者编辑report/report.md，PPT作者可修改对应ppt/slides.json并重新生成，或直接编辑PPTX；本次职责以team/claims.csv为准。
 
 运行 `python3 tools/build_pdfs.py` 生成报告和展示PDF，`python3 tools/build_speech.py`生成逐页演讲稿，需要tools/requirements.txt中的材料依赖。`node tools/build_slides.mjs`读取同一幻灯片源码生成PPTX；直接编辑PPTX无需该SDK。字体与跨环境构建说明见tools/README.md。
 
@@ -61,3 +61,5 @@ python3 -m unittest discover -s tests -v
 共同维护方式：成员在各自分支按任务修改，PR交叉检查后由组长确认合并，再同步最新版本；协作截图和具体步骤见开题展示第9页、计划书§5.1与docs/上传说明.md。
 
 目标输出方案：Markdown维护报告内容，内容模板与PDF版式模板分开；同一确认稿导出研究版或简报版PDF。[外部成品参考](materials/references/output-report-targets.md)用于说明目标。每周一下午软工管课后简单讨论进展与下周任务。上述PDF流程仍待业务实现。
+
+计划改进：[参考报告检索工具](docs/参考报告检索工具设计.md)，让模型写前查结构和写法，事实仍由当前资料支撑，效果以有无工具的对照验证。
