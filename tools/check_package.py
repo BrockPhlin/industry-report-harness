@@ -152,3 +152,11 @@ assert '对照有无工具' in report_source
 assert (ROOT/'docs/参考报告检索工具设计.md').is_file()
 
 print('All package checks passed: artifacts, links, WBS/schedule, 12 slides, PNG dimensions and speech notes; standard-library only.')
+
+report_sections=re.split(r'<!--\s*pagebreak\s*-->',report_source)
+assert len(report_sections)==12 and report_sections[1].lstrip().startswith('## 目录')
+assert len(report_sections[2:])==10
+assert '人时' not in report_source and '三点估算' not in report_source
+assert all(term in report_source for term in ['DeepSeek Harness','LangGraph','Deep Agents'])
+contents_targets=re.findall(r'^\|[^\n]+\|\s*(\d+)\s*\|$',report_sections[1],re.M)
+assert list(map(int,contents_targets))==list(range(1,11))

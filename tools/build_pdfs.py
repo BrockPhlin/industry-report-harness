@@ -62,7 +62,9 @@ def make_table(lines, width):
     elif rows[0][0] == "成员" and ncols == 3:
         widths = [.14, .25, .61]
     elif rows[0][0].startswith("工作包"):
-        widths = [.24, .61, .15]
+        widths = [.22, .45, .33]
+    elif rows[0][0] == 'McKinsey参考页':
+        widths = [.50, .50]
     elif rows[0][0] == '章节':
         widths = [.12, .76, .12]
     elif rows[0][0] == "时间":
@@ -76,6 +78,14 @@ def make_table(lines, width):
     for i, row in enumerate(values):
         cells = []
         for j, value in enumerate(row):
+            picture = re.fullmatch(r"!\[([^\]]*)\]\(([^)]+)\)", value)
+            if picture:
+                from reportlab.lib.utils import ImageReader
+                file = (PROPOSAL/'report'/picture.group(2)).resolve()
+                iw, ih = ImageReader(str(file)).getSize()
+                scale = min((width*widths[j]-12)/iw, 220/ih)
+                cells.append(Image(str(file), width=iw*scale, height=ih*scale, hAlign='CENTER'))
+                continue
             content = inline(value)
             if rows[0][0] == '章节' and i > 0 and j == 2:
                 if not value.isdigit() or not 1 <= int(value) <= 10:
@@ -93,6 +103,8 @@ def make_table(lines, width):
         ("TOPPADDING", (0, 0), (-1, -1), 7),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
     ]))
+    if rows[0][0] == 'McKinsey参考页':
+        result.setStyle(TableStyle([('ALIGN', (0,1), (-1,-1), 'CENTER')]))
     return result
 
 
@@ -162,11 +174,19 @@ def visible_character_count(source):
 def build_report():
     source = (PROPOSAL / "report/report.md").read_text(encoding="utf-8")
     sections = re.split(r"<!--\s*pagebreak\s*-->", source)
-    if not 1 <= len(sections) <= 10:
-        raise ValueError("Report must contain 1 to 10 explicitly paginated pages")
+    # Two unnumbered front-matter pages, followed by at most ten body pages.
+    if len(sections) < 3 or not sections[1].lstrip().startswith('## 目录'):
+        raise ValueError('Report requires a separate cover and contents page')
+    body_sections = sections[2:]
+    if not 1 <= len(body_sections) <= 10:
+        raise ValueError('Report body must contain 1 to 10 explicitly paginated pages')
     version = re.search(r"\*\*版本\*\*：([^\s]+)", source).group(1)
     date = re.search(r"\*\*日期\*\*：([0-9-]+)", source).group(1)
-    count = visible_character_count(source)
+    # Course limit excludes cover/contents/references; table text and captions
+    # remain in this conservative counter. It is not an editor word count.
+    body_source = '\n'.join(body_sections)
+    counted_source = body_source.split('### 9.1 可定位来源', 1)[0]
+    count = visible_character_count(counted_source)
     if count > 6000:
         raise ValueError(f"Conservative visible-character count {count} exceeds 6000")
     buf = io.BytesIO()
@@ -178,16 +198,18 @@ def build_report():
     pdf.setAuthor("Team 11")
     remaining = []
     for i, section in enumerate(sections, 1):
-        pdf.bookmarkPage(f'report-page-{i}')
+        body_page = i-2
+        bookmark = f'report-page-{body_page}' if body_page > 0 else ('report-cover' if i == 1 else 'report-contents')
+        pdf.bookmarkPage(bookmark)
         pdf.setFillColor(colors.HexColor(MUTED)); pdf.setFont("Body", 8.5)
         pdf.drawString(margin, h-32, f"软件工程管理 / 项目计划书 / {version}")
         pdf.drawRightString(w-margin, h-32, f"第11组 · {date}")
         pdf.setStrokeColor(colors.HexColor(BLUE)); pdf.setLineWidth(.6)
         pdf.line(margin, h-43, w-margin, h-43)
-        y = h-65
+        y = h-140 if i == 1 else h-65
         blocks = list(report_blocks(section, width, cover=i == 1))
         if i == len(sections):
-            note = f"可见非空白字符计数：{count}（含表格；提交前按课程统计口径复核）。"
+            note = f"正文可见非空白字符：{count}（含表格图注，不含封面、目录、参考文献；非编辑器字数）。"
             blocks.append(Paragraph(note, ParagraphStyle("count", fontName="Body", fontSize=8.5,
                                                         leading=12, wordWrap="CJK", textColor=colors.HexColor(MUTED))))
         for flowable in blocks:
@@ -201,12 +223,21 @@ def build_report():
         remaining.append(round(y-51, 1))
         pdf.setFont("Body", 8.5); pdf.setFillColor(colors.HexColor(MUTED))
         pdf.drawString(margin, 29, "第11组产业智能报告生成系统项目计划书")
-        pdf.drawRightString(w-margin, 29, f"{i} / {len(sections)}")
+        if body_page > 0:
+            pdf.drawRightString(w-margin, 29, f"{body_page} / {len(body_sections)}")
         pdf.showPage()
     pdf.save()
     output = PROPOSAL / 'report/第11组_项目计划书.pdf'
-    output.write_bytes(buf.getvalue())
-    print(json.dumps({"report_pages": len(sections), "visible_character_count": count,
+    # Viewer labels follow printed body numbering as well as contents links.
+    from pypdf import PdfReader, PdfWriter
+    writer = PdfWriter(clone_from=PdfReader(io.BytesIO(buf.getvalue())))
+    writer.set_page_label(0, 0, prefix='封面')
+    writer.set_page_label(1, 1, prefix='目录')
+    writer.set_page_label(2, len(sections)-1, style='/D', start=1)
+    final = io.BytesIO()
+    writer.write(final)
+    output.write_bytes(final.getvalue())
+    print(json.dumps({"report_pages": len(sections), "front_matter_pages": 2, "body_pages": len(body_sections), "visible_character_count": count,
                       "page_remaining_pt": remaining}, ensure_ascii=False))
 
 
