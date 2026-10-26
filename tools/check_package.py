@@ -120,7 +120,7 @@ with zipfile.ZipFile(ROOT/image_deck) as z:
         rid=node.find('.//a:blip',ns).get('{'+ns['r']+'}embed')
         rel=ET.fromstring(z.read(f'ppt/slides/_rels/slide{i}.xml.rels'))
         target=next(x.get('Target') for x in rel if x.get('Id')==rid)
-        image_part=normpath(join(dirname(part),target))
+        image_part=normpath(join(dirname(part),target)).lstrip('/')
         with Image.open(BytesIO(z.read(image_part))) as im:assert im.size==(2560,1440)
         notes=ET.fromstring(z.read(f'ppt/notesSlides/notesSlide{i}.xml'))
         assert s['speech'] in ''.join(notes.itertext())
