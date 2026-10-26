@@ -180,7 +180,6 @@ def build_report():
     body_sections = sections[1:]
     if not 1 <= len(body_sections) <= 10:
         raise ValueError('Report body must contain 1 to 10 explicitly paginated pages')
-    version = re.search(r"\*\*版本\*\*：([^\s]+)", source).group(1)
     date = re.search(r"\*\*日期\*\*：([0-9-]+)", source).group(1)
     # Course limit excludes cover/contents/references; table text and captions
     # remain in this conservative counter. It is not an editor word count.
@@ -194,7 +193,7 @@ def build_report():
     margin = 56
     width = w - 2 * margin
     pdf = canvas.Canvas(buf, pagesize=A4, pageCompression=1)
-    pdf.setTitle(f"第11组产业智能报告生成系统项目计划书 {version}")
+    pdf.setTitle("第11组产业智能报告生成系统项目计划书")
     pdf.setAuthor("Team 11")
     remaining = []
     for i, section in enumerate(sections, 1):
@@ -202,7 +201,7 @@ def build_report():
         bookmark = f'report-page-{body_page}' if body_page > 0 else 'report-front'
         pdf.bookmarkPage(bookmark)
         pdf.setFillColor(colors.HexColor(MUTED)); pdf.setFont("Body", 8.5)
-        pdf.drawString(margin, h-32, f"软件工程管理 / 项目计划书 / {version}")
+        pdf.drawString(margin, h-32, "软件工程管理 / 项目计划书")
         pdf.drawRightString(w-margin, h-32, f"第11组 · {date}")
         pdf.setStrokeColor(colors.HexColor(BLUE)); pdf.setLineWidth(.6)
         pdf.line(margin, h-43, w-margin, h-43)

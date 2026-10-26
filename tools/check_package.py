@@ -11,7 +11,6 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 deck = json.loads((ROOT/"presentations/01-opening/ppt/slides.json").read_text(encoding="utf-8"))
 report_source = (ROOT/"presentations/01-opening/report/report.md").read_text(encoding="utf-8")
-report_version = re.search(r"\*\*版本\*\*：([^\s]+)", report_source).group(1)
 required = [
     "README.md", "code/run.py", "code/tests/test_baseline.py", "team/claims.csv",
     "presentations/01-opening/report/report.md",
@@ -59,11 +58,10 @@ assert len(deck["slides"]) == 12 and sum(s["seconds"] for s in deck["slides"]) =
 assert deck["formal_slides"] == len(deck['slides']) and all(s['seconds']>0 for s in deck['slides'])
 assert all(s.get('speech') and s['speech'] in s['notes'] for s in deck['slides'])
 assert all('备用' not in s['title'] for s in deck['slides'])
-# The delivered opening deck is frozen after the presentation. Report-only
-# patch revisions may follow it, while unrelated report versions still fail.
-assert (deck['report_version'] == report_version or
-        re.fullmatch(re.escape(deck['report_version']) + r'\.\d+', report_version)), \
-    "Report must match the presented version or be its report-only patch revision"
+# The presented deck stays archived; the final report has no visible release ID.
+assert '**版本**' not in report_source
+assert not re.search(r'^v\d+(?:\.\d+)+修订：',report_source,re.M)
+assert re.search(r'\*\*日期\*\*：[0-9-]+',report_source)
 with zipfile.ZipFile(ROOT/required[7]) as z:
     slides=[p for p in z.namelist() if re.fullmatch(r"ppt/slides/slide\d+\.xml",p)]
     assert len(slides)==len(deck['slides'])
