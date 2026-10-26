@@ -4,6 +4,7 @@ import csv
 import json
 import os
 import re
+import struct
 import zipfile
 import xml.etree.ElementTree as ET
 
@@ -97,7 +98,6 @@ timeline_text={item['text'] for item in deck['slides'][6]['items'] if item['type
 for row in timeline['rows']:
     assert row['phase'] in timeline_text
     assert all(cell['period'] in timeline_text and cell['work'] in timeline_text for cell in row['cells'])
-print('Package checks passed: current artifacts, links, 12 presentation slides with collaboration and speech, WBS allocations and preliminary schedule.')
 
 assert 'cash_budget_cny' not in json.loads((ROOT/'team/core-schedule.json').read_text())
 for text in [report_source, json.dumps(deck,ensure_ascii=False)]:
@@ -109,8 +109,6 @@ with zipfile.ZipFile(ROOT/image_deck) as z:
     ns={'p':'http://schemas.openxmlformats.org/presentationml/2006/main',
         'a':'http://schemas.openxmlformats.org/drawingml/2006/main',
         'r':'http://schemas.openxmlformats.org/officeDocument/2006/relationships'}
-    from PIL import Image
-    from io import BytesIO
     from posixpath import normpath,join,dirname
     for i,s in enumerate(deck['slides'],1):
         part=f'ppt/slides/slide{i}.xml';node=ET.fromstring(z.read(part))
@@ -121,7 +119,11 @@ with zipfile.ZipFile(ROOT/image_deck) as z:
         rel=ET.fromstring(z.read(f'ppt/slides/_rels/slide{i}.xml.rels'))
         target=next(x.get('Target') for x in rel if x.get('Id')==rid)
         image_part=normpath(join(dirname(part),target)).lstrip('/')
-        with Image.open(BytesIO(z.read(image_part))) as im:assert im.size==(2560,1440)
+        # PNG stores dimensions in its fixed IHDR header. Inspect metadata only;
+        # decoding/rendering remains part of the material-generation workflow.
+        png = z.read(image_part)
+        assert len(png) >= 24 and png[:16] == b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR', 'Expected PNG with IHDR'
+        assert struct.unpack('>II', png[16:24]) == (2560, 1440), 'Unexpected slide image dimensions'
         notes=ET.fromstring(z.read(f'ppt/notesSlides/notesSlide{i}.xml'))
         assert s['speech'] in ''.join(notes.itertext())
 print('Image display deck: 12 single-image slides, 2560x1440, matching speech notes.')
@@ -144,3 +146,5 @@ assert '参考报告检索工具' in product_text
 assert '效果待验证' in product_text
 assert '对照有无工具' in report_source
 assert (ROOT/'docs/参考报告检索工具设计.md').is_file()
+
+print('All package checks passed: artifacts, links, WBS/schedule, 12 slides, PNG dimensions and speech notes; standard-library only.')
