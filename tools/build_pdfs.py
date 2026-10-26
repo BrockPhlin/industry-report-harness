@@ -321,7 +321,7 @@ def build_figures():
     """Technical report figures reuse slide source; no separate copied numbers."""
     import pypdfium2 as pdfium
     deck=json.loads((PROPOSAL/'ppt/slides.json').read_text())
-    figures=[('pv-example',(60,155,1150,450)),('harness-plan',(60,170,1150,440)),('semester-timeline',(60,170,1150,450)),('core-schedule',(60,195,1150,410))]
+    figures=[('pv-example',(60,155,1150,450)),('harness-plan',(60,170,1150,440)),('semester-timeline',(60,170,1150,450))]
     folder=ROOT/'assets/opening'
     for name,(x,y,w,h) in figures:
         slide=next(row for row in deck['slides'] if row.get('id')==name)

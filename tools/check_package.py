@@ -130,3 +130,12 @@ product_text=json.dumps(deck,ensure_ascii=False)
 for requirement in ['政府智库','产业规划','行业研究','产业分析报告','景气报告','对标报告','招商报告','出海研判报告','公文风格润色','版本管理']:
     assert requirement in product_text, f'Missing original topic requirement: {requirement}'
 assert '首轮跑通' in product_text and '分步扩展' in product_text
+
+assert deck['slides'][9]['id']=='output-references'
+reference_manifest=json.loads((ROOT/'materials/references/output-report-targets.json').read_text())
+assert {s['id'] for s in reference_manifest['sources']}=={'R4','R5'}
+for source in reference_manifest['sources']:
+    assert (ROOT/source['preview_path']).is_file()
+assert '每周一下午' in product_text and '课后' in product_text
+assert '内容模板' in product_text and '版式模板' in product_text and 'Markdown' in product_text
+assert '周一晚上' not in product_text
