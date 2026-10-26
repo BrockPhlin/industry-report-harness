@@ -32,7 +32,7 @@ await finalizePresentation({workspaceDir:root,candidatePath:candidate,finalPath:
  integrityValidatorPath:path.join(skill,'container_tools/inspect_presentation_package_integrity.py'),
  layoutValidatorPath:path.join(skill,'container_tools/inspect_presentation_layout_geometry.py'),
  layoutArgs:['--expected-slide-size-emu','12192000,6858000'],explicitTotalSlideCount:spec.slides.length,
- requiredNativeTableOwnerSlides:[],requiredNativeChartOwnerSlides:[],verifyArtifactToolImport:true,receiptPath:path.join(build,'validation.json')});
+ requiredNativeTableOwnerSlides:[],requiredNativeChartOwnerSlides:[],verifyArtifactToolImport:true,receiptPath:path.join(build,`validation-${Date.now()}.json`)});
 const final=path.join(root,`presentations/01-opening/ppt/第11组_开题展示_${spec.version}_纯图片版.pptx`);
 await fs.copyFile(checked,final+'.tmp');await fs.rename(final+'.tmp',final);
 console.log(final);

@@ -30,7 +30,7 @@ assert (ROOT/image_deck).is_file(), 'Missing image-only display deck'
 expected_outputs={Path(item) for item in required if Path(item).suffix in {'.pdf','.pptx'}}
 actual_outputs={p.relative_to(ROOT) for folder in ['report','ppt','speech']
                 for p in (ROOT/'presentations/01-opening'/folder).iterdir()
-                if p.suffix in {'.pdf','.pptx'}}
+                if p.suffix in {'.pdf','.pptx'} and not p.name.startswith(('~$', '.~'))}
 assert actual_outputs==expected_outputs, 'Keep only the current generated report/deck outputs'
 for stage in ["02-midterm", "03-final"]:
     for kind in ["report", "ppt"]:
@@ -125,3 +125,8 @@ with zipfile.ZipFile(ROOT/image_deck) as z:
         notes=ET.fromstring(z.read(f'ppt/notesSlides/notesSlide{i}.xml'))
         assert s['speech'] in ''.join(notes.itertext())
 print('Image display deck: 12 single-image slides, 2560x1440, matching speech notes.')
+
+product_text=json.dumps(deck,ensure_ascii=False)
+for requirement in ['政府智库','产业规划','行业研究','产业分析报告','景气报告','对标报告','招商报告','出海研判报告','公文风格润色','版本管理']:
+    assert requirement in product_text, f'Missing original topic requirement: {requirement}'
+assert '首轮跑通' in product_text and '分步扩展' in product_text
