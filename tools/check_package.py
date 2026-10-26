@@ -24,6 +24,9 @@ required = [
 ]
 for item in required:
     assert (ROOT/item).is_file(), f"Missing {item}"
+image_deck=f"presentations/01-opening/ppt/第11组_开题展示_{deck['version']}_纯图片版.pptx"
+required.append(image_deck)
+assert (ROOT/image_deck).is_file(), 'Missing image-only display deck'
 expected_outputs={Path(item) for item in required if Path(item).suffix in {'.pdf','.pptx'}}
 actual_outputs={p.relative_to(ROOT) for folder in ['report','ppt','speech']
                 for p in (ROOT/'presentations/01-opening'/folder).iterdir()
@@ -101,3 +104,24 @@ for text in [report_source, json.dumps(deck,ensure_ascii=False)]:
     assert not any(amount in text for amount in ['160元','40元','200元']), 'Unsupported cash estimate remains'
 assert '逐步形成自己的创新' in json.dumps(deck,ensure_ascii=False)
 assert '目录' in report_source and '逐步形成自己的创新' in report_source
+# Display-only export: exactly one full-slide raster, no editable foreground.
+with zipfile.ZipFile(ROOT/image_deck) as z:
+    ns={'p':'http://schemas.openxmlformats.org/presentationml/2006/main',
+        'a':'http://schemas.openxmlformats.org/drawingml/2006/main',
+        'r':'http://schemas.openxmlformats.org/officeDocument/2006/relationships'}
+    from PIL import Image
+    from io import BytesIO
+    from posixpath import normpath,join,dirname
+    for i,s in enumerate(deck['slides'],1):
+        part=f'ppt/slides/slide{i}.xml';node=ET.fromstring(z.read(part))
+        assert len(node.findall('.//p:pic',ns))==1
+        assert not node.findall('.//p:sp',ns) and not node.findall('.//p:graphicFrame',ns)
+        assert not node.findall('.//a:t',ns)
+        rid=node.find('.//a:blip',ns).get('{'+ns['r']+'}embed')
+        rel=ET.fromstring(z.read(f'ppt/slides/_rels/slide{i}.xml.rels'))
+        target=next(x.get('Target') for x in rel if x.get('Id')==rid)
+        image_part=normpath(join(dirname(part),target))
+        with Image.open(BytesIO(z.read(image_part))) as im:assert im.size==(2560,1440)
+        notes=ET.fromstring(z.read(f'ppt/notesSlides/notesSlide{i}.xml'))
+        assert s['speech'] in ''.join(notes.itertext())
+print('Image display deck: 12 single-image slides, 2560x1440, matching speech notes.')
