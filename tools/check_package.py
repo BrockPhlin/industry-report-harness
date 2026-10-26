@@ -59,7 +59,11 @@ assert len(deck["slides"]) == 12 and sum(s["seconds"] for s in deck["slides"]) =
 assert deck["formal_slides"] == len(deck['slides']) and all(s['seconds']>0 for s in deck['slides'])
 assert all(s.get('speech') and s['speech'] in s['notes'] for s in deck['slides'])
 assert all('备用' not in s['title'] for s in deck['slides'])
-assert deck["report_version"] == report_version, "Deck points to a different report version"
+# The delivered opening deck is frozen after the presentation. Report-only
+# patch revisions may follow it, while unrelated report versions still fail.
+assert (deck['report_version'] == report_version or
+        re.fullmatch(re.escape(deck['report_version']) + r'\.\d+', report_version)), \
+    "Report must match the presented version or be its report-only patch revision"
 with zipfile.ZipFile(ROOT/required[7]) as z:
     slides=[p for p in z.namelist() if re.fullmatch(r"ppt/slides/slide\d+\.xml",p)]
     assert len(slides)==len(deck['slides'])
