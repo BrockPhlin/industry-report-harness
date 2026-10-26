@@ -107,7 +107,7 @@ assert 'cash_budget_cny' not in json.loads((ROOT/'team/core-schedule.json').read
 for text in [report_source, json.dumps(deck,ensure_ascii=False)]:
     assert not any(amount in text for amount in ['160元','40元','200元']), 'Unsupported cash estimate remains'
 assert '逐步形成自己的创新' in json.dumps(deck,ensure_ascii=False)
-assert '目录' in report_source and '逐步形成自己的创新' in report_source
+assert '目录' in report_source and '参考报告检索试验' in report_source
 # Display-only export: exactly one full-slide raster, no editable foreground.
 with zipfile.ZipFile(ROOT/image_deck) as z:
     ns={'p':'http://schemas.openxmlformats.org/presentationml/2006/main',
@@ -151,12 +151,13 @@ assert '效果待验证' in product_text
 assert '对照有无工具' in report_source
 assert (ROOT/'docs/参考报告检索工具设计.md').is_file()
 
-print('All package checks passed: artifacts, links, WBS/schedule, 12 slides, PNG dimensions and speech notes; standard-library only.')
 
 report_sections=re.split(r'<!--\s*pagebreak\s*-->',report_source)
-assert len(report_sections)==12 and report_sections[1].lstrip().startswith('## 目录')
-assert len(report_sections[2:])==10
+assert len(report_sections)==11 and '\n## 目录' in report_sections[0]
+assert len(report_sections[1:])==10
 assert '人时' not in report_source and '三点估算' not in report_source
 assert all(term in report_source for term in ['DeepSeek Harness','LangGraph','Deep Agents'])
-contents_targets=re.findall(r'^\|[^\n]+\|\s*(\d+)\s*\|$',report_sections[1],re.M)
+contents_targets=re.findall(r'^\|[^\n]+\|\s*(\d+)\s*\|$',report_sections[0],re.M)
 assert list(map(int,contents_targets))==list(range(1,11))
+
+print('All package checks passed: artifacts, links, WBS/schedule, 12 slides, PNG dimensions and speech notes; standard-library only.')

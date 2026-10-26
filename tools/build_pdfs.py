@@ -174,10 +174,10 @@ def visible_character_count(source):
 def build_report():
     source = (PROPOSAL / "report/report.md").read_text(encoding="utf-8")
     sections = re.split(r"<!--\s*pagebreak\s*-->", source)
-    # Two unnumbered front-matter pages, followed by at most ten body pages.
-    if len(sections) < 3 or not sections[1].lstrip().startswith('## 目录'):
-        raise ValueError('Report requires a separate cover and contents page')
-    body_sections = sections[2:]
+    # Title and contents share one unnumbered front page.
+    if len(sections) < 2 or '\n## 目录' not in sections[0]:
+        raise ValueError('Report requires a combined title and contents page')
+    body_sections = sections[1:]
     if not 1 <= len(body_sections) <= 10:
         raise ValueError('Report body must contain 1 to 10 explicitly paginated pages')
     version = re.search(r"\*\*版本\*\*：([^\s]+)", source).group(1)
@@ -198,15 +198,15 @@ def build_report():
     pdf.setAuthor("Team 11")
     remaining = []
     for i, section in enumerate(sections, 1):
-        body_page = i-2
-        bookmark = f'report-page-{body_page}' if body_page > 0 else ('report-cover' if i == 1 else 'report-contents')
+        body_page = i-1
+        bookmark = f'report-page-{body_page}' if body_page > 0 else 'report-front'
         pdf.bookmarkPage(bookmark)
         pdf.setFillColor(colors.HexColor(MUTED)); pdf.setFont("Body", 8.5)
         pdf.drawString(margin, h-32, f"软件工程管理 / 项目计划书 / {version}")
         pdf.drawRightString(w-margin, h-32, f"第11组 · {date}")
         pdf.setStrokeColor(colors.HexColor(BLUE)); pdf.setLineWidth(.6)
         pdf.line(margin, h-43, w-margin, h-43)
-        y = h-140 if i == 1 else h-65
+        y = h-65
         blocks = list(report_blocks(section, width, cover=i == 1))
         if i == len(sections):
             note = f"正文可见非空白字符：{count}（含表格图注，不含封面、目录、参考文献；非编辑器字数）。"
@@ -231,13 +231,12 @@ def build_report():
     # Viewer labels follow printed body numbering as well as contents links.
     from pypdf import PdfReader, PdfWriter
     writer = PdfWriter(clone_from=PdfReader(io.BytesIO(buf.getvalue())))
-    writer.set_page_label(0, 0, prefix='封面')
-    writer.set_page_label(1, 1, prefix='目录')
-    writer.set_page_label(2, len(sections)-1, style='/D', start=1)
+    writer.set_page_label(0, 0, prefix='标题与目录')
+    writer.set_page_label(1, len(sections)-1, style='/D', start=1)
     final = io.BytesIO()
     writer.write(final)
     output.write_bytes(final.getvalue())
-    print(json.dumps({"report_pages": len(sections), "front_matter_pages": 2, "body_pages": len(body_sections), "visible_character_count": count,
+    print(json.dumps({"report_pages": len(sections), "front_matter_pages": 1, "body_pages": len(body_sections), "visible_character_count": count,
                       "page_remaining_pt": remaining}, ensure_ascii=False))
 
 
