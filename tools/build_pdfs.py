@@ -44,7 +44,7 @@ def inline(value):
     return re.sub(r"`([^`]+)`", r"\1", value)
 
 
-def make_table(lines, width):
+def make_table(lines, width, source_dir=PROPOSAL / "report", toc_pages=10):
     rows = [[x.strip() for x in line.strip().strip("|").split("|")] for line in lines]
     if len(rows) < 2 or any(not re.fullmatch(r":?-{3,}:?", cell) for cell in rows[1]):
         raise ValueError("Invalid Markdown table separator")
@@ -67,6 +67,8 @@ def make_table(lines, width):
         widths = [.50, .50]
     elif rows[0][0] == '章节':
         widths = [.12, .76, .12]
+    elif rows[0][0] == "框架" and ncols == 2:
+        widths = [.28, .72]
     elif rows[0][0] == "时间":
         widths = [.23, .43, .34]
     elif rows[0][0] == "项目":
@@ -81,15 +83,15 @@ def make_table(lines, width):
             picture = re.fullmatch(r"!\[([^\]]*)\]\(([^)]+)\)", value)
             if picture:
                 from reportlab.lib.utils import ImageReader
-                file = (PROPOSAL/'report'/picture.group(2)).resolve()
+                file = (source_dir / picture.group(2)).resolve()
                 iw, ih = ImageReader(str(file)).getSize()
                 scale = min((width*widths[j]-12)/iw, 220/ih)
                 cells.append(Image(str(file), width=iw*scale, height=ih*scale, hAlign='CENTER'))
                 continue
             content = inline(value)
             if rows[0][0] == '章节' and i > 0 and j == 2:
-                if not value.isdigit() or not 1 <= int(value) <= 10:
-                    raise ValueError('Contents page must target report page 1 to 10')
+                if not value.isdigit() or not 1 <= int(value) <= toc_pages:
+                    raise ValueError(f'Contents page must target report page 1 to {toc_pages}')
                 content = f'<link href="#report-page-{value}" color="{BLUE}">{value}</link>'
             cells.append(Paragraph(content, strong if i == 0 else style))
         data.append(cells)
@@ -108,7 +110,7 @@ def make_table(lines, width):
     return result
 
 
-def report_blocks(section, width, cover=False):
+def report_blocks(section, width, cover=False, source_dir=PROPOSAL / "report", toc_pages=10):
     styles = {
         "body": ParagraphStyle("body", fontName="Body", fontSize=12, leading=18.5,
                                textColor=colors.HexColor(INK), wordWrap="CJK", spaceAfter=8),
@@ -133,13 +135,13 @@ def report_blocks(section, width, cover=False):
             block = []
             while i < len(lines) and lines[i].strip().startswith("|"):
                 block.append(lines[i]); i += 1
-            yield make_table(block, width)
+            yield make_table(block, width, source_dir, toc_pages)
             yield Spacer(1, 9)
             continue
         image = re.fullmatch(r"!\[([^\]]*)\]\(([^)]+)\)(?:\{width=(\d{1,3})%\})?", line)
         if image:
             from PIL import Image as PILImage
-            file = (PROPOSAL / 'report' / image.group(2)).resolve()
+            file = (source_dir / image.group(2)).resolve()
             with PILImage.open(file) as original:
                 iw, ih = original.size
             factor = int(image.group(3) or '100') / 100
@@ -172,28 +174,34 @@ def visible_character_count(source):
 
 
 def build_report():
-    source = (PROPOSAL / "report/report.md").read_text(encoding="utf-8")
+    render_report(PROPOSAL / "report/report.md", PROPOSAL / "report/第11组_项目计划书.pdf",
+                  "项目计划书", 10, 6000, "### 9.1 可定位来源")
+
+
+def render_report(source_path, output, label, page_limit, character_limit, references_heading):
+    source = source_path.read_text(encoding="utf-8")
     sections = re.split(r"<!--\s*pagebreak\s*-->", source)
     # Title and contents share one unnumbered front page.
     if len(sections) < 2 or '\n## 目录' not in sections[0]:
         raise ValueError('Report requires a combined title and contents page')
     body_sections = sections[1:]
-    if not 1 <= len(body_sections) <= 10:
-        raise ValueError('Report body must contain 1 to 10 explicitly paginated pages')
+    if not 1 <= len(body_sections) <= page_limit:
+        raise ValueError(f'Report exceeds the {page_limit}-page limit')
     date = re.search(r"\*\*日期\*\*：([0-9-]+)", source).group(1)
     # Course limit excludes cover/contents/references; table text and captions
     # remain in this conservative counter. It is not an editor word count.
     body_source = '\n'.join(body_sections)
-    counted_source = body_source.split('### 9.1 可定位来源', 1)[0]
+    counted_source = body_source.split(references_heading, 1)[0]
     count = visible_character_count(counted_source)
-    if count > 6000:
-        raise ValueError(f"Conservative visible-character count {count} exceeds 6000")
+    if count > character_limit:
+        raise ValueError(f"Conservative visible-character count {count} exceeds {character_limit}")
     buf = io.BytesIO()
     w, h = A4
     margin = 56
     width = w - 2 * margin
     pdf = canvas.Canvas(buf, pagesize=A4, pageCompression=1)
-    pdf.setTitle("第11组产业智能报告生成系统项目计划书")
+    document_title = f"第11组产业智能报告生成系统{label}"
+    pdf.setTitle(document_title)
     pdf.setAuthor("Team 11")
     remaining = []
     for i, section in enumerate(sections, 1):
@@ -201,12 +209,13 @@ def build_report():
         bookmark = f'report-page-{body_page}' if body_page > 0 else 'report-front'
         pdf.bookmarkPage(bookmark)
         pdf.setFillColor(colors.HexColor(MUTED)); pdf.setFont("Body", 8.5)
-        pdf.drawString(margin, h-32, "软件工程管理 / 项目计划书")
+        pdf.drawString(margin, h-32, f"软件工程管理 / {label}")
         pdf.drawRightString(w-margin, h-32, f"第11组 · {date}")
         pdf.setStrokeColor(colors.HexColor(BLUE)); pdf.setLineWidth(.6)
         pdf.line(margin, h-43, w-margin, h-43)
         y = h-65
-        blocks = list(report_blocks(section, width, cover=i == 1))
+        blocks = list(report_blocks(section, width, cover=i == 1, source_dir=source_path.parent,
+                                    toc_pages=len(body_sections)))
         if i == len(sections):
             note = f"正文可见非空白字符：{count}（含表格图注，不含封面、目录、参考文献；非编辑器字数）。"
             blocks.append(Paragraph(note, ParagraphStyle("count", fontName="Body", fontSize=8.5,
@@ -221,12 +230,11 @@ def build_report():
             y -= fh + getattr(flowable, "spaceAfter", 0)
         remaining.append(round(y-51, 1))
         pdf.setFont("Body", 8.5); pdf.setFillColor(colors.HexColor(MUTED))
-        pdf.drawString(margin, 29, "第11组产业智能报告生成系统项目计划书")
+        pdf.drawString(margin, 29, document_title)
         if body_page > 0:
             pdf.drawRightString(w-margin, 29, f"{body_page} / {len(body_sections)}")
         pdf.showPage()
     pdf.save()
-    output = PROPOSAL / 'report/第11组_项目计划书.pdf'
     # Viewer labels follow printed body numbering as well as contents links.
     from pypdf import PdfReader, PdfWriter
     writer = PdfWriter(clone_from=PdfReader(io.BytesIO(buf.getvalue())))
@@ -277,11 +285,12 @@ def slide_table(pdf, item):
     t.drawOn(pdf,item["x"],720-item["y"]-item["h"])
 
 
-def build_slide_pdf():
-    deck = json.loads((PROPOSAL / "ppt/slides.json").read_text())
+def build_slide_pdf(source=PROPOSAL / "ppt/slides.json",
+                    output=PROPOSAL / "ppt/第11组_开题展示.pdf", label="开题展示"):
+    deck = json.loads(source.read_text(encoding="utf-8"))
     buf = io.BytesIO()
     pdf = canvas.Canvas(buf, pagesize=(1280,720), pageCompression=1)
-    pdf.setTitle(deck["title"]+" 开题展示 "+deck["version"])
+    pdf.setTitle(f"{deck['title']} {label} {deck['version']}")
     for idx,slide in enumerate(deck["slides"]):
         if idx == 0:
             pdf.setFillColor(colors.HexColor(PALE)); pdf.rect(65,720-330-90,1150,90,fill=1,stroke=0)
@@ -293,11 +302,11 @@ def build_slide_pdf():
             pdf.drawImage(str(ROOT/'assets/brand/char_blue.png'),1100,720-30-39,width=115,height=39,
                           preserveAspectRatio=True,mask='auto')
         draw_items(pdf, slide['items'])
-        slide_text(pdf,dict(text=f"第11组 · 开题展示 {deck['version']}",x=65,y=682,w=1040,h=25,size=17,color=MUTED))
+        slide_text(pdf,dict(text=f"第11组 · {label} {deck['version']}",x=65,y=682,w=1040,h=25,size=17,color=MUTED))
         slide_text(pdf,dict(text=f"{idx+1:02d} / {len(deck['slides']):02d}",x=1135,y=682,w=100,h=25,size=17,color=MUTED))
         pdf.showPage()
     pdf.save()
-    (PROPOSAL / 'ppt/第11组_开题展示.pdf').write_bytes(buf.getvalue())
+    output.write_bytes(buf.getvalue())
     print(f"Slide PDF: {len(deck['slides'])} pages, selectable text")
 
 

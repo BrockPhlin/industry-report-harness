@@ -24,8 +24,11 @@ for (const [filename, alias] of [['LXGWWenKai-Regular.ttf','LXGW WenKai'], ['LXG
   if (!GlobalFonts.registerFromPath(path.join(root,'assets/fonts',filename),alias)) throw new Error(`Font registration failed: ${filename}`);
 }
 
-const spec = JSON.parse(await fs.readFile(path.join(root,'presentations/01-opening/ppt/slides.json'),'utf8'));
-const build = path.join(root,'.build/slides');
+const midterm = process.argv.includes('--midterm');
+const label = midterm ? '中期展示' : '开题展示';
+const deckDir = path.join(root,'presentations',midterm ? '02-midterm' : '01-opening','ppt');
+const spec = JSON.parse(await fs.readFile(path.join(deckDir,'slides.json'),'utf8'));
+const build = path.join(root,'.build',midterm ? 'midterm/template-slides' : 'slides');
 await fs.mkdir(build,{recursive:true});
 const presentation = Presentation.create({slideSize:{width:1280,height:720}});
 const BLUE='#003F88', INK='#233042', MUTED='#60728C', PALE='#ECF3FA';
@@ -99,7 +102,7 @@ for(const [idx,specSlide] of spec.slides.entries()) {
     else if(item.type==='chart') await chart(slide,item);
     else throw new Error(`Unknown slide item ${item.type}`);
   }
-  text(slide,{text:`第11组 · 开题展示 ${spec.version}`,x:65,y:682,w:1040,h:25,size:17,color:MUTED});
+  text(slide,{text:`第11组 · ${label} ${spec.version}`,x:65,y:682,w:1040,h:25,size:17,color:MUTED});
   text(slide,{text:`${String(idx+1).padStart(2,'0')} / ${spec.slides.length}`,x:1135,y:682,w:100,h:25,size:17,color:MUTED});
   slide.speakerNotes.text=specSlide.notes;
 }
@@ -114,7 +117,7 @@ for(const [idx,slide] of presentation.slides.items.entries()) {
 }
 
 
-const final=path.join(root,`presentations/01-opening/ppt/第11组_开题展示_${spec.version}.pptx`);
+const final=path.join(deckDir,`第11组_${label}_${spec.version}.pptx`);
 // The finalizer never overwrites a published output. Rebuild to a fresh private
 // final and only then replace the repository draft atomically.
 const checkedDir=path.join(root,'.build/validated');

@@ -55,19 +55,20 @@ def section_graph(model, sources, facts):
                 any(not isinstance(key, str) or key not in state["hits"] for key in selection) or
                 set(selection) != state["hits"].keys()):
             raise AppError("模型返回的证据编号与本章检索结果不一致", 502, "invalid_selection")
-        if (not isinstance(observation, str) or len(observation) > 100 or
-                any(ch.isnumeric() or ch in "[]\n\r<>" for ch in observation) or
-                "://" in observation):
-            raise AppError("模型观察超出本章格式约束", 502, "invalid_observation")
+        allowed_observation = (isinstance(observation, str) and len(observation) <= 100
+                               and not any(ch.isnumeric() or ch in "[]\n\r<>" for ch in observation)
+                               and "://" not in observation)
         event = {
             "stage": "draft",
             "section": state["section"]["title"],
             "selected": list(dict.fromkeys(selection)),
             "missing": missing(state),
         }
+        if not allowed_observation:
+            event["observation_status"] = "omitted_invalid"
         return {
             "selected": event["selected"],
-            "observation": observation.strip(),
+            "observation": observation.strip() if allowed_observation else "",
             "events": [*state["events"], event],
         }
 

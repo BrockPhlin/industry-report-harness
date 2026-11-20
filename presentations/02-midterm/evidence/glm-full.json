@@ -1,0 +1,64 @@
+{
+  "mode": "live",
+  "framework": "LangGraph StateGraph",
+  "sources": [
+    "MIIT",
+    "NEA"
+  ],
+  "events": [
+    {
+      "stage": "initial",
+      "tool": "search_evidence",
+      "section": "制造与价格",
+      "requested": [
+        "pv-module-output",
+        "pv-module-price"
+      ],
+      "returned": [
+        {
+          "fact": "pv-module-output",
+          "source": "MIIT",
+          "locator": "以“组件环节”及“全年主要光伏产品”开头的两段"
+        },
+        {
+          "fact": "pv-module-price",
+          "source": "MIIT",
+          "locator": "以“组件环节”及“全年主要光伏产品”开头的两段"
+        }
+      ]
+    },
+    {
+      "stage": "draft",
+      "section": "制造与价格",
+      "selected": [
+        "pv-module-output",
+        "pv-module-price"
+      ],
+      "missing": []
+    },
+    {
+      "stage": "initial",
+      "tool": "search_evidence",
+      "section": "发电新增装机",
+      "requested": [
+        "pv-new-capacity"
+      ],
+      "returned": [
+        {
+          "fact": "pv-new-capacity",
+          "source": "NEA",
+          "locator": "（三）光伏发电建设和运行情况"
+        }
+      ]
+    },
+    {
+      "stage": "draft",
+      "section": "发电新增装机",
+      "selected": [
+        "pv-new-capacity"
+      ],
+      "missing": []
+    }
+  ],
+  "missing": []
+}

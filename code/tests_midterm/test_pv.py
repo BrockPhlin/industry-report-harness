@@ -40,7 +40,7 @@ class GraphTests(unittest.TestCase):
         self.assertEqual(result["pv-new-capacity"]["origin"]["published_at"], "2025-01-27")
         self.assertIn("光伏发电建设", result["pv-new-capacity"]["origin"]["locator"])
 
-    def test_fabricated_fact_or_numeric_observation_is_rejected(self):
+    def test_fabricated_fact_is_rejected_and_numeric_observation_is_omitted(self):
         class WrongWriter(FixtureWriter):
             def write(self, section, hits):
                 return ["fake-id"], ""
@@ -49,11 +49,13 @@ class GraphTests(unittest.TestCase):
             def write(self, section, hits):
                 return list(hits), "增加了１２万"
 
-        for writer, code in [(WrongWriter(), "invalid_selection"),
-                             (NumberWriter(), "invalid_observation")]:
-            with self.subTest(code=code), self.assertRaises(AppError) as found:
-                generate_brief(*load_inputs(), writer, "fixture")
-            self.assertEqual(found.exception.code, code)
+        with self.assertRaises(AppError) as found:
+            generate_brief(*load_inputs(), WrongWriter(), "fixture")
+        self.assertEqual(found.exception.code, "invalid_selection")
+        markdown, trace = generate_brief(*load_inputs(), NumberWriter(), "fixture")
+        self.assertNotIn("１２万", markdown)
+        self.assertTrue(all(event["observation_status"] == "omitted_invalid"
+                            for event in trace["events"] if event["stage"] == "draft"))
 
     def test_chat_tool_transcript_receives_results_and_supplement(self):
         def mock(request, timeout):
