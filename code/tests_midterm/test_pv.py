@@ -60,26 +60,39 @@ class GraphTests(unittest.TestCase):
             body = json.loads(request.data)
             messages = body["messages"]
             if "tools" in body:
+                self.assertEqual(body["tool_choice"], "auto")
                 keys = json.loads(messages[1]["content"])["required"]
                 message = {"content": None, "tool_calls": [{
                     "id": "lookup", "type": "function", "function": {
-                        "name": "search_evidence", "arguments": json.dumps({"keys": [next(iter(keys))]})},
+                        "name": "search_evidence", "arguments": encode_arguments({"keys": [next(iter(keys))]})},
                 }]}
                 choice = {"finish_reason": "tool_calls", "message": message}
             else:
                 tool_result = messages[-2]
                 self.assertEqual(tool_result["tool_call_id"], "lookup")
-                evidence = json.loads(tool_result["content"])
-                self.assertEqual(set(evidence), set(json.loads(messages[1]["content"])["required"]))
+                self.assertEqual(body["response_format"], {"type": "json_object"})
+                initial = json.loads(tool_result["content"])
+                supplement = json.loads(messages[-1]["content"].split("\n补查命中：", 1)[1])
+                outbound = messages[-3]["tool_calls"][0]["function"]["arguments"]
+                requested, = json.loads(outbound)["keys"]
+                self.assertEqual(set(initial), {requested} & facts.keys())
+                evidence = {**initial, **supplement}
+                self.assertEqual(set(evidence), facts.keys() & json.loads(messages[1]["content"])["required"].keys())
+                self.assertFalse(initial.keys() & supplement.keys())
                 self.assertTrue(all("locator" in row["origin"] for row in evidence.values()))
                 choice = {"finish_reason": "stop", "message": {
                     "content": json.dumps({"selected": list(evidence), "observation": ""})}}
             return BytesIO(json.dumps({"choices": [choice]}).encode())
 
-        model = ChatWriter({"MODEL_ENDPOINT": "https://test.invalid/v1/chat/completions",
-                            "MODEL_NAME": "api-fixture", "MODEL_API_KEY": "test-only"}, opener=mock)
-        _, trace = generate_brief(*load_inputs(), model, "live")
-        self.assertEqual(trace["missing"], [])
+        config = {"MODEL_ENDPOINT": "https://test.invalid/v1/chat/completions",
+                  "MODEL_NAME": "api-fixture", "MODEL_API_KEY": "test-only"}
+        for encode_arguments in (dict, json.dumps):
+            for omit, expected_missing in [([], []), (["NEA"], ["pv-new-capacity"])]:
+                with self.subTest(arguments=encode_arguments.__name__, omit=omit):
+                    template, sources, facts = load_inputs(omit)
+                    model = ChatWriter(config, opener=mock)
+                    _, trace = generate_brief(template, sources, facts, model, "live")
+                    self.assertEqual(trace["missing"], expected_missing)
 
 
 class CLITests(unittest.TestCase):

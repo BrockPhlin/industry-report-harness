@@ -39,6 +39,8 @@ mkdir -p .build/pv-demo
 
 真实模型运行使用 `--mode live`。从 `code/.env.example` 配置完整 Chat Completions 地址、模型名和私有凭据。需要验证模型是否支持函数调用及 JSON 草稿输出。配置为空时程序报错，并且不会创建任务文件。
 
+适配测试覆盖工具参数为 JSON 字符串、直接为对象两种响应形式，回传时把原工具结果和流程主动补查的证据分开。另用 CLI 经本机 HTTP 模拟服务重跑两种输入，完整资料有 0 项待核实，缺装机资料有 1 项待核实。具体参数以部署服务为准。 [Z.AI Chat Completion 接口](https://docs.z.ai/api-reference/llm/chat-completion) · [智谱工具调用指南](https://docs.bigmodel.cn/cn/guide/capabilities/function-calling)
+
 框架对照可独立复现，使用 Node.js 22.19+ 和本机回环端口：
 
 ```sh
