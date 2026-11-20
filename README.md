@@ -9,8 +9,8 @@ presentations/
   01-opening/report/          本次报告Markdown源码与PDF
   01-opening/ppt/             本次幻灯片JSON源码、可编辑PPTX、PDF
   01-opening/speech/          逐页演讲稿Markdown与可打印PDF
-  02-midterm/report/          中期报告预留，仅.gitkeep
-  02-midterm/ppt/             中期PPT预留，仅.gitkeep
+  02-midterm/report/          中期系统设计报告与源码
+  02-midterm/ppt/             中期PPT、PDF与讲稿
   03-final/report/            终期报告预留，仅.gitkeep
   03-final/ppt/               终期PPT预留，仅.gitkeep
 materials/course-slides/      老师课件定位与使用边界
@@ -34,6 +34,8 @@ python3 code/run.py
 另有[公开统计人工整理样例](code/examples/public-sources.json)：光伏两份、新能源汽车一份，含发布机构、日期和原始链接。它是历史事实的简短转述，非网页全文；可将其中的`title`、`publisher`、`published_at`、`url`、`body`逐份录入页面。先用两份光伏资料试生成，核对588GW对应组件产量、2.78亿千瓦对应新增装机。来源、操作与检查边界见[T5代码交接记录](docs/T5代码交接与核验.md)。
 
 可选模型模式：把code/.env.example复制为code/.env，填写完整MODEL_ENDPOINT、MODEL_NAME和MODEL_API_KEY，再启动。使用Chat Completions兼容格式，模型由团队自行选择。未配置时明确报错，不静默切换成摘录。只有选择模型模式才发送资料到所配置服务。真实模型未做联调验证。
+
+中期实现聚焦2024年光伏产业简报。按章节检索证据，缺项时补查，人工确认后从 Markdown 生成 PDF。运行步骤、同源摘录对照、DeepSeek Harness 与 Pi CLI 验证，以及设计报告和展示文件，见[中期材料](presentations/02-midterm/README.md)。
 
 ```bash
 cd code
@@ -60,6 +62,6 @@ python3 -m unittest discover -s tests -v
 
 共同维护方式：成员在各自分支按任务修改，PR交叉检查后由组长确认合并，再同步最新版本；协作截图和具体步骤见开题展示第9页、计划书§5.1与docs/上传说明.md。
 
-目标输出方案：Markdown维护报告内容，内容模板与PDF版式模板分开；同一确认稿导出研究版或简报版PDF。[外部成品参考](materials/references/output-report-targets.md)用于说明目标。每周一下午软工管课后简单讨论进展与下周任务。上述PDF流程仍待业务实现。
+中期从确认后的 Markdown 导出一套光伏简报 PDF，内容模板与 PDF 版式分开。研究版、多版式及其他报告类型留作后续候选。[外部成品参考](materials/references/output-report-targets.md)用于说明目标。每周一下午软工管课后简单讨论进展与下周任务。
 
 计划改进：[参考报告检索工具](docs/参考报告检索工具设计.md)，让模型写前查结构和写法，事实仍由当前资料支撑，效果以有无工具的对照验证。

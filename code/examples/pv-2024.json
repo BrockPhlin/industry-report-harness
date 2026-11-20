@@ -1,0 +1,25 @@
+{
+  "sources": [
+    {
+      "id": "MIIT",
+      "title": "2024年全国光伏制造行业运行情况",
+      "publisher": "工业和信息化部电子信息司",
+      "published_at": "2025-02-27",
+      "url": "https://wap.miit.gov.cn/gyhxxhb/jgsj/dzxxsnew/xyyx/art/2025/art_1717bf6fa0a34311a2c347fb9623e607.html",
+      "locator": "以“组件环节”及“全年主要光伏产品”开头的两段"
+    },
+    {
+      "id": "NEA",
+      "title": "2024年可再生能源并网运行情况",
+      "publisher": "国家能源局",
+      "published_at": "2025-01-27",
+      "url": "https://www.nea.gov.cn/20250221/e10f363cabe3458aaf78ba4558970054/c.html",
+      "locator": "（三）光伏发电建设和运行情况"
+    }
+  ],
+  "facts": [
+    {"id":"pv-module-output", "source":"MIIT", "metric":"全国光伏组件产量", "period":"2024年1—12月", "value":"588", "unit":"GW"},
+    {"id":"pv-module-price", "source":"MIIT", "metric":"全国光伏组件价格同比变化", "period":"2024年1—12月", "value":"−29.7", "unit":"%"},
+    {"id":"pv-new-capacity", "source":"NEA", "metric":"全国光伏发电新增装机", "period":"2024年", "value":"2.78", "unit":"亿千瓦"}
+  ]
+}

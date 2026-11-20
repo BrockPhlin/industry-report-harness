@@ -1,0 +1,39 @@
+{
+  "pi_version": "1.6.0",
+  "provider": "loopback fixture",
+  "cli_mode": "json",
+  "tool": "search_evidence",
+  "request_count": 2,
+  "tool_result_reentered": true,
+  "events": [
+    "session",
+    "agent_start",
+    "turn_start",
+    "message_start",
+    "message_end",
+    "message_start",
+    "message_end",
+    "message_start",
+    "message_update",
+    "message_update",
+    "message_update",
+    "message_end",
+    "tool_execution_start",
+    "tool_execution_end",
+    "message_start",
+    "message_end",
+    "turn_end",
+    "turn_start",
+    "message_start",
+    "message_update",
+    "message_update",
+    "message_update",
+    "message_end",
+    "turn_end",
+    "agent_end",
+    "agent_settled"
+  ],
+  "tool_results": [
+    "{\n  \"pv-new-capacity\": {\n    \"id\": \"pv-new-capacity\",\n    \"source\": \"NEA\",\n    \"metric\": \"全国光伏发电新增装机\",\n    \"period\": \"2024年\",\n    \"value\": \"2.78\",\n    \"unit\": \"亿千瓦\",\n    \"origin\": {\n      \"id\": \"NEA\",\n      \"title\": \"2024年可再生能源并网运行情况\",\n      \"publisher\": \"国家能源局\",\n      \"published_at\": \"2025-01-27\",\n      \"url\": \"https://www.nea.gov.cn/20250221/e10f363cabe3458aaf78ba4558970054/c.html\",\n      \"locator\": \"（三）光伏发电建设和运行情况\"\n    }\n  }\n}\n"
+  ]
+}
