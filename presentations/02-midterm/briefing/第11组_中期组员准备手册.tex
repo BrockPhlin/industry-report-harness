@@ -1,0 +1,229 @@
+% 从仓库根目录构建：
+% mkdir -p .build/midterm/briefing-tex
+% xelatex -halt-on-error -interaction=nonstopmode -output-directory=.build/midterm/briefing-tex presentations/02-midterm/briefing/第11组_中期组员准备手册.tex
+\documentclass[UTF8,11pt,fontset=fandol]{ctexart}
+\usepackage[a4paper,margin=23mm,headheight=23pt,headsep=9mm,footskip=12mm]{geometry}
+\usepackage{array,booktabs,tabularx}
+\usepackage[table]{xcolor}
+\usepackage{enumitem,fancyhdr,tikz}
+\usetikzlibrary{arrows.meta,positioning}
+\usepackage{hyperref}
+\definecolor{zblue}{HTML}{003F88}
+\definecolor{pale}{HTML}{EDF3FA}
+\definecolor{ink}{HTML}{233042}
+\definecolor{muted}{HTML}{52647C}
+\definecolor{ruleblue}{HTML}{B9CCE3}
+\hypersetup{colorlinks=true,linkcolor=zblue,urlcolor=zblue,pdftitle={第11组中期组员准备手册},pdfauthor={第11组}}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small\color{zblue}软件工程管理 \quad 第11组}
+\rhead{\small\color{muted}中期汇报组内准备}
+\rfoot{\small\color{muted}\thepage}
+\renewcommand{\headrulewidth}{0.55pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{ruleblue}\leaders\hrule height \headrulewidth\hfill}}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+\setlength{\tabcolsep}{7pt}
+\renewcommand{\arraystretch}{1.22}
+\setlist[itemize]{leftmargin=1.7em,topsep=3pt,itemsep=4pt}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcommand{\ptitle}[1]{\vspace*{3pt}{\color{zblue}\LARGE\bfseries #1}\par\vspace{8pt}}
+\newcommand{\subtopic}[1]{\par\vspace{5pt}{\color{zblue}\large\bfseries #1}\par\vspace{1pt}}
+\newcommand{\captionline}[1]{{\small\color{muted}#1}\par}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\lead}[1]{\noindent\colorbox{pale}{\parbox{\dimexpr\linewidth-2\fboxsep\relax}{\vspace{4pt}\raggedright #1\vspace{4pt}}}\par}
+\begin{document}
+\color{ink}
+\ptitle{中期组员准备手册}
+{\large 第11组 \quad 产业智能报告生成系统}\par
+\captionline{组长及主讲人程文博 \quad 2026年11月21日 \quad 组内准备使用}
+
+\lead{\textbf{我们现在做的是一份可以查回原文的光伏简报。} 研究员给出公开资料，系统按章查指标，缺资料时标为待核实，最后由人核对并导出 PDF。中期范围是2024年中国光伏产业，“制造与价格”和“发电新增装机”两章。}
+
+\subtopic{老师的三条意见与我们的回应}
+\begin{tabularx}{\linewidth}{@{}L{4.1cm}Y@{}}
+\rowcolor{pale}\textbf{老师强调的事} & \textbf{本组怎么做} \\
+参考主流框架 & 读 DeepSeek Harness、Pi CLI 的运行和扩展方式，用同一个只读工具验证工具结果如何回到模型。chat-demo 用来参考文件输入和草稿呈现。 \\
+收窄报告主题 & 先用工信部和国家能源局两份公开资料做光伏简报。只比较两种输入，便于查清缺项处理是否有效。 \\
+按智能体流程分工 & 围绕同一份报告交接。有人定每章查什么，有人交可查的资料，有人接模型和工具，有人核对并导出，有人独立复跑。我负责协调、验收和主讲。 \\
+\bottomrule
+\end{tabularx}
+
+\subtopic{11月20日至21日实际完成的工作}
+\begin{itemize}
+\item 将开题时的资料摘录推进到完整的光伏流程。JSON 模板指定指标，Python 和 LangGraph 调用资料工具，生成可审阅的 Markdown，再用 Typst 导出 PDF。
+\item 用真实 GLM 做完整资料和缺装机资料的对照。两份都导出了 PDF。完整资料有3项指标可回查，少一份资料时保留1项待核实。
+\item 完成 DeepSeek Harness 与 Pi CLI 的独立工具回传试验。完成一次真实 GLM 的主动中断与按章恢复验证。封版时通过27项自动测试。
+\item 封版后又验证了资料冲突、客户端超时和风电复用。最新版通过30项自动测试。风电提供同一流程的复用证据，中期范围仍是光伏。
+\end{itemize}
+
+\subtopic{每个人先做同一件事}
+先读完整与缺装机资料的两份样张，确认自己能指出数据、来源和缺项。再按本手册最后两页准备自己的交付，交接时附上一条能打开的原文、文件或运行记录。
+
+
+\newpage
+
+\ptitle{框架源码里看到了什么}
+\lead{两个框架的探针都用 \code{search\_evidence} 查光伏新增装机。我们核对模型发出什么请求、Python 工具返回哪些字段，以及第二次模型请求是否带上证据。}
+
+\subtopic{DeepSeek Harness \quad dsh 0.2.2-rc.5}
+
+\textbf{从启动入口看。} \code{src/args.ts} 处理启动选项，\code{src/bin.ts} 加载所选运行器。它用 Cordis 插件组合模型、工具和会话记录。我们选用 \code{sdk-minimal}，由探针通过标准输入输出发送 JSON-RPC 请求，并经 MCP 客户端接入 Python 资料工具。
+
+\textbf{从一次工具调用看。} 本地模拟服务先返回一个工具请求。运行时用 MCP 找到并调用只读工具，再把包含数值、单位、来源和位置的 \code{tool\_result} 带进第二次模型请求。官方文档把可回放的 \code{session/event} 和运行时状态 \code{agent/*} 分开。我们自己的实现借鉴了两条思路：把资料工具独立出来，把查找与补查记录存到 \code{trace.json}。本地探针对应 E4。
+
+\captionline{\href{https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/architecture.md}{官方架构文档} \quad
+\href{https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/sdk}{SDK 源码目录} \quad
+\href{https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/mcp/mcp-client}{MCP 客户端源码}}
+
+\subtopic{Pi Agent Harness \quad Pi CLI 1.6.0}
+
+\textbf{从 CLI 到会话。} 发行包的 \code{dist/cli.js} 把参数交给 \code{main.js}。SDK 的 \code{createAgentSession()} 创建会话，管理模型、工具和上下文。扩展通过 \code{pi.registerTool()} 注册只读资料工具。这个工具调用 Python 命令查询光伏样例。
+
+\textbf{从输出看工具是否跑完。} \code{--mode json} 进入非交互运行路径，订阅会话事件并逐行写到标准输出。E5 记录了 \code{tool\_execution\_start}、\code{tool\_execution\_end} 与 \code{agent\_settled}；模拟端点收到两次请求，第二次带回证据。我们把这个做法用在 \code{inspect --json} 上。测试同学可以回查每章查了什么、补查了什么、采用了哪些证据。
+
+\captionline{\href{https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/sdk.md}{Pi SDK 与会话文档} \quad
+\href{https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md}{工具扩展文档} \quad
+\href{https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/json.md}{JSON 事件文档}}
+
+\subtopic{chat-demo 的参考价值}
+
+它是由浏览器直接调用 API 的静态示例，可参考其中的附件交互和 Markdown 展示。后续做界面时可参考输入附件到显示草稿的过程。中期已经跑通的简报入口是 Python CLI。
+\captionline{\href{https://github.com/deepseek-ai/chat-demo}{DeepSeek chat-demo 官方仓库}}
+
+\lead{\textbf{目前代码的分工。} 中期主流程由 LangGraph 编排，真实模型是 GLM-5.3-Flash。DeepSeek Harness 和 Pi 各自做过一次工具回传验证，模型响应用的是本机模拟服务。}
+
+
+
+\newpage
+
+\ptitle{系统初步设计与目前的架构}
+\lead{模板先规定每章必查的指标。程序查资料、标缺项，研究员核对后再确认导出。光伏简报通过 Python CLI 操作。}
+
+\vspace{4pt}
+\begin{center}
+\begin{tikzpicture}[
+box/.style={draw=ruleblue,fill=pale,rounded corners=2pt,align=center,text width=3.18cm,minimum height=1.55cm,font=\small},
+go/.style={-{Latex[length=3mm]},thick,draw=zblue},
+node distance=7.6mm]
+\node[box] (input) {\textbf{章节模板、资料}\\JSON 与原文位置};
+\node[box,right=of input] (agent) {\textbf{LangGraph 与 GLM}\\按章检索、补查、写作};
+\node[box,right=of agent] (review) {\textbf{Markdown 草稿}\\人工核对来源与缺项};
+\node[box,right=of review] (pdf) {\textbf{确认并导出}\\Typst 生成 PDF};
+\draw[go] (input) -- (agent);
+\draw[go] (agent) -- (review);
+\draw[go] (review) -- (pdf);
+\end{tikzpicture}
+\end{center}
+\captionline{运行记录随任务保存。每写完一章另存检查点，重启时沿用相同输入，从未完成的一章继续。}
+
+\subtopic{拿“发电新增装机”走一遍}
+
+\begin{enumerate}[leftmargin=1.8em,itemsep=3pt,topsep=2pt]
+\item \code{pv\_brief.py run} 读取章节模板和人工摘编的公开统计。模板事先写明“发电新增装机”是必查项。
+\item \code{pv\_agent.py} 组织步骤。\code{pv\_model.py} 让 GLM 提出查询，\code{pv\_evidence.py} 的只读工具按指标编号返回数值、单位、统计期和原文位置。没查到的指标在同一批资料里补查一次。
+\item 程序从证据记录写入数值，从模板写入口径说明。模型可以写辅助观察，格式不合格时系统省略该段。缺项标“待核实”。每写完一章保存章节结果，全篇生成后写出 Markdown 和运行记录。
+\item 研究员先核对草稿和原文，可用 \code{inspect} 查运行记录。执行确认命令时，程序检查受保护的指标、引用和缺项标记，再交给 Typst 生成 PDF。
+\end{enumerate}
+
+\subtopic{决定取舍的两个例子}
+
+\begin{itemize}
+\item 工信部公布的 \textbf{588 GW} 是组件产量，\textbf{29.7\%} 是组件价格同比下降幅度。国家能源局公布的 \textbf{2.78亿千瓦} 是发电新增装机。所以模板要为每项数据写清统计口径。
+\item 中期先固定一套 Typst 版式，用它导出核对过的 Markdown。McKinsey 报告的目录与方法说明、Stanford HAI《AI Index》的图题与来源标注，可供后续设计图表和版式时参考。
+\end{itemize}
+\captionline{\href{https://wap.miit.gov.cn/gyhxxhb/jgsj/dzxxsnew/xyyx/art/2025/art_1717bf6fa0a34311a2c347fb9623e607.html}{工信部原文} \quad
+\href{https://www.nea.gov.cn/20250221/e10f363cabe3458aaf78ba4558970054/c.html}{国家能源局原文} \quad 组内对照见仓库《成品参考报告与使用边界》。}
+
+
+
+\newpage
+
+\ptitle{我们的设计改动及其动机}
+\lead{先看写报告的人会在哪里出错，再用一个能复现的例子验证改动。}
+
+\begin{tabularx}{\linewidth}{@{}L{3.48cm}Y@{}}
+\rowcolor{pale}\textbf{设计与状态} & \textbf{为什么做，已有怎样的证据} \\
+\textbf{证据与写作分开}\newline \textcolor{muted}{中期已经实现} & 组件产量和发电新增装机即使换算成同一种单位，仍是不同口径。模板明确要查哪项，工具返回数值、单位、时期和原文位置，程序把这些字段写进报告。模型整理辅助观察，研究员确认草稿。E7 可回查三项证据。 \\
+\textbf{缺项写进报告}\newline \textcolor{muted}{中期已经实现} & 报告看起来写满了，读者容易以为资料都齐。把“待核实”和有出处的数据一起留在最终件。只去掉国家能源局资料时，装机变为待核实，制造数据保留。E7。 \\
+\textbf{章节完成即保存}\newline \textcolor{muted}{中期已经实现} & 长报告中断后，从头生成会重复调用模型。任务保存已完成章，输入一致才能继续。E8 主动停进程后跳过第一章。封版后又用本机延迟和人为缩短客户端等待验证超时处理。E10、E11。 \\
+\textbf{同一指标的分歧可回查}\newline \textcolor{muted}{封版后补验} & 输入里可能有数值或口径说法不同的记录。程序保留候选值和各自原文位置，留给研究人员判断。E9 用一条合成资料验证这项行为。 \\
+\bottomrule
+\end{tabularx}
+
+\subtopic{下一项尝试是参考报告检索工具}
+
+研究员常会先看同行报告怎样安排章节、写图题和标来源。我们想让模型按当前章节调用一个只读工具，返回参考报告名称、页码和很短的结构提示。比如参考 McKinsey 的章节和方法说明、Stanford HAI《AI Index》的图题和来源组织。正文里的事实仍从本次的证据资料提取。
+
+这个工具还没有接入。验证时固定资料、模板和模型，对同一章分别开启和关闭工具，记录实际调用。比较必查内容是否齐全、需要改哪些结构、是否引入新事实错误。已有结果包括 E1 至 E12，参考检索的效果还要等这组对照。
+
+\subtopic{需要回答的两个问题}
+\begin{itemize}
+\item \textbf{为什么选 LangGraph？} 初查、条件补查和成稿在单章状态图中可单独测试。按章恢复由本项目的检查点模块处理，人工确认走 CLI。
+\item \textbf{能不能推广到别的行业？} 风电同样走通了，说明这两个固定案例可以复用流程。换更多资料和报告类型还需继续测。
+\end{itemize}
+
+
+\newpage
+
+\ptitle{组员分工与交接（一）}
+\lead{以下是这次的准备安排。组员按要求交可核对的材料，组长程文博汇总并主讲。交接完成后，用实际的文件、提交或复核记录确认。}
+
+\subtopic{程文博｜统筹、验收和主讲}
+\begin{itemize}
+\item 11月23日课后组织一次短讨论，拍板中期范围和验收标准。检查六人各自的输入和交付能否接起来。确定评分员。
+\item 汇总一份“老师反馈—我们改了什么—拿什么证明”的核对表，记录开题范围与实际进度的差异和原因。收齐组员的交接件后审核材料和引用。
+\item 按完整讲稿试讲，11月29日组织计时彩排。能回答范围为什么收缩、哪些算本组设计、哪些只是借鉴，以及如何用实测说明成果。
+\end{itemize}
+
+\subtopic{田亦洁｜需求、验收与报告组织}
+\begin{itemize}
+\item 11月23日对齐两章必查项，列出一张“指标—预期—证据”表。预期至少包括完整资料3项可回查、缺装机1项待核实、确认后能导出。
+\item 11月28日前把需求表、系统总体图和架构说明交给程文博。检查报告是否说清输入、模型、资料工具、检查点和导出各自的职责。
+\item 与郭润航对照测试编号，把没有证据的结论改成待验证。问答准备解释验收条件由谁定、为什么先做两章。
+\end{itemize}
+
+\subtopic{崔大元｜证据表与原文核对}
+\begin{itemize}
+\item 11月25日前核对588 GW、29.7\%与2.78亿千瓦三条数据。每条交指标编号、数值、单位、统计期、发布机构、原文链接和段落定位。
+\item 把完整样本和“只排除国家能源局”的输入说明同时交给许子萌与郭润航。核对范围只变动该来源，其他资料和模板保持一致。
+\item 提供两处原文定位，组员打开链接后应能找到对应表述。问答准备解释组件产量和新增装机的区别。
+\end{itemize}
+
+
+\newpage
+
+\ptitle{组员分工与交接（二）}
+\subtopic{许子萌｜Agent 编排与框架验证}
+\begin{itemize}
+\item 11月27日前给出一条“模板—发工具请求—返回证据—缺项补查—草稿”的运行记录。标出 LangGraph 与 GLM 的接口、只读资料工具，以及章节恢复的入口。
+\item 把 E4、E5 的工具注册方式、两次请求和返回结果整理成一页说明。向郭润航交复跑命令与预期，向李佳雨交任务目录和草稿路径。
+\item 复核一遍证据说明，明确 DeepSeek Harness 和 Pi 使用本机模拟模型。问答准备解释为何选择 LangGraph 和为什么补查只走一次。
+\end{itemize}
+
+\subtopic{李佳雨｜人工核对与 PDF 导出}
+\begin{itemize}
+\item 11月27日前核对完整和缺装机两份输出。逐条核对数值、来源编号、原文链接可点，以及缺失版本仍有“待核实”。
+\item 各保留一份经复核的 PDF 和同栏对照样张，交程文博与田亦洁。记录确认前后的变化和修订保护规则。
+\item 问答准备说明什么文字可以改，数值和出处为什么受保护，以及确认后怎样导出。
+\end{itemize}
+
+\subtopic{郭润航｜独立复跑与演示保障}
+\begin{itemize}
+\item 11月28日前独立跑完整、缺装机和按章恢复。逐项写下输入、命令、预期、实际结果和文件位置，区分离线测试、模拟服务、真实 GLM。
+\item 汇总异常和复测结果，与李佳雨核对两份样张。11月29日协助彩排，负责计时、核对教室演示需要的本地文件，并检查离线演示能否跑通。
+\item 问答准备说明为什么只移除一个来源，以及怎样确认恢复时第一章没有重新调用模型。
+\end{itemize}
+
+\subtopic{组内检查节点}
+\begin{tabularx}{\linewidth}{@{}L{3.3cm}Y@{}}
+\rowcolor{pale}\textbf{拟定时间} & \textbf{组内要完成的事} \\
+11月23日课后 & 确定范围、交接件、验收方式和评分员。 \\
+11月27--28日 & 交报告内容、运行动作和可核对证据，交叉复核后再汇总。 \\
+11月29日拟彩排 & 程文博主讲，其他成员各自准备负责环节的问答。课程展示7分钟、问答3分钟。 \\
+\bottomrule
+\end{tabularx}
+\captionline{组内日期为准备安排，正式日期、地点以课程通知为准。}
+
+\end{document}
