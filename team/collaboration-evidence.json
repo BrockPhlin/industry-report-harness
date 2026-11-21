@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/BrockPhlin/industry-report-harness",
+  "provided_on": "2026-10-26",
+  "image": "assets/opening/github-collaborators.png",
+  "sha256": "ce53babf442f66d77d9c8554ec59cdbb46f50ae950b86abb548f64d68707e6bc",
+  "evidence": "组长提供的GitHub协作者权限列表截图，显示5个协作者账号；未依据头像或账号推断对应姓名。",
+  "merged_work": [
+    "https://github.com/BrockPhlin/industry-report-harness/pull/5",
+    "https://github.com/BrockPhlin/industry-report-harness/pull/6"
+  ],
+  "boundary": "权限名单说明协作入口；实际工作以任务产物、PR评审与验证记录核对。"
+}

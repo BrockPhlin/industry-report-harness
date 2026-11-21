@@ -1,0 +1,2 @@
+# Agent runtime for the photovoltaic brief. Baseline remains stdlib-only.
+langgraph==1.2.24

@@ -1,16 +1,78 @@
 {
   "scope": "学期核心流程的初步排程，不含终期前三周集中系统测试；非正式日历承诺",
   "unit": "工作日",
-  "assumptions": ["先完成需求及代表资料确认", "前端可在接口确认前准备页面，集成等接口就绪", "同一负责人不承担相互重叠的主路径活动", "实际每周可用时间及正式中期终期日期确定后重新排程"],
+  "assumptions": [
+    "先完成需求及代表资料确认",
+    "前端可在接口确认前准备页面，集成等接口就绪",
+    "同一负责人不承担相互重叠的主路径活动",
+    "实际每周可用时间及正式中期终期日期确定后重新排程"
+  ],
   "buffer_days": 3,
   "tasks": [
-    {"id":"A","name":"需求与资料","owner":"田亦洁 / 崔大元","days":5,"predecessors":[]},
-    {"id":"B","name":"模板与接口","owner":"许子萌 / 田亦洁","days":3,"predecessors":["A"]},
-    {"id":"C","name":"分章与恢复","owner":"许子萌","days":6,"predecessors":["B"]},
-    {"id":"F","name":"前端页面","owner":"李佳雨","days":3,"predecessors":["A"]},
-    {"id":"D","name":"审阅与导出","owner":"李佳雨","days":4,"predecessors":["C","F"]},
-    {"id":"E","name":"联调验收","owner":"郭润航 / 田亦洁","days":5,"predecessors":["D"]}
+    {
+      "id": "A",
+      "name": "需求与资料",
+      "owner": "田亦洁 / 崔大元",
+      "days": 5,
+      "predecessors": []
+    },
+    {
+      "id": "B",
+      "name": "模板与接口",
+      "owner": "许子萌 / 田亦洁",
+      "days": 3,
+      "predecessors": [
+        "A"
+      ]
+    },
+    {
+      "id": "C",
+      "name": "分章与恢复",
+      "owner": "许子萌",
+      "days": 6,
+      "predecessors": [
+        "B"
+      ]
+    },
+    {
+      "id": "F",
+      "name": "前端页面",
+      "owner": "李佳雨",
+      "days": 3,
+      "predecessors": [
+        "A"
+      ]
+    },
+    {
+      "id": "D",
+      "name": "审阅与导出",
+      "owner": "李佳雨",
+      "days": 4,
+      "predecessors": [
+        "C",
+        "F"
+      ]
+    },
+    {
+      "id": "E",
+      "name": "联调验收",
+      "owner": "郭润航 / 田亦洁",
+      "days": 5,
+      "predecessors": [
+        "D"
+      ]
+    }
   ],
-  "pert_example": {"work_package":"W4 Harness","optimistic_hours":40,"most_likely_hours":52,"pessimistic_hours":88,"basis":"复用顺利、正常集成、引用或外部调用返工三种情景的初估；不是历史测量"},
-  "cash_budget_cny":{"model_trials":160,"reserve":40,"total_cap":200,"status":"建议上限，尚非报价或已支出"}
+  "pert_example": {
+    "work_package": "W4 Harness",
+    "optimistic_hours": 40,
+    "most_likely_hours": 52,
+    "pessimistic_hours": 88,
+    "basis": "复用顺利、正常集成、引用或外部调用返工三种情景的初估；不是历史测量"
+  },
+  "resource_arrangement": {
+    "equipment": "现有电脑与本地部署，不安排新增采购",
+    "external_services": "方案未确定，新增费用先说明依据再确认，按实际使用记录",
+    "fixed_cash_estimate": null
+  }
 }

@@ -26,7 +26,7 @@ def build():
             lines += [f"指图提示：{slide['cue']}", '']
         lines += [slide['speech'], '']
     (target/'演讲稿.md').write_text('\n'.join(lines),encoding='utf8')
-    output=target/f"第11组_开题演讲稿_{deck['version']}.pdf"
+    output=target/'第11组_开题演讲稿.pdf'
     pdf=canvas.Canvas(str(output),pagesize=A4,pageCompression=1)
     pdf.setTitle('第11组开题演讲稿 '+deck['version']);pdf.setAuthor('Team 11')
     body=ParagraphStyle('speech',fontName='Body',fontSize=13,leading=22,wordWrap='CJK',textColor=colors.HexColor(INK))

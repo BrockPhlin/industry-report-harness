@@ -1,0 +1,22 @@
+{
+  "harness_version": "0.2.2-rc.5",
+  "provider": "loopback fixture",
+  "server_identity": "deepseek-harness-sdk-runtime",
+  "tool": "mcp__pv__search_evidence",
+  "request_count": 2,
+  "tool_result_reentered": true,
+  "tool_results": [
+    {
+      "type": "tool_result",
+      "tool_use_id": "toolu_pv",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"id\": \"pv-new-capacity\", \"source\": \"NEA\", \"metric\": \"全国光伏发电新增装机\", \"period\": \"2024年\", \"value\": \"2.78\", \"unit\": \"亿千瓦\", \"origin\": {\"id\": \"NEA\", \"title\": \"2024年可再生能源并网运行情况\", \"publisher\": \"国家能源局\", \"published_at\": \"2025-01-27\", \"url\": \"https://www.nea.gov.cn/20250221/e10f363cabe3458aaf78ba4558970054/c.html\", \"locator\": \"（三）光伏发电建设和运行情况\"}}"
+        }
+      ],
+      "is_error": false
+    }
+  ],
+  "session_event_count": 20
+}
