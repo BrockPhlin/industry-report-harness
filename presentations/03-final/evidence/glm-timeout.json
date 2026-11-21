@@ -1,0 +1,81 @@
+{
+  "provider": "GLM-5.3-Flash",
+  "scenario": "client timeout deliberately shortened against actual remote endpoint",
+  "request_timeout_seconds": 0.1,
+  "first_command_elapsed_seconds": 0.488,
+  "first_exit": 1,
+  "first_error": "任务失败：「制造与价格」：请求检索：等待模型响应超时。已保存 0 章。重跑原命令并追加 --resume 可继续。",
+  "resume_exit": 0,
+  "resume_command_elapsed_seconds": 23.429,
+  "trace": {
+    "mode": "live",
+    "framework": "LangGraph StateGraph",
+    "sources": [
+      "MIIT",
+      "NEA"
+    ],
+    "events": [
+      {
+        "stage": "resume_retry",
+        "section": "制造与价格",
+        "attempts": 1
+      },
+      {
+        "stage": "initial",
+        "tool": "search_evidence",
+        "section": "制造与价格",
+        "requested": [
+          "pv-module-output",
+          "pv-module-price"
+        ],
+        "returned": [
+          {
+            "fact": "pv-module-output",
+            "source": "MIIT",
+            "locator": "以“组件环节”及“全年主要光伏产品”开头的两段"
+          },
+          {
+            "fact": "pv-module-price",
+            "source": "MIIT",
+            "locator": "以“组件环节”及“全年主要光伏产品”开头的两段"
+          }
+        ]
+      },
+      {
+        "stage": "draft",
+        "section": "制造与价格",
+        "selected": [
+          "pv-module-output",
+          "pv-module-price"
+        ],
+        "missing": [],
+        "observation_status": "omitted_invalid"
+      },
+      {
+        "stage": "initial",
+        "tool": "search_evidence",
+        "section": "发电新增装机",
+        "requested": [
+          "pv-new-capacity"
+        ],
+        "returned": [
+          {
+            "fact": "pv-new-capacity",
+            "source": "NEA",
+            "locator": "（三）光伏发电建设和运行情况"
+          }
+        ]
+      },
+      {
+        "stage": "draft",
+        "section": "发电新增装机",
+        "selected": [
+          "pv-new-capacity"
+        ],
+        "missing": []
+      }
+    ],
+    "missing": []
+  },
+  "pdf_exported": true
+}

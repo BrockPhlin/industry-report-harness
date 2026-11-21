@@ -13,7 +13,11 @@ from .errors import AppError
 def input_fingerprint(template, sources, facts, mode, model_route):
     # Preserve order because it affects fixture queries and displayed sources.
     # The model route includes the endpoint and model name, never the key.
-    inputs = [2, template, sources, facts, mode, model_route]
+    if all(len(rows) == 1 for rows in facts.values()):
+        # A single claim per metric still uses the midterm checkpoint format.
+        inputs = [2, template, sources, {key: rows[0] for key, rows in facts.items()}, mode, model_route]
+    else:
+        inputs = [3, template, sources, facts, mode, model_route]
     return sha256(json.dumps(inputs, ensure_ascii=False).encode("utf-8")).hexdigest()
 
 

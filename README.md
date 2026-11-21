@@ -23,7 +23,7 @@ assets/                      本次模板字体与校名资源，保留来源说
 
 ## 运行光伏简报
 
-终期主线是 `code/pv_brief.py`。系统按章查数据，保留出处和缺项，人确认后生成 PDF。运行方式和真实、模拟验证的区别见[中期材料](presentations/02-midterm/README.md)。阶段交付与验收见[终期交付路线](team/终期交付路线.md)。
+终期主线是 `code/pv_brief.py`。系统按章查数据，保留出处和缺项，人确认后生成 PDF。首次运行与模型配置见[中期材料](presentations/02-midterm/README.md)。同一入口可通过 `--template` 和 `--corpus` 改用风电模板及资料。资料表述不一致时保留候选值、出处和原文位置，待人工核实。运行、恢复命令和 PDF 样张见[终期验证记录](presentations/03-final/evidence/README.md)。阶段交付见[终期交付路线](team/终期交付路线.md)。
 
 ## 运行开题网页基线
 

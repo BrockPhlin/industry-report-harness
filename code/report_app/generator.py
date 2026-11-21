@@ -9,10 +9,10 @@ import json
 import os
 from pathlib import Path
 import re
-import socket
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
+from http.client import HTTPException
 
 from .errors import AppError
 
@@ -60,13 +60,13 @@ def model_connection(config):
     return endpoint, model, key
 
 
-def chat_completion(connection, messages, opener=urlopen, **options):
+def chat_completion(connection, messages, opener=urlopen, *, request_timeout=60, **options):
     endpoint, model, key = connection
     payload = {"model": model, "messages": messages, **options}
     request = Request(endpoint, data=json.dumps(payload).encode(), method="POST",
                       headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"})
     try:
-        with opener(request, timeout=60) as response:
+        with opener(request, timeout=request_timeout) as response:
             raw = response.read(1_000_001)
         if len(raw) > 1_000_000:
             raise AppError("模型响应过大", 502, "model_response_invalid")
@@ -80,8 +80,12 @@ def chat_completion(connection, messages, opener=urlopen, **options):
     except HTTPError as exc:
         # Never forward the provider response body, URL or credentials to UI.
         raise AppError(f"模型服务返回HTTP {exc.code}，请检查服务与配置", 502, "model_http_error") from None
-    except (URLError, TimeoutError, socket.timeout):
-        raise AppError("模型请求失败或超时；基线不自动重试，请人工确认后操作", 502, "model_unavailable") from None
+    except (URLError, TimeoutError) as exc:
+        if isinstance(exc, TimeoutError) or isinstance(getattr(exc, "reason", None), TimeoutError):
+            raise AppError("等待模型响应超时", 502, "model_timeout") from None
+        raise AppError("模型请求失败，请检查服务与网络", 502, "model_unavailable") from None
+    except (HTTPException, ConnectionError):
+        raise AppError("模型响应连接提前关闭，请检查服务与网络", 502, "model_unavailable") from None
     except (ValueError, KeyError, IndexError, TypeError, UnicodeError):
         raise AppError("模型响应不符合当前文本接口约定", 502, "model_response_invalid") from None
 
