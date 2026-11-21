@@ -1,0 +1,38 @@
+{
+  "sources": [
+    {
+      "id": "NEA-WIND",
+      "title": "2024年可再生能源并网运行情况",
+      "publisher": "国家能源局",
+      "published_at": "2025-01-27",
+      "url": "https://www.nea.gov.cn/20250221/e10f363cabe3458aaf78ba4558970054/c.html",
+      "locator": "（二）风电建设和运行情况"
+    }
+  ],
+  "facts": [
+    {
+      "id": "wind-new-capacity",
+      "source": "NEA-WIND",
+      "metric": "全国风电新增装机容量",
+      "period": "2024年",
+      "value": "7982",
+      "unit": "万千瓦"
+    },
+    {
+      "id": "wind-grid-capacity",
+      "source": "NEA-WIND",
+      "metric": "全国风电累计并网容量",
+      "period": "截至2024年12月",
+      "value": "5.21",
+      "unit": "亿千瓦"
+    },
+    {
+      "id": "wind-generation",
+      "source": "NEA-WIND",
+      "metric": "全国风电发电量",
+      "period": "2024年",
+      "value": "9916",
+      "unit": "亿千瓦时"
+    }
+  ]
+}

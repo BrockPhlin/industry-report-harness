@@ -1,0 +1,64 @@
+{
+  "mode": "live",
+  "framework": "LangGraph StateGraph",
+  "sources": [
+    "NEA-WIND"
+  ],
+  "events": [
+    {
+      "stage": "initial",
+      "tool": "search_evidence",
+      "section": "装机与并网",
+      "requested": [
+        "wind-new-capacity",
+        "wind-grid-capacity"
+      ],
+      "returned": [
+        {
+          "fact": "wind-new-capacity",
+          "source": "NEA-WIND",
+          "locator": "（二）风电建设和运行情况"
+        },
+        {
+          "fact": "wind-grid-capacity",
+          "source": "NEA-WIND",
+          "locator": "（二）风电建设和运行情况"
+        }
+      ]
+    },
+    {
+      "stage": "draft",
+      "section": "装机与并网",
+      "selected": [
+        "wind-new-capacity",
+        "wind-grid-capacity"
+      ],
+      "missing": []
+    },
+    {
+      "stage": "initial",
+      "tool": "search_evidence",
+      "section": "风电发电量",
+      "requested": [
+        "wind-generation"
+      ],
+      "returned": [
+        {
+          "fact": "wind-generation",
+          "source": "NEA-WIND",
+          "locator": "（二）风电建设和运行情况"
+        }
+      ]
+    },
+    {
+      "stage": "draft",
+      "section": "风电发电量",
+      "selected": [
+        "wind-generation"
+      ],
+      "missing": [],
+      "observation_status": "omitted_invalid"
+    }
+  ],
+  "missing": []
+}

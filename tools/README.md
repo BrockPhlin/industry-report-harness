@@ -37,3 +37,20 @@ CI包检查仅依赖Python标准库：`python -S tools/check_package.py`可验�
 正文篇幅计数排除独立封面、目录与“可定位来源”参考文献部分；正文表格和图注仍计入保守字符统计，不能替代课程要求的编辑器字数。`build_report()`可单独生成报告而不改动已展示PPT；配对参考图使用Markdown表格中的两张图片，按比例限制高度，不裁剪。
 
 计划书提交稿不显示文档版本号，构建读取日期，PDF标题与页眉不附加发布标识；历史修改由Git记录。业务中的资料、模板、产物版本管理术语保留。
+
+## 生成终期设计变更说明
+
+在仓库根目录使用与中期报告相同的材料依赖。变更说明使用封面与目录合页的版式。
+
+```sh
+python3 - <<'PY'
+from pathlib import Path
+
+from tools.build_pdfs import register_fonts, render_report
+
+report = Path("presentations/03-final/report")
+register_fonts()
+render_report(report / "设计变更与验收对照.md", report / "第11组_终期设计变更说明_v0.1.pdf",
+              "终期设计变更说明", 15, 10000, "## 复现资料")
+PY
+```
