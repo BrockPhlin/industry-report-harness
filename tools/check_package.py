@@ -158,4 +158,24 @@ assert all(term in report_source for term in ['DeepSeek Harness','LangGraph','De
 contents_targets=re.findall(r'^\|[^\n]+\|\s*(\d+)\s*\|$',report_sections[0],re.M)
 assert list(map(int,contents_targets))==list(range(1,11))
 
-print('All package checks passed: artifacts, links, WBS/schedule, 12 slides, PNG dimensions and speech notes; standard-library only.')
+midterm = ROOT / "presentations/02-midterm"
+midterm_deck = json.loads((midterm / "ppt/slides.json").read_text(encoding="utf-8"))
+version = midterm_deck["version"]
+slides = midterm_deck["slides"]
+speech = (midterm / "ppt/讲稿.md").read_text(encoding="utf-8")
+deck_pptx = midterm / f"ppt/第11组_中期展示_{version}.pptx"
+for pdf in [midterm / f"ppt/第11组_中期展示_{version}.pdf",
+            midterm / f"report/第11组_系统设计报告_{version}.pdf"]:
+    with pdf.open("rb") as file:
+        assert file.read(5) == b"%PDF-", f"Invalid PDF: {pdf}"
+assert len(slides) == midterm_deck["formal_slides"]
+assert all(slide["seconds"] > 0 for slide in slides)
+assert sum(slide["seconds"] for slide in slides) <= 420
+with zipfile.ZipFile(deck_pptx) as file:
+    assert sum(bool(re.fullmatch(r"ppt/slides/slide\d+\.xml", name))
+               for name in file.namelist()) == len(slides)
+    for index, slide in enumerate(slides, 1):
+        notes = ET.fromstring(file.read(f"ppt/notesSlides/notesSlide{index}.xml"))
+        assert slide["speech"] in speech and slide["speech"] in "".join(notes.itertext())
+
+print('All package checks passed: opening and midterm artifacts, links and speech notes.')

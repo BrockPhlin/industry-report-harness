@@ -102,6 +102,93 @@ class CLITests(unittest.TestCase):
         return subprocess.run([sys.executable, str(CODE_DIR / "pv_brief.py"), *map(str, args)],
                               text=True, capture_output=True)
 
+    def test_resume_after_process_exit_keeps_first_chapter(self):
+        runner = """
+import os
+import sys
+from report_app import pv_agent
+from pv_brief import main
+
+first_attempt = '--resume' not in sys.argv
+
+class InterruptibleWriter(pv_agent.FixtureWriter):
+    def query(self, section):
+        first_chapter = 'pv-module-output' in section['required']
+        if first_attempt and not first_chapter:
+            os._exit(78)
+        if not first_attempt and first_chapter:
+            raise AssertionError('completed chapter was requested again')
+        return super().query(section)
+
+pv_agent.FixtureWriter = InterruptibleWriter
+raise SystemExit(main())
+"""
+        with TemporaryDirectory() as tmp:
+            task = Path(tmp) / "job"
+            command = [sys.executable, "-c", runner, "run", str(task), "--mode", "fixture"]
+            interrupted = subprocess.run(command, cwd=CODE_DIR, capture_output=True, text=True)
+            self.assertEqual(interrupted.returncode, 78, interrupted.stderr)
+            self.assertFalse(task.exists())
+
+            different_input = self.cli("run", task, "--mode", "fixture", "--resume", "--omit-source", "NEA")
+            self.assertNotEqual(different_input.returncode, 0)
+            self.assertIn("检查点与当前资料", different_input.stderr)
+            self.assertFalse(task.exists())
+
+            record = task.with_name(f".{task.name}.pv-checkpoint") / "completed.json"
+            saved = record.read_text(encoding="utf-8")
+            malformed = json.loads(saved)
+            del malformed["completed"][0]["events"][0]["returned"]
+            record.write_text(json.dumps(malformed), encoding="utf-8")
+            invalid = self.cli("run", task, "--mode", "fixture", "--resume")
+            self.assertNotEqual(invalid.returncode, 0)
+            self.assertIn("检查点中的资料查询无效", invalid.stderr)
+            record.write_text(saved, encoding="utf-8")
+
+            resumed = subprocess.run([*command, "--resume"], cwd=CODE_DIR, capture_output=True, text=True)
+            self.assertEqual(resumed.returncode, 0, resumed.stderr)
+            trace = json.loads(self.cli("inspect", task, "--json").stdout)
+            self.assertEqual(trace["resumed_sections"], 1)
+            self.assertEqual(trace["missing"], [])
+            self.assertIn({"stage": "resume_retry", "section": "发电新增装机", "attempts": 1},
+                          trace["events"])
+            self.assertIn("从头重跑本章 1 次", self.cli("inspect", task).stdout)
+            self.assertIn("2.78 亿千瓦 [NEA]", (task / "draft.md").read_text(encoding="utf-8"))
+            self.assertFalse(task.with_name(f".{task.name}.pv-checkpoint").exists())
+
+    def test_resume_validates_inputs_even_when_first_chapter_fails(self):
+        runner = """
+from report_app import pv_agent
+from report_app.errors import AppError
+from pv_brief import main
+
+class TimedOutWriter(pv_agent.FixtureWriter):
+    def write(self, section, hits):
+        assert hits
+        raise AppError('模拟写作超时', 502, 'test_timeout')
+
+pv_agent.FixtureWriter = TimedOutWriter
+raise SystemExit(main())
+"""
+        with TemporaryDirectory() as tmp:
+            task = Path(tmp) / "job"
+            command = [sys.executable, "-c", runner, "run", str(task), "--mode", "fixture"]
+            failed = subprocess.run(command, cwd=CODE_DIR, capture_output=True, text=True)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertIn("模拟写作超时", failed.stderr)
+            self.assertFalse(task.exists())
+
+            mismatch = self.cli("run", task, "--mode", "fixture", "--resume", "--omit-source", "NEA")
+            self.assertNotEqual(mismatch.returncode, 0)
+            self.assertIn("检查点与当前资料", mismatch.stderr)
+
+            resumed = self.cli("run", task, "--mode", "fixture", "--resume")
+            self.assertEqual(resumed.returncode, 0, resumed.stderr)
+            trace = json.loads(self.cli("inspect", task, "--json").stdout)
+            self.assertEqual(trace["events"][0],
+                             {"stage": "resume_retry", "section": "制造与价格", "attempts": 1})
+            self.assertEqual(trace["missing"], [])
+
     def test_review_rejects_changed_metrics_and_preserves_trace(self):
         with TemporaryDirectory() as tmp:
             task = Path(tmp) / "job"

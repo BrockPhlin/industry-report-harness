@@ -26,6 +26,18 @@ def render_glm_excerpts(evidence):
                     bitmap.to_pil().save(evidence / output)
 
 
+def render_flow(items, output):
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=(1280, 720))
+    draw_items(pdf, items)
+    pdf.showPage()
+    pdf.save()
+    with pdfium.PdfDocument(buffer.getvalue()) as document:
+        with closing(document[0]) as page:
+            with closing(page.render(scale=2, crop=(60, 411, 60, 188))) as bitmap:
+                bitmap.to_pil().save(output)
+
+
 def build():
     register_fonts()
     directory = ROOT / "presentations/02-midterm"
@@ -37,16 +49,14 @@ def build():
         raise ValueError("中期讲稿须控制在7分钟以内")
 
     flow = next(slide for slide in deck["slides"] if slide.get("id") == "chapter-flow")
-    buffer = io.BytesIO()
-    pdf = canvas.Canvas(buffer, pagesize=(1280, 720))
-    draw_items(pdf, [item for item in flow["items"] if item["type"] == "flow"])
-    pdf.showPage()
-    pdf.save()
-    document = pdfium.PdfDocument(buffer.getvalue())
-    bitmap = document[0].render(scale=2, crop=(60, 411, 60, 188))
-    bitmap.to_pil().save(directory / "report/chapter-flow.png")
-    bitmap.close()
-    document.close()
+    render_flow([item for item in flow["items"] if item["type"] == "flow"],
+                directory / "report/chapter-flow.png")
+    render_flow([{"type": "flow", "nodes": [
+        ["输入", "公开资料与章节模板", 65, 195, 370, 108],
+        ["运行", "LangGraph、GLM、检索工具", 455, 195, 370, 108],
+        ["交付", "审阅 Markdown，导出 PDF", 845, 195, 370, 108],
+    ], "edges": [[435, 249, 455, 249], [825, 249, 845, 249]]}],
+                directory / "report/system-architecture.png")
     render_glm_excerpts(directory / "evidence")
 
     render_report(directory / "report/report.md", directory / f"report/第11组_系统设计报告_{version}.pdf",

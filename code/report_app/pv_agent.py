@@ -18,6 +18,12 @@ class SectionState(TypedDict):
     events: list
 
 
+def valid_observation(observation):
+    return (isinstance(observation, str) and len(observation) <= 100
+            and not any(ch.isnumeric() or ch in "[]\n\r<>" for ch in observation)
+            and "://" not in observation)
+
+
 def section_graph(model, sources, facts):
     def search(state, keys, stage):
         section = state["section"]
@@ -55,9 +61,7 @@ def section_graph(model, sources, facts):
                 any(not isinstance(key, str) or key not in state["hits"] for key in selection) or
                 set(selection) != state["hits"].keys()):
             raise AppError("模型返回的证据编号与本章检索结果不一致", 502, "invalid_selection")
-        allowed_observation = (isinstance(observation, str) and len(observation) <= 100
-                               and not any(ch.isnumeric() or ch in "[]\n\r<>" for ch in observation)
-                               and "://" not in observation)
+        allowed_observation = valid_observation(observation)
         event = {
             "stage": "draft",
             "section": state["section"]["title"],
@@ -85,13 +89,53 @@ def section_graph(model, sources, facts):
     return graph.compile()
 
 
-def generate_brief(template, sources, facts, model, mode):
+def check_saved_section(result, section, sources, facts):
+    available = search_evidence(list(section["required"]), sources, facts)
+    if (not isinstance(result, dict) or result.get("section") != section or
+            not isinstance(result.get("selected"), list) or
+            any(not isinstance(key, str) or key not in available for key in result["selected"]) or
+            result.get("hits") != available or set(result["selected"]) != available.keys() or
+            not valid_observation(result.get("observation")) or
+            not isinstance(result.get("events"), list) or not result["events"] or
+            any(not isinstance(event, dict) or event.get("section") != section["title"]
+                for event in result["events"])):
+        raise AppError("检查点章节记录无效，请保留原记录并换新任务目录")
+    *searches, draft = result["events"]
+    if (draft.get("stage") != "draft" or draft.get("selected") != result["selected"] or
+            draft.get("missing") != [key for key in section["required"] if key not in available] or
+            [event.get("stage") for event in searches] not in (["initial"], ["initial", "supplement"])):
+        raise AppError("检查点中的运行记录无效，请保留原记录并换新任务目录")
+    for event in searches:
+        requested = event.get("requested")
+        if (not isinstance(requested, list) or
+                any(not isinstance(key, str) or key not in section["required"] for key in requested) or
+                event.get("returned") != [
+                    {"fact": key, "source": available[key]["source"],
+                     "locator": available[key]["origin"]["locator"]}
+                    for key in requested if key in available
+                ]):
+            raise AppError("检查点中的资料查询无效，请保留原记录并换新任务目录")
+
+
+def generate_brief(template, sources, facts, model, mode, *, checkpoint=None):
     graph = section_graph(model, sources, facts)
     lines = [f'# {template["title"]}', f'运行方式：{LABELS[mode]}。状态：待人工核对。',
              "## 研究范围", template["scope"]]
     events, missing, protected, used = [], [], [], {}
-    for section in template["sections"]:
-        result = graph.invoke({"section": section, "hits": {}, "events": []})
+    saved = list(checkpoint.completed) if checkpoint else []
+    sections = template["sections"]
+    if len(saved) > len(sections):
+        raise AppError("检查点章节数超过报告模板")
+    for index, section in enumerate(sections):
+        if index < len(saved):
+            result = saved[index]
+            check_saved_section(result, section, sources, facts)
+        else:
+            if checkpoint:
+                checkpoint.start_section()
+            result = graph.invoke({"section": section, "hits": {}, "events": []})
+            if checkpoint:
+                checkpoint.save_section(result)
         lines.append(f'## {section["title"]}')
         for key in result["selected"]:
             fact = result["hits"][key]
@@ -108,6 +152,10 @@ def generate_brief(template, sources, facts, model, mode):
             lines.append(f'辅助观察（待核对）：{result["observation"]}')
         lines.append(f'口径说明：{section["note"]}')
         protected.append(lines[-1])
+        if checkpoint:
+            retries = checkpoint.interruptions.count(index)
+            if retries:
+                events.append({"stage": "resume_retry", "section": section["title"], "attempts": retries})
         events.extend(result["events"])
     lines.append("## 资料来源")
     for source in used.values():
@@ -118,7 +166,7 @@ def generate_brief(template, sources, facts, model, mode):
     return "\n\n".join(lines) + "\n", {
         "mode": mode, "framework": "LangGraph StateGraph", "sources": list(sources),
         "events": events, "missing": missing,
-        "protected_lines": protected,
+        "protected_lines": protected, "resumed_sections": len(saved),
     }
 
 

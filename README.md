@@ -21,7 +21,11 @@ tools/                       报告与PPT生成工具
 assets/                      本次模板字体与校名资源，保留来源说明
 ```
 
-## 跑基线
+## 运行光伏简报
+
+终期主线是 `code/pv_brief.py`。系统按章查数据，保留出处和缺项，人确认后生成 PDF。运行方式和真实、模拟验证的区别见[中期材料](presentations/02-midterm/README.md)。阶段交付与验收见[终期交付路线](team/终期交付路线.md)。
+
+## 运行开题网页基线
 
 需要Python 3.10或更高版本，应用运行和测试只用标准库，无需安装业务依赖。在本目录打开终端：
 
@@ -34,8 +38,6 @@ python3 code/run.py
 另有[公开统计人工整理样例](code/examples/public-sources.json)：光伏两份、新能源汽车一份，含发布机构、日期和原始链接。它是历史事实的简短转述，非网页全文；可将其中的`title`、`publisher`、`published_at`、`url`、`body`逐份录入页面。先用两份光伏资料试生成，核对588GW对应组件产量、2.78亿千瓦对应新增装机。来源、操作与检查边界见[T5代码交接记录](docs/T5代码交接与核验.md)。
 
 可选模型模式：把code/.env.example复制为code/.env，填写完整MODEL_ENDPOINT、MODEL_NAME和MODEL_API_KEY，再启动。使用Chat Completions兼容格式，模型由团队自行选择。未配置时明确报错，不静默切换成摘录。只有选择模型模式才发送资料到所配置服务。真实模型未做联调验证。
-
-中期实现聚焦2024年光伏产业简报。按章节检索证据，缺项时补查，人工确认后从 Markdown 生成 PDF。运行步骤、同源摘录对照、DeepSeek Harness 与 Pi CLI 验证，以及设计报告和展示文件，见[中期材料](presentations/02-midterm/README.md)。
 
 ```bash
 cd code

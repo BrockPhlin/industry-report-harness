@@ -11,6 +11,7 @@ import tempfile
 
 from report_app.errors import AppError
 from report_app.generator import excerpt_report, read_config
+from report_app.pv_checkpoint import RunCheckpoint, input_fingerprint
 from report_app.pv_evidence import CODE_DIR, fact_line, load_inputs, search_evidence
 from report_app.pv_model import ChatWriter
 
@@ -44,18 +45,26 @@ def create_run(args):
         raise AppError("演示任务至少需要一份资料")
     if args.mode == "live":
         model = ChatWriter(read_config(CODE_DIR / ".env"))
+        route = model.connection[:2]
     else:
         model = FixtureWriter()
-    draft, trace = generate_brief(template, sources, facts, model, args.mode)
-    baseline, _ = excerpt_report(template["title"], baseline_sources(sources, facts))
-    trace["review_contract"] = review_contract(draft, trace["protected_lines"])
-    with tempfile.TemporaryDirectory(dir=args.output.parent) as tmp:
-        staging = Path(tmp) / "run"
-        staging.mkdir()
-        (staging / "draft.md").write_text(draft, encoding="utf-8")
-        (staging / "baseline.md").write_text(baseline, encoding="utf-8")
-        write_json(staging / "trace.json", trace)
-        staging.rename(args.output)
+        route = None
+    checkpoint = RunCheckpoint(args.output)
+    identity = input_fingerprint(template, sources, facts, args.mode, route)
+    with checkpoint.open(identity, args.resume):
+        if args.output.exists():
+            raise AppError("任务目录已存在，请指定新目录")
+        draft, trace = generate_brief(template, sources, facts, model, args.mode, checkpoint=checkpoint)
+        baseline, _ = excerpt_report(template["title"], baseline_sources(sources, facts))
+        trace["review_contract"] = review_contract(draft, trace["protected_lines"])
+        with tempfile.TemporaryDirectory(dir=args.output.parent) as tmp:
+            staging = Path(tmp) / "run"
+            staging.mkdir()
+            (staging / "draft.md").write_text(draft, encoding="utf-8")
+            (staging / "baseline.md").write_text(baseline, encoding="utf-8")
+            write_json(staging / "trace.json", trace)
+            staging.rename(args.output)
+    shutil.rmtree(checkpoint.path, ignore_errors=True)
     print(f"草稿、同源摘录基线、调用记录已写入 {args.output}。未核实指标 {len(trace['missing'])} 项。")
 
 
@@ -123,11 +132,17 @@ def inspect_run(args):
     trace = json.loads((args.output / "trace.json").read_text(encoding="utf-8"))
     if args.json:
         public = {key: trace[key] for key in ("mode", "framework", "sources", "events", "missing")}
+        if trace.get("resumed_sections"):
+            public["resumed_sections"] = trace["resumed_sections"]
         print(json.dumps(public, ensure_ascii=False, indent=2))
         return
     print(f"{trace['framework']} ｜ {trace['mode']}")
+    if trace.get("resumed_sections"):
+        print(f"本次跳过已完成章节 {trace['resumed_sections']} 个")
     for event in trace["events"]:
-        if event["stage"] == "draft":
+        if event["stage"] == "resume_retry":
+            print(f"{event['section']} 恢复｜从头重跑本章 {event['attempts']} 次")
+        elif event["stage"] == "draft":
             completed = "、".join(event["selected"]) or "无证据"
             pending = "、".join(event["missing"]) or "无"
             print(f"{event['section']} 草稿｜采用 {completed}｜待核实 {pending}")
@@ -144,6 +159,7 @@ def main():
     run.add_argument("output", type=Path, help="新建任务目录，其上级必须存在")
     run.add_argument("--mode", choices=("fixture", "live"), required=True)
     run.add_argument("--omit-source", action="append", default=[], help="用指定来源缺失验证补查分支")
+    run.add_argument("--resume", action="store_true", help="从相同输入的最后一个完整章节继续")
     run.set_defaults(handler=create_run)
     approve = commands.add_parser("approve", help="显式确认已核对的 Markdown 并导出")
     approve.add_argument("output", type=Path)
