@@ -22,7 +22,7 @@
   } else if b.kind == "heading" {
     heading(level: 1, b.text)
   } else if b.kind == "table" {
-    table(columns: b.rows.first().len(), inset: 5pt, align: (x,y) => if x == 0 {left} else {right},
+    table(columns: b.rows.first().len(), inset: (x: 5pt, y: 3pt), align: (x,y) => if x == 0 {left} else {right},
       stroke: (x: none, y: 0.4pt + rgb("#c4d4d0")),
       fill: (x,y) => if y == 0 { rgb("#e6f1ed") },
       table.header(..b.rows.first().map(c => text(weight: "bold", c))),
@@ -43,7 +43,7 @@
       #text(size: 8pt, fill: rgb("#586967"), "资料来源　" + b.refs.join("、"))
     ]
   } else if b.kind == "link" {
-    par(text(size: 9pt, link(b.url, text(fill: teal, b.text))))
+    block(above: 2pt, below: 3pt, text(size: 9pt, link(b.url, text(fill: teal, b.text))))
   } else {
     par(paragraph-text(b))
   }

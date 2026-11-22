@@ -47,6 +47,16 @@ RELEASES = {
     "2025年可再生能源并网运行情况": "https://www.nea.gov.cn/20260212/742b8c6a078347b0b39de676c05c5d58/c.html",
     "2024年可再生能源并网运行情况": "https://www.nea.gov.cn/20250221/e10f363cabe3458aaf78ba4558970054/c.html",
 }
+NATIONAL_OPERATIONS = {
+    (2024, "上半年"): "https://www.nea.gov.cn/2024-08/02/c_1310783697.htm",
+    (2024, "前三季度"): "https://www.nea.gov.cn/2024-10/31/c_1212406333.htm",
+    (2024, "全年"): RELEASES["2024年可再生能源并网运行情况"],
+    (2025, "上半年"): "https://www.nea.gov.cn/20250731/36b5b3b74d344325bb67f38b8e943c18/c.html",
+    (2025, "前三季度"): "https://www.nea.gov.cn/20251031/7be6728f6d8a48a4955a24a45013b37f/c.html",
+    (2025, "全年"): RELEASES["2025年可再生能源并网运行情况"],
+    (2026, "上半年"): RELEASES["2026年上半年可再生能源并网运行情况"],
+    (2026, "前三季度"): RELEASES["2026年前三季度可再生能源并网运行情况"],
+}
 SOURCE_GROUPS = {
     "grid": "国家能源局并网原表",
     "utilization": "光伏发电利用率",
@@ -56,7 +66,7 @@ SOURCE_GROUPS = {
     "international": "IRENASTAT 与 OWID",
     "policy": "国家及省级政策原文",
     "releases": "国家能源局运行发布",
-    "nbs": "国家统计局规上工业发电",
+    "nbs": "国家统计局规上工业月表",
     "studies": "IEA PVPS 与 IRENA 研究报告",
 }
 HOSTS = {
@@ -80,6 +90,7 @@ HOSTS = {
     "www.irena.org",
     "iea-pvps.org",
     "ec.europa.eu",
+    "szs.mof.gov.cn",
 }
 METRICS = {
     "solar_electricity": ("太阳能发电量", "TWh"),
@@ -492,8 +503,22 @@ class SolarLibrary:
             )
         except (OSError, ValueError):
             notices.append({"source": "国家能源局发布目录", "result": "目录访问失败，尝试已登记的统计发布"})
+        structured = set()
+        if "China" in plan["regions"]:
+            periods = {"全年"}
+            if plan.get("half_year_requested"):
+                periods.add("上半年")
+            if plan.get("quarter_requested") or (plan["end"] >= 2026 and "上半年" not in periods):
+                periods.add("前三季度")
+            for (year, period), url in NATIONAL_OPERATIONS.items():
+                if period in periods and plan["start"] <= year <= plan["end"]:
+                    title = f"{year} 年{period}全国光伏发电运行统计"
+                    parser = partial(release_rows, operation=(year, period))
+                    jobs.append((url, title, "国家能源局", url, parser, "national-operation-v1"))
+                    structured.add(url)
         for title, url in links.items():
             if url in {
+                *structured,
                 *HTML_TABLES.values(),
                 *HTML_QUARTER_TABLES.values(),
                 *(page for page, _, _ in TABLES.values()),
@@ -530,11 +555,16 @@ class SolarLibrary:
                     parser = partial(utilization_rows, years=years, fingerprint=digest, location=loc)
                     jobs.append((download, title, publisher, origin, parser))
         if domestic and (auto or "policy" in groups):
+            policy_topics = set(plan.get("policy_topics", []))
             for policy in POLICIES:
                 if (
                     policy.year <= plan["end"]
                     and policy.region in {*plan["regions"], "China"}
+                    and (not policy_topics or policy_topics.intersection(policy.topics))
                     and ("policy" in groups or match_score(intent, policy.topics))
+                    and (
+                        "出口退税" not in policy.topics or match_score(intent, policy.topics)
+                    )
                 ):
                     title = f"{policy.year} 年 {policy.title}"
                     jobs.append(
@@ -553,6 +583,7 @@ class SolarLibrary:
             jobs.extend(eurostat.jobs(plan))
         if "China" in plan["regions"] and plan["end"] >= 2025 and (
             "nbs" in groups
+            or auto and plan.get("cell_requested")
             or auto and "发电" in intent and (
                 "规上" in intent or "规模以上" in intent or plan.get("monthly_requested")
             )
@@ -658,6 +689,14 @@ class SolarLibrary:
                     for year, metric, unit, value in rows:
                         by_metric.setdefault((metric, unit), []).append((year, value))
                     for (metric, unit), series in by_metric.items():
+                        if metric.startswith(nbs.CELL_LEVEL) and not plan.get("cell_requested"):
+                            continue
+                        if (
+                            metric.startswith(nbs.LEVEL)
+                            and plan.get("cell_requested")
+                            and not plan.get("nbs_generation_requested")
+                        ):
+                            continue
                         euro_month = re.search(r"（Eurostat，(\d+)月）$", metric)
                         if euro_month and (
                             not plan.get("monthly_requested")
@@ -781,7 +820,7 @@ def capacity_rows(raw):
     return ([(r["Entity"], int(r["Year"]), *CAP_METRIC, r[values[0]]) for r in reader if r[values[0]]], [])
 
 
-def release_rows(raw):
+def release_rows(raw, *, operation=None):
     page = ReleasePage(raw)
     passages = []
     for i, line in enumerate(page.paragraphs, 1):
@@ -794,7 +833,43 @@ def release_rows(raw):
             )
         ):
             passages.append((f"网页第{i}段", line))
-    return [], passages
+    if not operation:
+        return [], passages
+    year, period = operation
+    published = (page.meta.get("pubdate") or page.meta.get("publishdate") or "")[:4]
+    allowed_years = {str(year), str(year + 1)} if period == "全年" else {str(year)}
+    if published not in allowed_years or (
+        period != "全年" and not any(period in text for _, text in passages)
+    ):
+        raise ValueError("国家能源局原文发布时间或统计窗口不匹配")
+    generation = set()
+    utilization = set()
+    growth = set()
+    for _, line in passages:
+        clean = re.sub(r"\s+", "", line)
+        for vol, unit, yoy in re.findall(
+            r"全国光伏(?:累计)?发电量(?:达(?:到)?|为)?(\d+(?:\.\d+)?)(万亿|亿)千瓦时"
+            r"(?:，同比增长(\d+(?:\.\d+)?)%)?",
+            clean,
+        ):
+            generation.add(Decimal(vol) * (10000 if unit == "万亿" else 1))
+            if yoy:
+                growth.add(yoy)
+        utilization.update(re.findall(r"全国光伏发电(?:平均)?利用率(?:为)?(\d+(?:\.\d+)?)%", clean))
+    if len(generation) != 1 or len(utilization) != 1 or len(growth) > 1:
+        raise ValueError("国家能源局原文的全国光伏发电量或利用率未能唯一核对")
+    suffix = f"（国家能源局，{period}）"
+    records = [
+        ("China", year, "全国光伏发电量" + suffix, "亿千瓦时", format(generation.pop().normalize(), "f")),
+        ("China", year, "全国光伏发电利用率" + suffix, "%", utilization.pop()),
+    ]
+    if growth:
+        records.append(("China", year, "全国光伏发电量发布同比" + suffix, "%", growth.pop()))
+    return records, [
+        ("指标口径", "采用国家能源局原文中的全国光伏发电统计，发电量统一为亿千瓦时。"
+         "国家统计局规模以上工业太阳能发电量使用独立统计范围，两个口径分别展示。"),
+        *passages,
+    ]
 
 
 def manufacturing_rows(raw, *, year):

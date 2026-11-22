@@ -65,6 +65,10 @@ def trade_jobs(plan):
     if "出口" in topic or not flows:
         flows.append(("X", "出口"))
     products = tuple(p for p in PRODUCTS if p in plan.get("trade_products", ["854143"])) or ("854143",)
+    years = list(range(max(2022, plan["start"]), min(date.today().year - 1, plan["end"]) + 1))
+    requested_years = plan.get("trade_years", [])
+    if len(requested_years) > 1:
+        years = [year for year in years if year in requested_years]
     jobs = []
     for raw_name in plan.get("trade_regions", plan["regions"]):
         region = trade_country(raw_name)
@@ -73,7 +77,7 @@ def trade_jobs(plan):
         reporter = COUNTRIES[region][0]
         requested = (trade_country(p) for p in plan.get("trade_partners", []))
         partners = (0, *sorted({COUNTRIES[p][0] for p in requested if p in COUNTRIES and p != region}))
-        for year in range(max(2022, plan["start"]), min(date.today().year - 1, plan["end"]) + 1):
+        for year in years:
             for flow, label in flows:
                 for product in products:
                     params = dict(

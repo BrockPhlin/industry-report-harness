@@ -1,7 +1,7 @@
 """Plan, retrieve, write and audit a configurable-length photovoltaic report."""
 
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 import json
 from pathlib import Path
@@ -12,7 +12,13 @@ from time import monotonic
 from .errors import AppError
 from .eurostat import ALIASES as EUROSTAT_ALIASES
 from .generator import chat_completion, model_connection
-from .nbs import GROWTH as NBS_GROWTH, LEVEL as NBS_LEVEL, SCOPE as NBS_SCOPE
+from .nbs import (
+    CELL_GROWTH as NBS_CELL_GROWTH,
+    CELL_LEVEL as NBS_CELL_LEVEL,
+    GROWTH as NBS_GROWTH,
+    LEVEL as NBS_LEVEL,
+    SCOPE as NBS_SCOPE,
+)
 from .solar_data import SOURCE_GROUPS, match_score
 from .provinces import region_name
 from .trade import COUNTRIES, PRODUCTS, trade_country
@@ -22,7 +28,7 @@ STYLES = json.loads(
 )
 MIN_LENGTH, MAX_LENGTH = 800, 10000
 RETRYABLE_DRAFT_FORMATS = {"draft_reply_invalid", "model_output_truncated"}
-POLICY_TERMS = ("政策", "绿电直连", "电价改革", "上网电价", "市场化", "机制电价", "适用范围", "备案")
+POLICY_TERMS = ("政策", "绿电直连", "电价改革", "上网电价", "市场化", "机制电价", "适用范围", "备案", "出口退税")
 REGION_LABELS = {key: value[1] for key, value in COUNTRIES.items()} | {
     "World": "全球",
     "European Union": "欧盟",
@@ -85,7 +91,7 @@ def answer(config, instruction, data, *, structured=True):
     if observer:
         observer(response.get("usage"))
     text = response["message"].get("content")
-    if response.get("finish_reason") in {"content_filter", "sensitive"}:
+    if response.get("finish_reason") in ("content_filter", "sensitive"):
         raise AppError("模型服务未完成此次写作，请修改研究问题。", 502, "model_reply_filtered")
     if response.get("finish_reason") != "stop" or not isinstance(text, str) or not text.strip():
         raise AppError("模型没有给出完整结果，可稍后继续。", 502, "draft_reply_invalid")
@@ -201,7 +207,20 @@ trade_products（商品代码列表，854143 为组件，854142 为未组装电�
         if not re.search(r"全球|世界|国际", text_to_scope):
             normalized_regions = [name for name in normalized_regions if name != "World"]
         normalized_regions.insert(0, "China")
-    months = re.findall(r"1\s*[-—至~到]\s*([1-9]|1[0-2])\s*月", text_to_scope)
+    trade_scope = " ".join(
+        title for title in outline if re.search(r"进口|出口|外贸|贸易|Eurostat", title, re.IGNORECASE)
+    ) or text_to_scope
+    months = re.findall(r"1\s*[-—至~到]\s*([1-9]|1[0-2])\s*月", trade_scope)
+    trade_years = section_years(trade_scope)
+    tax_only = (
+        re.search(r"(?:仅|只)(?:用|使用|采用|依据|参考)(?:财政部|税务总局)", text_to_scope)
+        and "退税" in text_to_scope
+    )
+    if tax_only and not source_groups:
+        source_groups = ("policy",)
+    nbs_focus = " ".join(outline)
+    if not re.search(r"发电|光伏电池|太阳能电池|电池片", nbs_focus):
+        nbs_focus = re.sub(r"(?:不要|别把|不讨论|不纳入)[^。！？；\n]*", "", text_to_scope)
     return dict(
         title=title,
         regions=list(dict.fromkeys(normalized_regions))[:6],
@@ -211,15 +230,19 @@ trade_products（商品代码列表，854143 为组件，854142 为未组装电�
         trade_regions=list(dict.fromkeys(name for name in reporter_names if name in COUNTRIES))[:6],
         trade_partners=list(dict.fromkeys(name for name in partner_names if name in COUNTRIES))[:6],
         trade_products=[p for p in PRODUCTS if p in products],
+        trade_years=sorted(trade_years),
         sections=list(outline) or sections,
         quarter_requested=bool(PROVINCE_Q3.search(text_to_scope)),
         half_year_requested=bool(PROVINCE_H1.search(text_to_scope)),
+        cell_requested=bool(re.search(r"光伏电池|太阳能电池|电池片", nbs_focus)),
+        nbs_generation_requested="发电" in nbs_focus,
         source_groups=list(source_groups),
+        policy_topics=["出口退税"] if tax_only else [],
         trade_months=int(months[-1])
         if months
-        else (6 if "上半年" in text_to_scope and "前三季度" not in text_to_scope else 9),
-        trade_window_fixed=bool(months or "上半年" in text_to_scope or "前三季度" in text_to_scope)
-        and not re.search(r"全年|第四季度|[Qq]4", text_to_scope),
+        else (6 if "上半年" in trade_scope and "前三季度" not in trade_scope else 9),
+        trade_window_fixed=bool(months or "上半年" in trade_scope or "前三季度" in trade_scope)
+        and not re.search(r"全年|第四季度|[Qq]4", trade_scope),
         monthly_requested=bool(re.search(r"逐月|月度|单月", text_to_scope)),
     )
 
@@ -243,8 +266,20 @@ def calendar_periods(text):
     return periods
 
 
+def section_years(text):
+    years = {int(year) for year in re.findall(r"(?<!\d)(20\d{2})(?!\d)", text)}
+    for start, end in re.findall(r"(20\d{2})\s*年?\s*[-—至~到]\s*(20\d{2})", text):
+        years.update(range(int(start), int(end) + 1))
+    return years
+
+
 def choose_evidence(evidence, section):
     """Keep a chapter's time window, named regions, and contrasting observations in view."""
+    agencies = [name for name in ("国家能源局", "国家统计局") if name in section]
+    if len(agencies) == 1:
+        from_agency = [r for r in evidence if r.get("publisher") == agencies[0]]
+        if from_agency:
+            evidence = from_agency
     terms = set(re.findall(r"(?=([\u3400-\u9fff]{2}))|[A-Za-z]+", section))
     terms.discard("")
     metrics = {
@@ -271,7 +306,7 @@ def choose_evidence(evidence, section):
     }
     if "LCOE" in section.upper():
         metrics.add("平准化")
-    years = {int(year) for year in re.findall(r"20\d{2}", section)}
+    years = section_years(section)
     periods = calendar_periods(section)
     dc_context, ac_context = "IEA PVPS" in section or "直流" in section, "交流" in section
     quarter = bool(PROVINCE_Q3.search(section))
@@ -320,6 +355,12 @@ def choose_evidence(evidence, section):
 
     ranked = sorted(evidence, key=priority, reverse=True)
     series = [row for row in ranked if row.get("series") and (not named or row["region"] in named)]
+    if years:
+        series = [row for row in series if any(year in years for year, _ in row["series"])]
+    if ("产量" in section or "制造" in section) and "装机" not in section and "并网" not in section:
+        production = [row for row in series if "产量" in row["metric"]]
+        if production:
+            series = production
     if annual and not (quarter or half):
         series = [
             row for row in series
@@ -328,7 +369,11 @@ def choose_evidence(evidence, section):
     passages = [row for row in ranked if not row.get("series")]
     if policy_topic:
         tagged = [r for r in passages if re.match(r"^(China|浙江|江苏) · (正文第|PDF 第|附件第)", r["locator"])]
-        if "绿电直连" in section and "上网电价" not in section:
+        if "出口退税" in section:
+            tax = [r for r in tagged if "出口退税" in r["title"]]
+            if tax:
+                tagged = tax
+        elif "绿电直连" in section and "上网电价" not in section:
             direct = [r for r in tagged if "直连" in r["title"] or "集中汇流" in r["text"]]
             if direct:
                 tagged = direct
@@ -493,11 +538,13 @@ def validate_paragraphs(raw, catalog, lo, hi):
     return result
 
 
-def anchors_for(evidence):
+def anchors_for(evidence, years=()):
     anchors = {}
     for row in evidence:
         if row.get("series"):
-            samples = row["series"]
+            samples = [pair for pair in row["series"] if not years or pair[0] in years]
+            if not samples:
+                continue
             region = REGION_LABELS.get(row["region"], row["region"])
             first, last = samples[0], samples[-1]
             metric, unit = row["metric"], row["unit"]
@@ -517,7 +564,7 @@ def anchors_for(evidence):
 
 
 def anchored_part(config, task, plan, evidence, heading, target, previous, style):
-    anchors = anchors_for(evidence)
+    anchors = anchors_for(evidence, section_years(heading))
     catalog = {row["ref"]: row for row in evidence}
     data = dict(
         任务=task,
@@ -597,7 +644,7 @@ analysis 写成可直接纳入研究报告的文字，讲清可核对的比较�
         data["修改提示"] = f"已核查内容为{size}字。请展开明确的比较和核实方式，将篇幅写至{minimum}字以上。"
     # A usable short chapter can proceed to scope review. Keep the actual
     # length visible and avoid inventing material merely to reach the target.
-    if best_size >= round(target * 0.68):
+    if best_size >= min(200, round(target * 0.65)):
         return best
     raise AppError(f"「{heading}」数据句核查未通过：{data['修改提示']}", 502)
 
@@ -614,6 +661,8 @@ def write_part(config, task, plan, evidence, heading, target, previous, style):
 IEA PVPS 全球趋势的直流侧容量单位为GWdc，中国调查交流侧的单位为GWac。不同口径只并列说明，不计算差值、比率、排名或同比。IRENA 新投运的公用事业级光伏平准化发电成本按2025年美元/MWh报告，不能当作组件报价、园区电价或项目投资回报。
 Eurostat按欧洲进口申报方统计来自中国的给定商品，使用欧元。按相同月份窗口比较，欧盟合计已包括成员国。所引统计能说明申报金额与覆盖对象，不支持判定中转的数量、路线或终端需求。
 国家统计局规上工业太阳能发电量只涵盖统计范围内的工业企业。单月与期内累计分别引原表，1—2月合并发布，不能把公布的单月值相加来替代原表累计值，也不能用上年已经发布的绝对量替代原表可比口径的同比。
+统计局太阳能电池（光伏电池）是规上工业的产品产量，原单位为万千瓦。区分电池、组件和装机，采用原表的可比口径同比。
+国家能源局的全国光伏发电量与国统局规上工业太阳能发电量是分别发布的口径。不得把差额归为分布式、规模以下企业或某一技术发电量。
 涉及政策时分别说明国家规定、地方细则的适用地区、起始日期和项目类型。政策规定与行业结果分开写。摘记仅限该页条款，推断原因需要另有证据。
 光伏利用率反映特定统计口径内的消纳情况，区分发电量占比、利用小时数和组件转换效率。蒙东、蒙西分别发布，无可用发电量时不得用算术平均代替全区。
 不要重复前章。不写标题、编号、表格、Markdown或来源名称堆砌。仅输出 JSON：{"paragraphs":[{"text":"一整段正文","refs":["E1"]}]}。
@@ -682,7 +731,10 @@ def coverage(config, task, evidence, plan):
     )
     if type(raw.get("usable")) is not bool or not isinstance(raw.get("limits"), list):
         raise AppError("资料覆盖核查未返回有效结果，请继续重试。", 502)
-    limits = [short_text(item, 300) for item in raw["limits"][:5]]
+    limits = [
+        short_text(item, 300) for item in raw["limits"][:5]
+        if not isinstance(item, str) or not re.search(r"无影响本任务的缺口|没有需要补充的资料", item)
+    ]
     if not raw["usable"]:
         raise AppError("现有资料不能支持这个研究范围。" + " ".join(limits))
     return limits
@@ -713,6 +765,10 @@ def valid_review_sentence(sentence, *, monthly_nbs):
         return False
     if re.search(r"均(?:高于上年同期|同比增长|上升)[：:]", text) and re.search(r"[-−]\d+(?:\.\d+)?\s*%", text):
         return False
+    if monthly_nbs and re.search(r"由降转升|由负转正|同比转正", text):
+        published = re.findall(r"同比(?:增速)?\s*[:：为]?\s*([+−-]?\d+(?:\.\d+)?)\s*%", text)
+        if published and Decimal(published[-1].replace("−", "-")) < 0:
+            return False
     nbs_recalculation = (
         monthly_nbs and "同比" in text and re.search(r"相除|除以|重算|验算|自行计算", text)
         and re.search(r"可|建议|需|应", text)
@@ -751,12 +807,14 @@ def review_scope(config, task, title, paragraphs, evidence, limits):
 用其他国家的贸易额替代本国缺口、用出口金额推断销量或利润，均应删除相应原句。核对数据和本身合理的建议请保留。
 若来源只是统计表，删除把变化归因于光伏政策、电价、季节或投资动机的断言，同样删除关于贸易中转份额、路线和终端投用地点未经证实的事实表述。
 保留规上工业太阳能的完整指标名称。不能把各月发布量加总当作累计值，或用两年的绝对量重算并冒充原表同比。
+用两机构发电量之差估算某一类电站或企业的发电量，属于无直接证据的归因，须删除。
 若将前三季度新增写成全年新增、用 9 月底与上年末累计值声称同比变化，删除对应原句。
 上半年、前三季度、全年和各自的累计时点不得直接互换。把上半年读成半年末单月数据时删除相应句子。
 原表说存在统计数据修正时，不能断言某个负值具体由何种调整造成，除非有专项说明。
 工信部与机电商会发布口径各自保留。将“超过”的下限写成确定产量，或用跨机构公布值计算同比，均须删除该句。
 比较IEA PVPS直流侧、交流侧和其他来源时，不能将GWdc写作GWac，或用差值推断漏统计、建设缺口或实际项目变化。LCOE不等于零售电价、组件单价或买卖成交价。
 将规划目标表述为已经建成的数字应删除。
+光伏出口退税公告的附件有多项商品，不能将本次引用的两种光伏商品写成整个附件的全名单，也不能由该公告判断单票业务是否已满足其他申报要求。
 跨地区“领先、最高、规模更大”等判断要有同一指标、同一时间的成对数据支撑。若几年内顺序变化，不能用起点代表整段时期。
 只有两省的数据不能证明它们在全国的排名。提及资料缺失时要对照本次检索目录，避免把本段没引用的资料当作没有。
 只对有问题的段落返回 JSON，例如 {"edits":[{"paragraph":3,"remove":[2],"note":"判断当地配网压力还需核对峰时负荷。"}]}。
@@ -806,23 +864,34 @@ note 只写直接入文的可执行核实建议，不说“原句”“此处”
 def ensure_nbs_measurements(title, paragraphs, evidence):
     periods = calendar_periods(title)
     years = {int(year) for year in re.findall(r"20\d{2}", title)}
-    if not periods or not years or not any(w in title for w in ("发电", "累计")):
+    if not periods or not years or not any(w in title for w in ("发电", "电池", "累计")):
         return paragraphs
+    families = {
+        level: (growth, unit)
+        for level, growth, unit in (
+            (NBS_LEVEL, NBS_GROWTH, "亿千瓦时"),
+            (NBS_CELL_LEVEL, NBS_CELL_GROWTH, "万千瓦"),
+        )
+        if (level == NBS_LEVEL and "电池" not in title) or (level == NBS_CELL_LEVEL and "电池" in title)
+    }
+    metric_family = {indicator: level for level, (growth, _) in families.items() for indicator in (level, growth)}
     asked = {}
     for row in evidence:
-        match = re.fullmatch(rf"({NBS_LEVEL}|{NBS_GROWTH})（(.+月)）", row.get("metric", ""))
-        if not match or match[2] not in periods or row["publisher"] != "国家统计局":
+        match = re.fullmatch(r"(.+)（([^（）]+月)）", row.get("metric", ""))
+        if not match or match[1] not in metric_family or match[2] not in periods or row["publisher"] != "国家统计局":
             continue
         for year, value in row["series"]:
             if year in years:
-                pair = (year, match[2], row["source"])
+                pair = (year, match[2], row["source"], metric_family[match[1]])
                 asked.setdefault(pair, {})[match[1]] = (value, row["ref"])
     facts = []
-    for (year, period, _), indicators in asked.items():
-        if NBS_LEVEL not in indicators or NBS_GROWTH not in indicators:
+    for (year, period, _, level), indicators in asked.items():
+        change, unit = families[level]
+        if level not in indicators or change not in indicators:
             continue
-        (value, level_ref), (growth, growth_ref) = (indicators[k] for k in (NBS_LEVEL, NBS_GROWTH))
-        quantities_expected = {(Decimal(value), "亿千瓦时"), (Decimal(growth), "%")}
+        value, level_ref = indicators[level]
+        growth, growth_ref = indicators[change]
+        quantities_expected = {(Decimal(value), unit), (Decimal(growth), "%")}
         if any(
             f"[{level_ref}]" in line
             and f"[{growth_ref}]" in line
@@ -831,7 +900,7 @@ def ensure_nbs_measurements(title, paragraphs, evidence):
         ):
             continue
         facts.append(
-            f"{year}年{period}，全国{NBS_LEVEL}为{value}亿千瓦时，原表公布同比为{growth}%。"
+            f"{year}年{period}，全国{level}为{value}{unit}，原表公布同比为{growth}%。"
             f" [{level_ref}] [{growth_ref}]"
         )
         if len(facts) >= 4:
@@ -964,6 +1033,48 @@ def table_for_series(rows, metric, unit, columns, number, *, expected_years=(), 
     return lines
 
 
+def nbs_table(evidence, number, *, cumulative=None, cells=False):
+    level, growth = (NBS_CELL_LEVEL, NBS_CELL_GROWTH) if cells else (NBS_LEVEL, NBS_GROWTH)
+    amount_label = "电池产量（万千瓦）" if cells else "发电量（亿千瓦时）"
+    title = "全国规上工业太阳能电池（光伏电池）" if cells else "全国规上工业太阳能发电"
+    data = {}
+    refs = []
+    for row in evidence:
+        label = row.get("metric", "")
+        match = re.fullmatch(rf"({re.escape(level)}|{re.escape(growth)})（(.+)）", label)
+        if not match:
+            continue
+        indicator, period = match.groups()
+        monthly = re.fullmatch(r"(?:1—2|[3-9]|1[0-2])月", period)
+        if (cumulative is None and not monthly) or (cumulative is not None and period != cumulative):
+            continue
+        for year, value in row["series"]:
+            month = period if period == "1—2月" else period.zfill(3)
+            date_label = f"{year}年{month}" if cumulative is None else str(year)
+            data.setdefault(date_label, {}).setdefault(indicator, set()).add(value)
+        refs.append(row["ref"])
+    if len(data) < 2:
+        return []
+
+    def cell(found):
+        if not found:
+            return "—"
+        return next(iter(found)) if len(found) == 1 else "口径待核对"
+
+    window = "分月发布" if cumulative is None else f"{cumulative}累计"
+    lines = [
+        "## 数据附表",
+        f"表 {number}　{title}（{window}） "
+        + " ".join(f"[{ref}]" for ref in dict.fromkeys(refs)),
+        f"| 统计期 | {amount_label} | 原表同比（%） |",
+        "| --- | ---: | ---: |",
+    ]
+    for period in sorted(data, key=lambda value: value.replace("年1—2月", "年02月")):
+        values = data[period]
+        lines.append("| " + " | ".join((period, cell(values.get(level)), cell(values.get(growth)))) + " |")
+    return lines
+
+
 def monthly_tables(plan, evidence):
     groups = {}
     for row in evidence:
@@ -979,12 +1090,6 @@ def monthly_tables(plan, evidence):
             groups.setdefault((metric + "（Eurostat，单月）", row["unit"]), []).append(
                 dict(row, series=periods)
             )
-        match = re.fullmatch(rf"({NBS_LEVEL}|{NBS_GROWTH})（(1—2|[3-9]|1[0-2])月）", label)
-        if match:
-            metric, month = match.groups()
-            period = month if month == "1—2" else f"{int(month):02d}"
-            periods = [(f"{year}年{period}月", value) for year, value in row["series"]]
-            groups.setdefault((metric + "（分月发布）", row["unit"]), []).append(dict(row, series=periods))
     result = []
     for (metric, unit), rows in groups.items():
         if sum(len(row["series"]) for row in rows) < 2:
@@ -1000,6 +1105,7 @@ def monthly_tables(plan, evidence):
 def report_tables(plan, evidence, cited, target):
     """Use the actual data windows, with table titles separating incomparable periods."""
     selected = []
+    table_limit = min(8, max(1, round(target / 800)))
     eurostat_totals = {}
     for row in evidence:
         metric = row.get("metric", "")
@@ -1014,15 +1120,29 @@ def report_tables(plan, evidence, cited, target):
         selected.append(["## 数据附表", caption, *lines])
     if selected and set(plan.get("source_groups", [])) == {"eurostat"}:
         return selected
-    requested_periods = set().union(*(calendar_periods(section) for section in plan["sections"]))
+    nbs_monthly = []
+    for cells in (False, True):
+        table = nbs_table(evidence, len(selected) + 1, cells=cells)
+        if table:
+            selected.append(table)
+            nbs_monthly.append(cells)
+    national_sections = [
+        section for section in plan["sections"]
+        if re.search(r"国家统计局|规上工业|规模以上工业|太阳能发电|光伏电池.*产量", section)
+    ]
+    if not national_sections and set(plan.get("source_groups", [])) == {"nbs"}:
+        national_sections = plan["sections"]
+    requested_periods = set().union(*(calendar_periods(section) for section in national_sections))
     year_to_date = [period for period in sorted(requested_periods) if period.startswith("1—") and period != "1—2月"]
     for period in year_to_date:
-        metric = f"{NBS_LEVEL}（{period}累计）"
-        rows = [r for r in evidence if r.get("metric") == f"{NBS_LEVEL}（{period}）"]
-        if rows:
-            selected.append(table_for_series(rows, metric, "亿千瓦时", plan["regions"], len(selected) + 1))
-            if len(selected) >= 4:
-                return selected
+        for cells in nbs_monthly or [False, True]:
+            totals = nbs_table(evidence, len(selected) + 1, cumulative=period, cells=cells)
+            if totals:
+                selected.append(totals)
+                if len(selected) >= table_limit:
+                    return selected
+    if selected and set(plan.get("source_groups", [])) == {"nbs"}:
+        return selected
     trade = {}
     for row in evidence:
         if not row.get("series"):
@@ -1050,6 +1170,9 @@ def report_tables(plan, evidence, cited, target):
     seen = set()
     for section in plan["sections"]:
         ranked = [r for r in choose_evidence(evidence, section) if r.get("series")]
+        if nbs_monthly:
+            covered = (NBS_LEVEL, NBS_CELL_LEVEL)
+            ranked = [r for r in ranked if not r["metric"].startswith(covered)]
         keys = list(dict.fromkeys((r["metric"], r["unit"]) for r in ranked))
         if "户用" in section:
             household = next((key for key in keys if "户用" in key[0] and "新增" in key[0]), None)
@@ -1077,7 +1200,7 @@ def report_tables(plan, evidence, cited, target):
             if tab:
                 seen.add((metric, unit))
                 selected.append(tab)
-            if len(selected) >= min(4, max(1, round(target / 700))):
+            if len(selected) >= table_limit:
                 return selected
     fallback = study_table(plan, evidence, cited)
     return selected or ([fallback] if fallback else [])
@@ -1092,7 +1215,10 @@ def chart_data(table):
     refs = re.findall(r"\[(E\d+)\]", table[1])
     regions = [v.strip() for v in table[2].strip("|").split("|")][1:]
     rows = [[v.strip() for v in line.strip("|").split("|")] for line in table[4:]]
-    if len(regions) == 1:
+    if len(regions) == 2 and regions[1] == "原表同比（%）":
+        caption += " · " + regions[0]
+        cells = [(r[0], r[1]) for r in rows if not r[0].endswith("年1—2月")][-8:]
+    elif len(regions) == 1:
         cells = [(r[0], r[1]) for r in rows if not r[0].endswith("年1—2月")][-8:]
     else:
         shared = [r for r in rows if all(NUMBER_VALUE.fullmatch(v) for v in r[1:])]
@@ -1128,7 +1254,15 @@ def assemble(plan, evidence, notices, chapters, summary, limits, target, style):
         body.extend(["## " + name, *paras])
     used = set(re.findall(r"\[(E\d+)\]", "\n".join(body)))
     tables = report_tables(plan, evidence, used, target)
-    charts = [figure for table in tables if (figure := chart_data(table))][:2]
+    candidates = [figure for table in tables if (figure := chart_data(table))]
+    publisher_by_ref = {r["ref"]: r["publisher"] for r in evidence}
+    by_publisher = {}
+    for figure in candidates:
+        signature = tuple(sorted({publisher_by_ref[r] for r in figure["refs"]}))
+        by_publisher.setdefault(signature, figure)
+    charts = list(by_publisher.values())[:2]
+    charts.extend([figure for figure in candidates if figure not in charts][:2 - len(charts)])
+    charts.sort(key=lambda figure: figure["table_number"])
     if tables:
         body.append("## 数据附表")
         for _, caption, *lines in tables:
@@ -1154,7 +1288,7 @@ def assemble(plan, evidence, notices, chapters, summary, limits, target, style):
         body.append("正文与附表采用显示精度，可在资料库核对原始值。")
     if any("含光热" in metric for metric in metrics):
         body.append("含光热的太阳能装机与纯光伏装机分别列示。")
-    if any(metric.startswith(NBS_LEVEL) for metric in metrics):
+    if any(metric.startswith((NBS_LEVEL, NBS_CELL_LEVEL)) for metric in metrics):
         body.append(NBS_SCOPE)
     if any("（Eurostat，" in metric for metric in metrics):
         body.append("Eurostat 按进口报关原产地统计名义欧元金额。欧盟合计含成员国，单列的荷兰金额属于该合计。")
@@ -1199,7 +1333,10 @@ def assemble(plan, evidence, notices, chapters, summary, limits, target, style):
 @contextmanager
 def record_stage(config, checkpoint, save, stage, label):
     started = monotonic()
-    activity = dict(stage=stage, label=label, status="completed", model_requests=0)
+    start = dict(stage=stage, label=label, started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"))
+    checkpoint["pending_stage"] = start
+    save(checkpoint)
+    activity = dict(start, status="completed", model_requests=0)
     usage = {}
 
     def observe(counts):
@@ -1219,14 +1356,24 @@ def record_stage(config, checkpoint, save, stage, label):
         activity["seconds"] = round(monotonic() - started, 2)
         if usage:
             activity["reported_tokens"] = usage
+        checkpoint.pop("pending_stage", None)
         checkpoint.setdefault("operations", []).append(activity)
         save(checkpoint)
+
+
+def record_worker_restart(checkpoint):
+    pending = checkpoint.pop("pending_stage", None)
+    if pending:
+        checkpoint.setdefault("operations", []).append(
+            dict(pending, status="interrupted", error_code="worker_restart")
+        )
 
 
 def generate(config, library, root, row, spec, progress, save):
     from pv_brief import write_json
 
     checkpoint = spec["checkpoint"]
+    record_worker_restart(checkpoint)
     task = dict(需求=row["question"], 范围=spec["scope"], 商定事项=spec["turns"])
     if "plan" not in checkpoint:
         progress("正在拟定提纲与检索范围")
@@ -1269,14 +1416,16 @@ def generate(config, library, root, row, spec, progress, save):
             )
             if calendar_periods(title) and ("规上工业" in title or "规模以上工业" in title):
                 allocation = min(allocation, 850)
+            elif calendar_periods(title) and PROVINCE_Q3.search(title) and "进口" in title:
+                allocation = min(allocation, 1000)
             chapters.append(
                 draft_section(
                     stage_config, task, plan, evidence, title, allocation, previous, spec["style"]
                 )
             )
     # Older checkpoints used just the citations in the paragraph to judge gaps.
-    if checkpoint.get("scope_review_version") != 5:
-        checkpoint.update(scope_review_version=5, scope_reviewed=0, summary_reviewed=False)
+    if checkpoint.get("scope_review_version") != 6:
+        checkpoint.update(scope_review_version=6, scope_reviewed=0, summary_reviewed=False)
     for index in range(checkpoint.get("scope_reviewed", 0), total):
         title = plan["sections"][index]
         progress(f"第 {index + 1}/{total} 章 · 核对结论的适用范围")

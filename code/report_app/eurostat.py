@@ -35,9 +35,13 @@ ALIASES = {
 def jobs(plan):
     last = date.today().replace(day=1) - timedelta(days=1)
     first_year = max(2022, plan["start"])
-    if min(last.year, plan["end"]) < first_year:
+    last_year = min(last.year, plan["end"])
+    years = plan.get("trade_years", [])
+    if len(years) > 1:
+        first_year, last_year = max(first_year, min(years)), min(last_year, max(years))
+    if last_year < first_year:
         return []
-    through = min(last, date(plan["end"], 12, 31))
+    through = min(last, date(last_year, 12, 31))
     reporters = [name for name in plan["regions"] if name in REPORTERS]
     if not reporters:
         return []

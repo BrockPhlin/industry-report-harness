@@ -35,6 +35,12 @@ RELEASES = {
 }
 LEVEL = "规模以上工业太阳能发电量"
 GROWTH = "规模以上工业太阳能发电量同比"
+CELL_LEVEL = "规模以上工业太阳能电池（光伏电池）产量"
+CELL_GROWTH = CELL_LEVEL + "同比"
+INDICATORS = {
+    "太阳能发电量（亿千瓦时）": (LEVEL, GROWTH, "亿千瓦时"),
+    "太阳能电池（光伏电池）（万千瓦）": (CELL_LEVEL, CELL_GROWTH, "万千瓦"),
+}
 SCOPE = (
     "国家统计局规模以上工业月度表，范围为年主营业务收入2000万元及以上工业企业。"
     "1—2月合并发布。累计值读取同月原表，不能用已发布各月水平相加代替。"
@@ -66,7 +72,7 @@ def jobs(plan, published):
         if plan["start"] <= year <= plan["end"]:
             period = "1—2月" if month == 2 else f"{month}月"
             title = f"{year} 年{period}规模以上工业生产主要数据"
-            selected.append((url, title, "国家统计局", url, partial(rows, year=year, month=month)))
+            selected.append((url, title, "国家统计局", url, partial(rows, year=year, month=month), "nbs-products-v2"))
     return selected
 
 
@@ -80,27 +86,27 @@ def rows(raw, *, year, month):
     metadata = re.search(r'<meta\s+name="ArticleTitle"\s+content="([^"]+)"', page)
     if not metadata or release_id(metadata[1]) != (year, month):
         raise ValueError("国家统计局发布标题的统计期无法核对")
-    collected = set()
+    collected = {name: set() for name in INDICATORS}
     active = False
     for index, row in enumerate(parser.rows):
         if row and row[0] == "指标":
             active = row[1:] == periods and parser.rows[index + 1:index + 2] == [
                 ["绝对量", "同比增长（%）"] * len(periods)
             ]
-        if active and row and row[0] == "太阳能发电量（亿千瓦时）":
-            collected.add(tuple(row[1:]))
-            active = False
-    if len(collected) != 1:
-        raise ValueError("国家统计局原表的行、单位或重复表值无法核对")
-    values = collected.pop()
-    if len(values) != len(periods) * 2 or any(
-        not re.fullmatch(r"-?\d+(?:\.\d+)?", value) for value in values
-    ) or any(Decimal(value) < 0 for value in values[::2]):
-        raise ValueError("国家统计局原表的发电量或同比格式已更改")
+        if active and row and row[0] in collected:
+            collected[row[0]].add(tuple(row[1:]))
     observations = []
-    for period, value, growth in zip(periods, values[::2], values[1::2]):
-        observations.extend(
-            (("China", year, f"{LEVEL}（{period}）", "亿千瓦时", value),
-             ("China", year, f"{GROWTH}（{period}）", "%", growth))
-        )
+    for label, (level, change, unit) in INDICATORS.items():
+        if len(collected[label]) != 1:
+            raise ValueError(f"国家统计局原表的{label}行、单位或重复表值无法核对")
+        values = collected[label].pop()
+        if len(values) != len(periods) * 2 or any(
+            not re.fullmatch(r"-?\d+(?:\.\d+)?", value) for value in values
+        ) or any(Decimal(value) < 0 for value in values[::2]):
+            raise ValueError("国家统计局原表的绝对量或同比格式已更改")
+        for period, value, growth in zip(periods, values[::2], values[1::2]):
+            observations.extend(
+                (("China", year, f"{level}（{period}）", unit, value),
+                 ("China", year, f"{change}（{period}）", "%", growth))
+            )
     return observations, [("规模以上工业生产主要数据 · 统计范围与同比", SCOPE)]

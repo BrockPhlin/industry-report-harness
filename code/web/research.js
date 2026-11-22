@@ -323,8 +323,11 @@ function operationsView(operations) {
   detail.append(element("summary","生成过程"));
   for (const step of operations) {
     const stage = step.stage === "draft" ? "写作" : step.stage === "review" ? "核查" : "";
-    const time = step.seconds < 60 ? Math.round(step.seconds)+" 秒" : Math.floor(step.seconds/60)+" 分 "+Math.round(step.seconds%60)+" 秒";
-    const parts = [stage ? stage+" · "+step.label : step.label, step.status==="interrupted" ? "中断" : "完成", time];
+    const parts = [stage ? stage+" · "+step.label : step.label, step.status==="interrupted" ? "中断" : "完成"];
+    if (Number.isFinite(step.seconds)) {
+      const seconds = Math.round(step.seconds);
+      parts.push(seconds < 60 ? seconds+" 秒" : Math.floor(seconds/60)+" 分 "+seconds%60+" 秒");
+    } else if (step.error_code === "worker_restart") parts.push("服务重启，未记录耗时");
     if (step.model_requests) parts.push(step.model_requests+" 次模型请求");
     if (step.reported_tokens?.total_tokens !== undefined) {
       parts.push(step.reported_tokens.total_tokens.toLocaleString()+" tokens（模型返回）");

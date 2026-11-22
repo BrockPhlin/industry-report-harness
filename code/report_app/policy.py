@@ -133,10 +133,38 @@ POLICIES = (
         ("光伏利用率", "受限电量", "弃光", "消纳工作", "消纳口径"),
         "国能发电力〔2024〕44号",
     ),
+    Policy(
+        2026,
+        "China",
+        "光伏等产品出口退税公告（2026年第2号）",
+        "财政部、税务总局",
+        "https://szs.mof.gov.cn/zhengcefabu/202601/t20260109_3981637.htm",
+        ("出口退税", "关税", "贸易政策"),
+        "财政部税务总局公告2026年第2号",
+    ),
+    Policy(
+        2026,
+        "China",
+        "光伏出口退税公告附件1产品清单",
+        "财政部、税务总局",
+        "https://szs.mof.gov.cn/zhengcefabu/202601/t20260109_3981637.htm",
+        ("出口退税", "关税", "贸易政策"),
+        "光伏等产品清单",
+        "1276198b41d98cb7de7b21ab7ef3141ff21fa0deb118d3376db86379a4422be9",
+        (
+            (
+                "China · PDF 第10页第247、248项",
+                "公告附件1列出未装配光电池（85414200）和已装在组件内或组装成块的光电池（85414300）。"
+                "这两项属于附件1光伏产品清单。实施日期与税种以公告正文为准。",
+            ),
+        ),
+        "https://szs.mof.gov.cn/zhengcefabu/202601/P020260109557339206884.pdf",
+    ),
 )
 
 MARKERS = (
     "光伏",
+    "出口退税",
     "单一电力用户",
     "多个不同法人",
     "适用范围",
@@ -207,7 +235,7 @@ def parse_policy(raw, *, policy):
     selected = [
         (f"{policy.region} · 正文第 {index} 段", line)
         for index, line in enumerate(parser.blocks, 1)
-        if 48 <= len(line) <= 1800
+        if (28 if "出口退税" in policy.topics else 48) <= len(line) <= 1800
         and any(key in line for key in MARKERS)
         and not line.startswith(("各省、", "各省（", "各设区市", "为贯彻落实"))
     ]

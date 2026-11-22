@@ -102,17 +102,33 @@ class EvidenceTests(unittest.TestCase):
             '<table><tr><th>指标</th><th>4月</th><th>1—4月</th></tr>'
             '<tr><th>绝对量</th><th>同比增长（%）</th><th>绝对量</th><th>同比增长（%）</th></tr>'
             '<tr><td>太阳能发电量（亿千瓦时）</td><td>571</td><td>7.1</td><td>2045</td><td>9.8</td></tr>'
+            '<tr><td>太阳能电池（光伏电池）（万千瓦）</td><td>6494</td><td>-25.6</td><td>24150</td><td>-15.3</td></tr>'
             '</table>'
         ).encode()
         rows, notes = nbs.rows(raw, year=2026, month=4)
         self.assertEqual(rows[0], ("China", 2026, nbs.LEVEL + "（4月）", "亿千瓦时", "571"))
-        self.assertEqual(rows[-1], ("China", 2026, nbs.GROWTH + "（1—4月）", "%", "9.8"))
+        self.assertEqual(rows[3], ("China", 2026, nbs.GROWTH + "（1—4月）", "%", "9.8"))
+        self.assertEqual(rows[-1], ("China", 2026, nbs.CELL_GROWTH + "（1—4月）", "%", "-15.3"))
         self.assertIn("同比为原表", notes[0][1])
         with self.assertRaises(ValueError):
             nbs.rows(raw, year=2025, month=4)
         intake = raw[raw.index(b"<table>"):]
         with self.assertRaises(ValueError):
             nbs.rows(raw + intake.replace(b"2045", b"2222"), year=2026, month=4)
+
+    def test_national_release_distinguishes_pv_generation_and_wind_solar_total(self):
+        raw = (
+            '<meta name="PubDate" content="2026-07-30 13:53:27">'
+            '<p>今年上半年，全国风光发电量合计1.25万亿千瓦时。'
+            '今年上半年，全国光伏累计发电量6555亿千瓦时，全国光伏发电利用率91.4%。</p>'
+        ).encode()
+        records, _ = release_rows(raw, operation=(2026, "上半年"))
+        self.assertEqual(records, [
+            ("China", 2026, "全国光伏发电量（国家能源局，上半年）", "亿千瓦时", "6555"),
+            ("China", 2026, "全国光伏发电利用率（国家能源局，上半年）", "%", "91.4"),
+        ])
+        with self.assertRaises(ValueError):
+            release_rows(raw, operation=(2025, "前三季度"))
 
     def test_monthly_table_sorts_joint_period_before_march_and_excludes_it_from_chart(self):
         def source(month, val, ref):
@@ -124,8 +140,8 @@ class EvidenceTests(unittest.TestCase):
         records = [
             source("3", "547", "E1"), source("1—2", "920", "E2"), source("4", "571", "E3"),
         ]
-        table, = report.monthly_tables(dict(regions=["China"]), records)
-        self.assertEqual(table[4], "| 2026年1—2月 | 920 |")
+        table = report.nbs_table(records, 1)
+        self.assertEqual(table[4], "| 2026年1—2月 | 920 | — |")
         self.assertEqual([p["value"] for p in report.chart_data(table)["points"]], ["547", "571"])
 
     def test_explicit_month_gets_the_matching_absolute_value_and_published_growth(self):
@@ -404,6 +420,19 @@ class WritingTests(unittest.TestCase):
             limited = report.make_plan({}, "只用国家能源局分省原表", "", [], 2000)
         self.assertEqual(limited["source_groups"], ["grid"])
 
+    def test_excluding_generation_does_not_request_its_monthly_table(self):
+        plan = dict(
+            title="全国光伏电池生产", regions=["China"], start=2025, end=2026,
+            keywords=["光伏电池", "产量", "月表"], sections=["光伏电池产量"],
+        )
+        with patch.object(report, "answer", return_value=plan):
+            actual = report.make_plan(
+                {}, "比较光伏电池产量，不讨论发电量。", "", [], 1200,
+                ["两年10月光伏电池产量"], ["nbs"],
+            )
+        self.assertTrue(actual["cell_requested"])
+        self.assertFalse(actual["nbs_generation_requested"])
+
     def test_chinese_lengths_and_revisions(self):
         for prompt, expected in [
             ("计划一万字", 10000),
@@ -431,6 +460,20 @@ class WritingTests(unittest.TestCase):
         invalid = dict(valid, text=valid["text"].replace("1390.5", "1204"))
         with self.assertRaisesRegex(ValueError, "地区或年度"):
             report.validate_paragraphs({"paragraphs": [invalid]}, catalog, 0, 50)
+
+    def test_trade_fallback_uses_the_years_named_in_the_chapter(self):
+        row = dict(
+            ref="E1", region="European Union", unit="亿欧元",
+            metric="自中国进口光伏组件额（Eurostat，1—9月）",
+            series=[(2022, "150.9124"), (2025, "58.524"), (2026, "61.9405")],
+        )
+        years = report.section_years("欧盟2025及2026年1—9月自中国进口组件")
+        self.assertEqual(years, {2025, 2026})
+        _, sentence = report.anchors_for([row], years)["K1"]
+        self.assertIn("58.524", sentence)
+        self.assertIn("61.9405", sentence)
+        self.assertNotIn("2022", sentence)
+        self.assertEqual(report.section_years("2021—2025年连续数据"), set(range(2021, 2026)))
 
     def test_scope_review_keeps_other_paragraphs_and_checks_replacement(self):
         evidence = [dict(ref="E1", title="年度装机", locator="总计", text="2024 年累计装机为20 GW。")]
@@ -487,17 +530,25 @@ class WritingTests(unittest.TestCase):
         original = {"MODEL_API_KEY": "fake"}
         with (
             self.assertRaises(AppError),
-            report.record_stage(original, checkpoint, saved.append, "draft", "并网") as cfg,
+            report.record_stage(
+                original, checkpoint, lambda data: saved.append(json.loads(json.dumps(data))), "draft", "并网"
+            ) as cfg,
         ):
             cfg["_research_observer"]({"total_tokens": 40})
             cfg["_research_observer"](None)
             raise AppError("中断")
-        stage = saved[0]["operations"][0]
+        self.assertEqual(saved[0]["pending_stage"]["label"], "并网")
+        stage = saved[-1]["operations"][0]
         self.assertEqual(
             (stage["status"], stage["model_requests"], stage["reported_tokens"]["total_tokens"]),
             ("interrupted", 2, 40),
         )
         self.assertNotIn("fake", json.dumps(saved))
+        report.record_worker_restart(saved[0])
+        interrupted = saved[0]["operations"][0]
+        self.assertEqual(interrupted["error_code"], "worker_restart")
+        self.assertNotIn("pending_stage", saved[0])
+        self.assertNotIn("model_requests", interrupted)
 
     def test_annual_cohort_keeps_latest_source_and_excludes_quarter(self):
         rows = []
