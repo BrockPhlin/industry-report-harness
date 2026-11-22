@@ -116,30 +116,13 @@ def make_server(service, host="127.0.0.1", port=8000):
                         return self.respond(200, row)
                     if path == "/api/health":
                         return self.respond(200, {"status": "ok", "stage": "research", "harness": True})
-                    if path == "/api/sources":
-                        return self.respond(200, service.store.list_sources())
-                    if path.startswith("/api/sources/"):
-                        parts = path.split("/")
-                        if len(parts) != 4 or not parts[3]:
-                            raise AppError("接口不存在", 404, "not_found")
-                        return self.respond(200, service.store.get_source(parts[3]))
-                    if path == "/api/reports":
-                        return self.respond(200, service.store.list_reports())
-                    if path.startswith("/api/reports/"):
-                        parts = path.strip("/").split("/")
-                        if len(parts) not in {3, 4} or (len(parts) == 4 and parts[3] != "download"):
-                            raise AppError("接口不存在", 404)
-                        report = service.store.get_report(parts[2])
-                        if len(parts) == 4:
-                            return self.respond(200, report["markdown"].encode(), "text/markdown; charset=utf-8", f"report-{report['id']}.md")
-                        return self.respond(200, report)
                     static = {"/": ("research.html", "text/html"), "/research.js": ("research.js", "text/javascript"),
                               "/research.css": ("research.css", "text/css")}
                     if path in static:
                         name, kind = static[path]
                         return self.respond(200, (WEB / name).read_bytes(), kind + "; charset=utf-8")
                     raise AppError("页面或接口不存在", 404, "not_found")
-                if path not in {"/api/sources", "/api/reports", "/api/research"} and not (task and task[2] in ("approve", "ask", "retry", "plan", "write", "edit", "scope")):
+                if path != "/api/research" and not (task and task[2] in ("approve", "ask", "retry", "plan", "write", "edit", "scope")):
                     raise AppError("接口不存在", 404, "not_found")
                 if self.headers.get_content_type() != "application/json":
                     raise AppError("请求须为application/json", 415)
@@ -158,25 +141,22 @@ def make_server(service, host="127.0.0.1", port=8000):
                     raise AppError("请求JSON必须为对象")
                 if path == "/api/research":
                     return self.respond(202, research.start(data))
-                if task:
-                    if task[2] == "scope":
-                        return self.respond(200,research.revise_scope(task[1],data))
-                    if task[2] == "edit":
-                        return self.respond(200,research.edit(task[1],data))
-                    if task[2] == "plan":
-                        return self.respond(200, research.plan_turn(task[1],data))
-                    if task[2] == "write":
-                        return self.respond(202, research.begin(task[1]))
-                    if task[2] == "approve":
-                        if data.get("confirm") is not True:
-                            raise AppError("请先确认已核对草稿")
-                        return self.respond(200, research.approve(task[1]))
-                    if task[2] == "ask":
-                        return self.respond(200, research.ask(task[1], data))
-                    research.launch(task[1])
-                    return self.respond(202, research.task(task[1]))
-                result = service.add_source(data) if path == "/api/sources" else service.generate(data)
-                self.respond(201, result)
+                if task[2] == "scope":
+                    return self.respond(200, research.revise_scope(task[1], data))
+                if task[2] == "edit":
+                    return self.respond(200, research.edit(task[1], data))
+                if task[2] == "plan":
+                    return self.respond(200, research.plan_turn(task[1], data))
+                if task[2] == "write":
+                    return self.respond(202, research.begin(task[1]))
+                if task[2] == "approve":
+                    if data.get("confirm") is not True:
+                        raise AppError("请先确认已核对草稿")
+                    return self.respond(200, research.approve(task[1]))
+                if task[2] == "ask":
+                    return self.respond(200, research.ask(task[1], data))
+                research.launch(task[1])
+                return self.respond(202, research.task(task[1]))
             except AppError as exc:
                 self.respond(exc.status, {"error": {"code": exc.code, "message": str(exc)}})
             except sqlite3.Error:

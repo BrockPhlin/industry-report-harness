@@ -159,30 +159,17 @@ class HttpTests(unittest.TestCase):
                       headers={"Content-Type": "application/json", **(headers or {})})
         return urlopen(req, timeout=5)
 
-    def test_real_http_roundtrip_and_download(self):
+    def test_research_home_and_health(self):
         with self.request("/api/health") as r:
             self.assertTrue(json.load(r)["harness"])
-        with self.request("/api/sources", {"title": "原文", "body": "验证资料"}) as r:
-            source = json.load(r)
-            self.assertEqual(r.status, 201)
-        with self.request("/api/reports", {"topic": "测试", "source_ids": [source["id"]]}) as r:
-            report = json.load(r)
-        with self.request(f"/api/reports/{report['id']}/download") as r:
-            self.assertIn("text/markdown", r.headers["Content-Type"])
-            self.assertIn("验证资料", r.read().decode())
         with self.request("/") as r:
             self.assertIn("产业研究工作台", r.read().decode())
 
-    def test_public_sample_to_download_keeps_distinct_metrics(self):
+    def test_archived_public_sample_keeps_distinct_metrics(self):
         sample = json.loads((Path(__file__).parents[1] / "examples/public-sources.json").read_text(encoding="utf-8"))
-        ids = []
-        for item in sample["sources"][:2]:
-            with self.request("/api/sources", item) as response:
-                ids.append(json.load(response)["id"])
-        with self.request("/api/reports", {"topic": sample["topic"], "source_ids": ids}) as response:
-            report = json.load(response)
-        with self.request(f"/api/reports/{report['id']}/download") as response:
-            markdown = response.read().decode("utf-8")
+        ids = [self.service.add_source(item)["id"] for item in sample["sources"][:2]]
+        report = self.service.generate({"topic": sample["topic"], "source_ids": ids})
+        markdown = self.service.store.get_report(report["id"])["markdown"]
         self.assertIn("588GW", markdown)
         self.assertIn("2.78亿千瓦", markdown)
         self.assertIn("[S1]", markdown)
@@ -191,25 +178,23 @@ class HttpTests(unittest.TestCase):
 
     def test_cross_site_post_rejected_without_writes(self):
         with self.assertRaises(HTTPError) as ctx:
-            self.request("/api/sources", {"title": "x", "body": "x"}, {"Origin": "https://other.invalid"})
+            self.request("/api/research", {"question": "x"}, {"Origin": "https://other.invalid"})
         self.assertEqual(ctx.exception.code, 403)
+        with self.request("/api/research") as response:
+            self.assertEqual(json.load(response), [])
+
+    def test_opening_routes_are_retired_and_do_not_create_records(self):
+        for path in ("/api/sources", "/api/reports"):
+            for payload in (None, {"title": "原文", "body": "验证资料"}):
+                with self.subTest(path=path, payload=payload), self.assertRaises(HTTPError) as ctx:
+                    self.request(path, payload)
+                self.assertEqual(ctx.exception.code, 404)
         self.assertEqual(self.service.store.list_sources(), [])
+        self.assertEqual(self.service.store.list_reports(), [])
 
-    def test_source_list_and_detail_http_contract(self):
-        with self.request("/api/sources", {"title": "原文", "body": "完整证据😀"}) as r:
-            source = json.load(r)
-        with self.request("/api/sources") as r:
-            summaries = json.load(r)
-        self.assertEqual(summaries[0]["body_length"], len(source["body"]))
-        self.assertNotIn("body", summaries[0])
-        with self.request(f"/api/sources/{source['id']}") as r:
-            self.assertEqual(json.load(r), source)
-
-    def test_source_detail_rejects_extra_or_empty_path_segments(self):
-        source = self.service.add_source({"title": "原文", "body": "完整证据"})
-        for path in [f"/api/sources/extra/{source['id']}",
-                     f"/api/sources//{source['id']}",
-                     f"/api/sources/{source['id']}/", "/api/sources/"]:
+    def test_research_details_reject_extra_or_empty_path_segments(self):
+        task = "0" * 32
+        for path in (f"/api/research/extra/{task}", f"/api/research//{task}", f"/api/research/{task}/", "/api/research/"):
             with self.subTest(path=path), self.assertRaises(HTTPError) as ctx:
                 self.request(path)
             self.assertEqual(ctx.exception.code, 404)
