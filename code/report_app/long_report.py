@@ -131,7 +131,7 @@ def make_plan(config, question, scope, turns, target, outline=()):
     raw = answer(
         config,
         f"""你是光伏行业研究编辑。按任务和用户最后一次修订设计提纲。默认中国，国际对标时尊重指定地区。
-可检索中国官方发布、2021至2025年分省光伏并网年表、2025与2026年前三季度分省表、国际装机和发电、组件基准价、光伏平准化成本，以及2022年起UN Comtrade光伏组件和未组装电池片的分市场贸易额。
+可检索中国官方发布、2021至2025年分省光伏并网年表、2025与2026年前三季度分省表、2021至2025年光伏发电利用率、国际装机和发电、组件基准价、光伏平准化成本，以及2022年起UN Comtrade光伏组件和未组装电池片的分市场贸易额。
 可选择制造、价格、分布式、技术、市场、政策等自定义议题；缺少覆盖时安排说明证据边界。绝不擅自添加企业、年份或地域。
 只输出 JSON，对象含 title（具体题目）、regions（最多6个地区，国家用英文名，全球填World，中国省级地区填中文简称如浙江、江苏）、start、end（整数年份）、
 trade_regions（商品贸易的报告方英文名，无交易任务时空数组）、trade_partners（仅用户明确要求分析的目的地或进口原产地的国家英文名，至多6个；全球合计无需填，目的地不自动作为报告方）、
@@ -402,28 +402,40 @@ def anchored_part(config, task, plan, evidence, heading, target, previous, style
     instruction = """为指定章节选择证据，逐段写出对读者有什么用。只返回JSON对象：
 {"paragraphs":[{"keys":["K1","K2"],"analysis":"解释已选事实的含义和边界，或下一步怎样核实。"}]}。
 程序将完整证据句放在分析前面。analysis 写独立自然的完整句，按当前统计期解释，避免重复证据句的数字与名称。
-不要使用阿拉伯数字、占位符或证据编号，也不要推测条件和因果。证据须和本章直接相关，每条最多用一次。
+analysis 应至少写两句，讲清一个可核对的问题或结论。避免复述证据句，不写占位符或证据编号。
+证据须和本章直接相关，每条最多用一次。可在分析中保留已选证据中的日期，所有值和单位仍按来源核对。
 目标字数包含完整证据句和现场分析。"""
     for _ in range(3):
         raw = answer(config, instruction, data)
         paragraphs = []
         seen = set()
-        for item in raw.get("paragraphs", []):
+        supplied = raw.get("paragraphs")
+        for item in supplied if isinstance(supplied, list) else []:
             if not isinstance(item, dict) or not isinstance(item.get("keys"), list):
                 continue
             keys = [k for k in item["keys"] if isinstance(k, str) and k in anchors]
-            analysis = item.get("analysis")
-            if not keys or not isinstance(analysis, str) or not analysis.strip():
+            analysis = item.get("analysis", "")
+            if not keys or not isinstance(analysis, str):
                 continue
             keys = [key for key in dict.fromkeys(keys) if key not in seen]
             if not keys:
                 continue
             facts = [anchors[key][1] + "。" for key in keys]
             seen.update(keys)
-            analysis = analysis.strip()
-            if re.search(r"[0-9\n\[\]#{}]", analysis):
-                continue
-            paragraphs.append(dict(text="".join(facts) + analysis, refs=[anchors[key][0] for key in keys]))
+            refs = [anchors[key][0] for key in keys]
+            source = " ".join(catalog[k]["text"] + " " + catalog[k]["title"] for k in refs)
+            allowed_numbers, allowed_quantities = numbers(source), quantities(source)
+            support = []
+            for sentence in re.findall(r"[^。！？\n]+[。！？]?", analysis.strip()):
+                if (
+                    not sentence.startswith(("程序将", "读者可以据此"))
+                    and not re.search(r"[\[\]#{}]", sentence)
+                    and numbers(sentence) <= allowed_numbers
+                    and quantities(sentence) <= allowed_quantities
+                    and not any(sentence.strip("。！？ ") in fact for fact in facts)
+                ):
+                    support.append(sentence)
+            paragraphs.append(dict(text="".join(facts + support), refs=refs))
         try:
             return validate_paragraphs(
                 {"paragraphs": paragraphs}, catalog, round(0.8 * target), round(1.24 * target)
@@ -442,6 +454,7 @@ def write_part(config, task, plan, evidence, heading, target, previous, style):
 制造产量中的“发布下限”须用“超过”等原有口径表达。工信部与机电商会数据可分别列示，直接拼接不能作为同比依据。注明机构和所统计的产品范围。
 贸易须标明报告方、商品和伙伴。出口申报目的地可含中转地，不可当作最终消费地。进口伙伴按报告方原产地口径。不同产品的金额、国家进口镜像、组件物理容量须分别说明。
 涉及政策时分别说明国家规定、地方细则的适用地区、起始日期和项目类型。政策规定与行业结果分开写。摘记仅限该页条款，推断原因需要另有证据。
+光伏利用率反映特定统计口径内的消纳情况，区分发电量占比、利用小时数和组件转换效率。蒙东、蒙西分别发布，无可用发电量时不得用算术平均代替全区。
 不要重复前章。不写标题、编号、表格、Markdown或来源名称堆砌。仅输出 JSON：{"paragraphs":[{"text":"一整段正文","refs":["E1"]}]}。
 每段1至3个已有证据编号。每一段的阿拉伯数字必须能在所引证据中逐个找到。用完整自然段。"""
     payload = dict(

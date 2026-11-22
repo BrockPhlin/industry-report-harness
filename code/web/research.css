@@ -639,15 +639,24 @@ dialog::backdrop {
 .library-filters input {
   width: 70px;
 }
+.library-filters .metric-filter {
+  width: min(100%, 186px);
+}
 .query-results {
   overflow: auto;
   max-height: 34vh;
   margin: 10px 0;
   font-size: 13px;
 }
-.query-results td {
+.query-results td, .query-results th {
   padding: 3px 8px 3px 0;
   border-bottom: 1px solid var(--rule);
+  text-align: left;
+}
+.query-results th {
+  position: sticky;
+  top: 0;
+  background: var(--mist);
 }
 .cite {
   font-size: .82em;

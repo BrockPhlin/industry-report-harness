@@ -17,10 +17,12 @@ from urllib.parse import urljoin, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .errors import AppError
+from . import irena
 from .manufacturing import RELEASES as MANUFACTURING_RELEASES, manufacturing_observations
 from .policy import POLICIES, parse_policy
 from .store import now
 from .trade import TRADE, trade_jobs
+from .utilization import AREAS as GRID_AREAS, SOURCES as UTILIZATION_SOURCES, utilization_rows
 from .provinces import (
     HTML_QUARTER_TABLES,
     HTML_TABLES,
@@ -56,6 +58,9 @@ HOSTS = {
     "zfxxgk.nea.gov.cn",
     "fzggw.jiangsu.gov.cn",
     "zjjcmspublic.oss-cn-hangzhou-zwynet-d01-a.internet.cloud.zj.gov.cn",
+    "public.solarbe.com",
+    "pxweb.irena.org",
+    "www.irena.org",
 }
 METRICS = {
     "solar_electricity": ("太阳能发电量", "TWh"),
@@ -102,10 +107,16 @@ class PublicRedirect(HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def fetch(url):
+def fetch(url, *, data=None):
     if not permitted(url):
         raise ValueError("数据源地址无效")
-    request = Request(url, headers={"User-Agent": "PVResearch/1.0 (educational data analysis)"})
+    headers = {"User-Agent": "PVResearch/1.0 (educational data analysis)"}
+    if data is not None:
+        parts = urlsplit(url)
+        if parts.hostname != "pxweb.irena.org" or not parts.path.startswith("/api/v1/en/IRENASTAT/"):
+            raise ValueError("该数据源未登记查询接口")
+        headers["Content-Type"] = "application/json"
+    request = Request(url, data=data, headers=headers)
     with build_opener(PublicRedirect()).open(request, timeout=25) as response:
         raw = response.read(24_000_001)
     if len(raw) > 24_000_000:
@@ -226,7 +237,7 @@ class SolarLibrary:
                     )
             raise
 
-    def ingest(self, url, title, publisher, origin, parser, schema=""):
+    def ingest(self, url, title, publisher, origin, parser, schema="", loader=None):
         try:
             if url.startswith(TRADE + "?"):
                 with closing(self.store.connect()) as db:
@@ -239,7 +250,7 @@ class SolarLibrary:
                     return recent[0], "复用近七日取得的年度贸易数据"
                 raw = self.trade_download(url)
             else:
-                raw = self.download(url)
+                raw = (loader or self.download)(url)
             raw_digest = sha256(raw).hexdigest()
             digest = sha256(f"{raw_digest}:{schema}".encode()).hexdigest() if schema else raw_digest
             with closing(self.store.connect()) as db, db:
@@ -304,6 +315,27 @@ class SolarLibrary:
             results.append((key, {"source": title, "result": message, "url": primary}))
         return results
 
+    def collect_irena(self):
+        try:
+            table = irena.latest_country_table(self.download(irena.DIRECTORY))
+            query = irena.capacity_query(self.download(table))
+        except (OSError, ValueError, KeyError, TypeError):
+            with closing(self.store.connect()) as db:
+                saved = db.execute("""SELECT id FROM solar_sources WHERE publisher='IRENASTAT'
+                                    ORDER BY checked DESC,id DESC LIMIT 1""").fetchone()
+            if saved:
+                return saved[0], "数据目录读取失败，采用已存快照"
+            return None, "未取得 IRENASTAT 最新装机数据表"
+        return self.ingest(
+            table,
+            "IRENASTAT 年末光伏装机",
+            "IRENASTAT",
+            irena.LANDING,
+            irena.capacity_rows,
+            "pv-grid-v1",
+            loader=lambda url: fetch(url, data=query),
+        )
+
     def collect(self, plan):
         words = plan["keywords"] + [str(y) for y in range(plan["start"], plan["end"] + 1)]
         jobs = [
@@ -349,7 +381,7 @@ class SolarLibrary:
                     parse_cost,
                 )
             )
-        domestic = bool(set(plan["regions"]) & (REGIONS | {"China"}))
+        domestic = bool(set(plan["regions"]) & (REGIONS | GRID_AREAS | {"China"}))
         if domestic:
             for year, page in HTML_TABLES.items():
                 if plan["start"] <= year <= plan["end"]:
@@ -392,6 +424,12 @@ class SolarLibrary:
         notices = []
         if domestic:
             intent = plan["title"] + " " + " ".join([*plan["keywords"], *plan.get("sections", [])])
+            if any(word in intent for word in ("利用率", "消纳", "弃光", "限电", "弃电", "受限电量")):
+                for years, publisher, origin, download, digest, loc in UTILIZATION_SOURCES:
+                    if any(plan["start"] <= year <= plan["end"] for year in years):
+                        title = f"{years[-1]} 年光伏并网消纳年度统计"
+                        parser = partial(utilization_rows, years=years, fingerprint=digest, location=loc)
+                        jobs.append((download, title, publisher, origin, parser))
             policy_scope = {*plan["regions"], "China"}
             for policy in POLICIES:
                 if (
@@ -455,6 +493,25 @@ class SolarLibrary:
             notices.append(notice)
             if sid is not None and sid not in keys:
                 keys.append(sid)
+        inquiry = plan["title"] + " " + " ".join([*plan["keywords"], *plan.get("sections", [])])
+        if any(word in inquiry for word in ("装机", "离网", "接网", "发电容量")):
+            sid, message = self.collect_irena()
+            notices.append({"source": "IRENASTAT 年末光伏装机", "result": message, "url": irena.LANDING})
+            if sid is not None:
+                keys.append(sid)
+            if set(plan["regions"]) & irena.REGIONS:
+                title = "IRENA 全球及各区光伏年末装机（2026 年 3 月版）"
+                sid, message = self.ingest(
+                    irena.REGIONAL_REPORT,
+                    title,
+                    "IRENA",
+                    irena.REGIONAL_REPORT,
+                    irena.regional_capacity_rows,
+                    "world-pv-v1",
+                )
+                notices.append({"source": title, "result": message, "url": irena.REGIONAL_REPORT})
+                if sid is not None:
+                    keys.append(sid)
         if domestic:
             active_urls = {j[3] for j in jobs}
             for src in self.summary()["sources"]:
@@ -535,9 +592,11 @@ class SolarLibrary:
                     add(loc, body)
         return evidence
 
-    def browse(self, region, start, end):
+    def browse(self, region, start, end, *, metric="", publisher=""):
         if not region or len(region) > 100 or not 1900 <= start <= end <= 2100:
             raise AppError("地区或年份范围无效")
+        if len(metric) > 100 or len(publisher) > 100:
+            raise AppError("指标或发布机构检索词过长")
         ids = [r["id"] for r in self.summary()["sources"] if r["observations"]]
         if not ids:
             return []
@@ -546,11 +605,13 @@ class SolarLibrary:
             return [
                 dict(row)
                 for row in db.execute(
-                    f"""SELECT o.region,o.year,o.metric,o.value,o.unit,s.origin AS url
+                    f"""SELECT o.region,o.year,o.metric,o.value,o.unit,s.origin AS url,
+                              s.publisher,s.fetched,COALESCE(s.raw_digest,s.digest) AS digest
                 FROM solar_observations o JOIN solar_sources s ON s.id=o.source
                 WHERE o.source IN ({placeholders}) AND o.region=? COLLATE NOCASE AND o.year BETWEEN ? AND ?
-                ORDER BY o.year DESC,o.metric LIMIT 1200""",
-                    [*ids, region, start, end],
+                      AND instr(lower(o.metric),lower(?))>0 AND (?='' OR s.publisher=?)
+                ORDER BY o.year DESC,o.metric,s.checked DESC LIMIT 1200""",
+                    [*ids, region, start, end, metric.strip(), publisher, publisher],
                 )
             ]
 

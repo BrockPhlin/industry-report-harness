@@ -103,7 +103,7 @@ $("focus-btn").onclick = () => {
 $("sources").onclick = async () => {
   try {
     const data = await api("/library");
-    const count = element("p",data.sources.length+" 个数据源 · "+data.observations.toLocaleString()+" 条年度指标 · "+data.passages+" 段发布原文");
+    const count = element("p",data.sources.length+" 个数据源 · "+data.observations.toLocaleString()+" 条入库观测 · "+data.passages+" 段发布原文");
     const rows = data.sources.flatMap(s => [link(s.title,s.url),element("p",s.publisher+" · 最近核对 "+s.checked.slice(0,10))]);
     const filters = element("div",undefined,"library-filters");
     const region = element("select");
@@ -119,25 +119,53 @@ $("sources").onclick = async () => {
       Object.assign(el,{type:"number",min:1900,max:2100,value});
       el.setAttribute("aria-label",label);
     }
+    const metric = element("input");
+    Object.assign(metric,{type:"search",className:"metric-filter",maxLength:100,placeholder:"指标，如户用、发电量、荷兰"});
+    metric.setAttribute("aria-label","筛选指标");
+    const publisher = element("select");
+    publisher.setAttribute("aria-label","发布机构");
+    const all = element("option","所有机构");
+    all.value = "";
+    publisher.append(all);
+    for (const name of [...new Set(data.sources.map(source => source.publisher))].sort()) {
+      const option = element("option",name);
+      option.value = name;
+      publisher.append(option);
+    }
     const list = element("div",undefined,"query-results");
+    const download = element("a","导出当前结果 CSV","action");
+    download.hidden = true;
+    let request = 0;
     const query = button("查询",async () => {
+      const current = ++request;
+      const parameters = new URLSearchParams({region:region.value,start:start.value,end:end.value,
+        metric:metric.value.trim(),publisher:publisher.value});
+      download.hidden = true;
       try {
-        const result = await api("/observations?" + new URLSearchParams({region:region.value,start:start.value,end:end.value}));
+        const result = await api("/observations?" + parameters);
+        if (current !== request) return;
         const table = element("table");
+        const header = element("tr");
+        for (const label of ["年份","指标","数值","发布机构"]) header.append(element("th",label));
+        table.append(header);
         for (const r of result) {
           const tr = element("tr");
           const origin = element("td");
           origin.append(link(r.value+" "+r.unit,r.url));
-          tr.append(element("td",r.year),element("td",r.metric),origin);
+          tr.append(element("td",r.year),element("td",r.metric),origin,element("td",r.publisher));
           table.append(tr);
         }
-        list.replaceChildren(result.length ? table : element("p","这个范围尚无年度观测。"));
-      } catch (err) { list.textContent = err.message; }
+        list.replaceChildren(result.length ? table : element("p","这个条件下还没有入库观测。"));
+        if (result.length===1200) list.prepend(element("p","已显示前 1200 条。可用年份或指标缩小范围。"));
+        download.href = "/api/research/observations.csv?" + parameters;
+        download.hidden = !result.length;
+      } catch (err) { if (current===request) list.textContent = err.message; }
     },"action");
-    filters.append(region,start,end,query);
+    metric.onkeydown = e => { if (e.key==="Enter") query.click(); };
+    filters.append(region,start,end,metric,publisher,query);
     const sources = element("details");
     sources.append(element("summary","查看数据来源"),...rows);
-    dialog("光伏数据库",count,filters,list,sources);
+    dialog("光伏数据库",count,filters,list,download,sources);
     if (data.regions.length) query.click();
 
   } catch(err) { notice(err.message); }
@@ -348,7 +376,11 @@ function render(row) {
       article.append(documentView(row.markdown));
       const download = element("a","下载 Markdown");
       download.href = "/api/research/" + row.id + "/markdown";
-      article.append(download);
+      const evidenceFile = element("a","下载证据记录");
+      evidenceFile.href = "/api/research/" + row.id + "/evidence.json";
+      const exports = element("div",undefined,"actions");
+      exports.append(download,evidenceFile);
+      article.append(exports);
     } else article.append(documentView(row.markdown), traceView(row.events));
     const actions = element("div", undefined, "actions");
     if (row.spec && !row.approved) actions.append(button("润色草稿", () => {
@@ -458,6 +490,15 @@ async function init() {
   const originalKey = location.hash.slice(1);
   fresh();
   if (/^[a-f0-9]{32}$/.test(originalKey)) await select(originalKey);
+  window.addEventListener("hashchange", () => {
+    const key = location.hash.slice(1);
+    if (/^[a-f0-9]{32}$/.test(key)) {
+      if ($("dialog").open) $("dialog").close();
+      select(key);
+    } else if (!key) {
+      fresh();
+    }
+  });
 }
 controls();
 init().catch(err => notice(err.message));

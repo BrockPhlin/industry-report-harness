@@ -9,10 +9,12 @@ import unittest
 from unittest.mock import patch
 
 from report_app.errors import AppError
+from report_app import irena
 from report_app.manufacturing import manufacturing_observations
 from report_app.policy import Policy, parse_policy
 from report_app import long_report as report
 from report_app.research import Research
+from report_app.server import observations_csv
 from report_app.provinces import provincial_rows, region_name
 from report_app.service import Service
 from report_app.solar_data import (
@@ -83,6 +85,15 @@ class EvidenceTests(unittest.TestCase):
             ids = list(pool.map(lambda _: self.ingest()[0], range(2)))
         self.assertEqual(ids[0], ids[1])
         self.assertEqual(self.library.summary()["observations"], 2)
+
+    def test_public_csv_filter_preserves_historical_snapshot_identity(self):
+        self.ingest()
+        found = self.library.browse("China", 2020, 2021, metric="累计", publisher="IRENA")
+        self.assertEqual(len(found), 2)
+        self.assertFalse(self.library.browse("China", 2020, 2021, publisher="其他发布方"))
+        line = dict(found[0], value="-122.8", metric="=malformed value")
+        self.assertIn(",'=malformed value,-122.8,", observations_csv([line]).decode("utf-8-sig"))
+        self.assertEqual(len(line["digest"]), 64)
 
     def test_unrelated_web_content_cannot_become_evidence(self):
         raw = "<p>登录导航新闻报告声明联系我们</p><p>2024年光伏组件产量达到588GW，同比增长13.5%。</p>".encode()
@@ -207,6 +218,33 @@ class EvidenceTests(unittest.TestCase):
         self.assertIn("上网电量", parse_policy(html.encode(), policy=policy)[1][0][1])
         with self.assertRaisesRegex(ValueError, "政策文号"):
             parse_policy(html.replace("136号", "135号").encode(), policy=policy)
+
+    def test_irena_keeps_connection_types_and_nulls_distinct(self):
+        categories = [
+            ["USA"],
+            ["Solar photovoltaic"],
+            ["Electrical Installed Capacity (MW)"],
+            ["All", "On-grid", "Off-grid"],
+            ["2025"],
+        ]
+        dimensions = {}
+        for name, labels in zip(irena.DIMENSIONS, categories):
+            dimensions[name] = {
+                "category": {
+                    "index": {str(i): i for i in range(len(labels))},
+                    "label": {str(i): label for i, label in enumerate(labels)},
+                }
+            }
+        payload = {
+            "source": "IRENA",
+            "id": list(irena.DIMENSIONS),
+            "dimension": dimensions,
+            "value": [2400, 2300, None],
+        }
+        rows, _ = irena.capacity_rows(json.dumps(payload))
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0], ("United States", 2025, irena.METRICS["All"], "GW", "2.4"))
+        self.assertEqual(rows[1], ("United States", 2025, irena.METRICS["On-grid"], "GW", "2.3"))
 
 
 class WritingTests(unittest.TestCase):
