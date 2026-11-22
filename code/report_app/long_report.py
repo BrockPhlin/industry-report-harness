@@ -545,6 +545,22 @@ def validate_paragraphs(raw, catalog, lo, hi):
     return result
 
 
+def date_nea_release_text(text, cited):
+    """Interpret '今年' in a national release using its publication's labeled year."""
+    if "今年" not in text:
+        return text
+    periods = {
+        (match[1], match[2])
+        for row in cited
+        if row.get("publisher") == "国家能源局"
+        and (match := re.fullmatch(r"(20\d{2}) 年(上半年|前三季度|全年)全国光伏发电运行统计", row["title"]))
+    }
+    if len(periods) != 1:
+        return text
+    year, period = next(iter(periods))
+    return text.replace("今年" + period, f"{year}年{period}")
+
+
 def anchors_for(evidence, years=()):
     anchors = {}
     for row in evidence:
@@ -563,7 +579,8 @@ def anchors_for(evidence, years=()):
                 claim += f"，{last[0]}年{verb}{last[1]} {unit}"
         else:
             separators = r"[。]" if any(topic in row["title"] for topic in TAX_TOPICS) else r"[。；]"
-            sentences = [s for s in re.split(separators, row["text"]) if 18 <= len(s) <= 140]
+            historical_text = date_nea_release_text(row["text"], [row])
+            sentences = [s for s in re.split(separators, historical_text) if 18 <= len(s) <= 140]
             if not sentences:
                 continue
             claim = min(sentences, key=lambda s: (not bool(re.search(r"\d", s)), len(s))).strip("。； ")
@@ -673,6 +690,7 @@ Eurostat按欧洲进口申报方统计来自中国的给定商品，使用欧元
 国家能源局的全国光伏发电量与国统局规上工业太阳能发电量是分别发布的口径。不得把差额归为分布式、规模以下企业或某一技术发电量。
 涉及政策时分别说明国家规定、地方细则的适用地区、起始日期和项目类型。政策规定与行业结果分开写。摘记仅限该页条款，推断原因需要另有证据。
 区分消费税与增值税出口退税，分阶段税率逐档配对实施日期。规则限于公告所列产品，勿对单笔业务下结论。
+历史发布写明统计年份。原文里的“今年”指该次发布对应的统计年度。
 光伏利用率反映特定统计口径内的消纳情况，区分发电量占比、利用小时数和组件转换效率。蒙东、蒙西分别发布，无可用发电量时不得用算术平均代替全区。
 不要重复前章。不写标题、编号、表格、Markdown或来源名称堆砌。仅输出 JSON：{"paragraphs":[{"text":"一整段正文","refs":["E1"]}]}。
 每段1至3个已有证据编号。每一段的阿拉伯数字必须能在所引证据中逐个找到。用完整自然段。"""
@@ -859,6 +877,7 @@ note 只写直接入文的可执行核实建议，不说“原句”“此处”
                 revised[index] = body + " " + " ".join(f"[{r}]" for r in refs[index]) if body else ""
             for index, paragraph in enumerate(revised):
                 body = re.sub(r"(?:\s*\[E\d+\])+$", "", paragraph).strip()
+                body = date_nea_release_text(body, (catalog[ref] for ref in refs[index]))
                 kept = [s for s in re.findall(r"[^。！？]+[。！？]?", body)
                         if valid_review_sentence(s, monthly_nbs=monthly_nbs)]
                 revised[index] = "".join(kept) + " " + " ".join(f"[{r}]" for r in refs[index]) if kept else ""

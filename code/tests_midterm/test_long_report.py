@@ -547,6 +547,18 @@ class WritingTests(unittest.TestCase):
         self.assertIn("2028年4月1日起按4%", revised[0])
         self.assertEqual(report.ensure_pv_excise_schedule(title, revised, evidence), revised)
 
+    def test_relative_date_in_historical_nea_release_uses_source_year(self):
+        source = {
+            "title": "2025 年前三季度全国光伏发电运行统计",
+            "publisher": "国家能源局",
+            "ref": "E1",
+            "text": "今年前三季度，全国光伏累计发电量9163亿千瓦时。",
+        }
+        self.assertEqual(
+            report.anchors_for([source])["K1"],
+            ("E1", "2025年前三季度，全国光伏累计发电量9163亿千瓦时"),
+        )
+
     def test_stage_trace_records_usage_and_resume_failure_without_prompts(self):
         checkpoint = {}
         saved = []
