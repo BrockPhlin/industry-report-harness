@@ -18,17 +18,26 @@ from urllib.parse import urlencode, urljoin, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .errors import AppError
+from .manufacturing import RELEASES as MANUFACTURING_RELEASES, manufacturing_observations
 from .store import now
-from .provinces import REGIONS, TABLES, provincial_rows
+from .provinces import (
+    HTML_QUARTER_TABLES,
+    HTML_TABLES,
+    REGIONS,
+    TABLES,
+    html_provincial_rows,
+    provincial_rows,
+    table_caveat,
+)
 
 INDEX = "https://www.nea.gov.cn/sjzz/xny/"
 CAPACITY = "https://ourworldindata.org/grapher/installed-solar-pv-capacity"
 ENERGY = "https://raw.githubusercontent.com/owid/energy-data/master/owid-energy-data.csv"
 RELEASES = {
+    "2026年前三季度可再生能源并网运行情况": "https://www.nea.gov.cn/20261030/28a6f818b9f843a995952940301590bd/c.html",
     "2026年上半年可再生能源并网运行情况": "https://www.nea.gov.cn/20260730/3ce671c387574eeeb120fc3825be0399/c.html",
     "2025年可再生能源并网运行情况": "https://www.nea.gov.cn/20260212/742b8c6a078347b0b39de676c05c5d58/c.html",
     "2024年可再生能源并网运行情况": "https://www.nea.gov.cn/20250221/e10f363cabe3458aaf78ba4558970054/c.html",
-    "2024年全国光伏制造行业运行情况": "https://wap.miit.gov.cn/gyhxxhb/jgsj/dzxxsnew/xyyx/art/2025/art_1717bf6fa0a34311a2c347fb9623e607.html",
 }
 HOSTS = {
     "www.nea.gov.cn",
@@ -38,6 +47,9 @@ HOSTS = {
     "ourworldindata.org",
     "raw.githubusercontent.com",
     "comtradeapi.un.org",
+    "www.ciaps.org.cn",
+    "www.cpem.org.cn",
+    "www.cccme.org.cn",
 }
 METRICS = {
     "solar_electricity": ("太阳能发电量", "TWh"),
@@ -244,6 +256,9 @@ class SolarLibrary:
               CREATE TABLE IF NOT EXISTS solar_passages(
                  source INTEGER, locator TEXT, body TEXT, PRIMARY KEY(source,locator));
             """)
+            db.execute("BEGIN IMMEDIATE")
+            if "raw_digest" not in {row["name"] for row in db.execute("PRAGMA table_info(solar_sources)")}:
+                db.execute("ALTER TABLE solar_sources ADD COLUMN raw_digest TEXT")
 
     def trade_download(self, url):
         with closing(self.store.connect()) as db, db:
@@ -280,7 +295,7 @@ class SolarLibrary:
                     )
             raise
 
-    def ingest(self, url, title, publisher, origin, parser):
+    def ingest(self, url, title, publisher, origin, parser, schema=""):
         try:
             if url.startswith(TRADE + "?"):
                 with closing(self.store.connect()) as db:
@@ -294,7 +309,8 @@ class SolarLibrary:
                 raw = self.trade_download(url)
             else:
                 raw = self.download(url)
-            digest = sha256(raw).hexdigest()
+            raw_digest = sha256(raw).hexdigest()
+            digest = sha256(f"{raw_digest}:{schema}".encode()).hexdigest() if schema else raw_digest
             with closing(self.store.connect()) as db, db:
                 row = db.execute(
                     "SELECT id FROM solar_sources WHERE url=? AND digest=?", (url, digest)
@@ -308,8 +324,9 @@ class SolarLibrary:
             stamp = now()
             with closing(self.store.connect()) as db, db:
                 db.execute(
-                    "INSERT OR IGNORE INTO solar_sources(url,digest,title,publisher,origin,fetched,checked) VALUES(?,?,?,?,?,?,?)",
-                    (url, digest, title, publisher, origin, stamp, stamp),
+                    """INSERT OR IGNORE INTO solar_sources
+                       (url,digest,title,publisher,origin,fetched,checked,raw_digest) VALUES(?,?,?,?,?,?,?,?)""",
+                    (url, digest, title, publisher, origin, stamp, stamp, raw_digest),
                 )
                 sid = db.execute(
                     "SELECT id FROM solar_sources WHERE url=? AND digest=?", (url, digest)
@@ -325,13 +342,36 @@ class SolarLibrary:
         except (OSError, ValueError, KeyError, csv.Error) as exc:
             with closing(self.store.connect()) as db:
                 cache = db.execute(
-                    "SELECT id FROM solar_sources WHERE url=? ORDER BY checked DESC,id DESC LIMIT 1", (url,)
+                    """SELECT id FROM solar_sources WHERE url=? AND
+                       (?='' OR EXISTS(SELECT 1 FROM solar_observations WHERE source=solar_sources.id))
+                       ORDER BY checked DESC,id DESC LIMIT 1""",
+                    (url, schema),
                 ).fetchone()
             return (
                 (cache[0], "联网失败，采用已存快照")
                 if cache
                 else (None, "未取得可用数据：" + str(exc)[:95])
             )
+
+    def collect_manufacturing(self, plan):
+        if "China" not in plan["regions"]:
+            return []
+        intent = plan["title"] + " " + " ".join(plan["keywords"])
+        if not any(word in intent for word in ("产量", "制造", "多晶硅", "硅片", "组件", "出口", "产业链")):
+            return []
+        results = []
+        for year, (publisher, primary, mirror) in MANUFACTURING_RELEASES.items():
+            if not plan["start"] <= year <= plan["end"]:
+                continue
+            title = f"{year} 年中国光伏制造与贸易统计"
+            parser = partial(manufacturing_rows, year=year)
+            key, message = self.ingest(primary, title, publisher, primary, parser, "manufacturing-v1")
+            if key is None and mirror:
+                key, message = self.ingest(mirror, title, publisher, primary, parser, "manufacturing-v1")
+                if key is not None:
+                    message = "从转载页获取，原发布页无法直连 · " + message
+            results.append((key, {"source": title, "result": message, "url": primary}))
+        return results
 
     def collect(self, plan):
         words = plan["keywords"] + [str(y) for y in range(plan["start"], plan["end"] + 1)]
@@ -380,17 +420,44 @@ class SolarLibrary:
             )
         domestic = bool(set(plan["regions"]) & (REGIONS | {"China"}))
         if domestic:
-            for year, (page, filename, _) in TABLES.items():
+            for year, page in HTML_TABLES.items():
                 if plan["start"] <= year <= plan["end"]:
                     jobs.append(
                         (
-                            urljoin(page, filename),
+                            page,
                             f"{year} 年光伏并网容量分省统计",
                             "国家能源局",
                             page,
-                            partial(provincial_rows, year=year),
+                            partial(html_provincial_rows, year=year),
+                            "provincial-html-v1",
                         )
                     )
+            for year, (page, filename, _) in TABLES.items():
+                if plan["start"] <= year <= plan["end"]:
+                    period = "年前三季度" if year == 2026 else "年"
+                    jobs.append(
+                        (
+                            urljoin(page, filename),
+                            f"{year} {period}光伏并网容量分省统计",
+                            "国家能源局",
+                            page,
+                            partial(provincial_rows, year=year),
+                            "household-columns-v2" if year in (2024, 2025) else "",
+                        )
+                    )
+            if plan.get("quarter_requested") or plan["end"] >= 2026:
+                for year, page in HTML_QUARTER_TABLES.items():
+                    if plan["start"] <= year <= plan["end"]:
+                        jobs.append(
+                            (
+                                page,
+                                f"{year} 年前三季度光伏并网容量分省统计",
+                                "国家能源局",
+                                page,
+                                partial(html_provincial_rows, year=year, quarter=True),
+                                "provincial-html-v1",
+                            )
+                        )
         notices = []
         if domestic:
             links = dict(RELEASES)
@@ -418,7 +485,11 @@ class SolarLibrary:
                     {"source": "国家能源局发布目录", "result": "目录访问失败，尝试已登记的统计发布"}
                 )
             for title, url in links.items():
-                if url in {page for page, _, _ in TABLES.values()}:
+                if url in {
+                    *HTML_TABLES.values(),
+                    *HTML_QUARTER_TABLES.values(),
+                    *(page for page, _, _ in TABLES.values()),
+                }:
                     continue
                 years = [int(y) for y in re.findall(r"20\d{2}", title)]
                 if years and not any(plan["start"] <= y <= plan["end"] for y in years):
@@ -437,8 +508,12 @@ class SolarLibrary:
             notices.append({"source": job[1], "result": status, "url": job[3]})
             if sid is not None and sid not in keys:
                 keys.append(sid)
+        for sid, notice in self.collect_manufacturing(plan):
+            notices.append(notice)
+            if sid is not None and sid not in keys:
+                keys.append(sid)
         if domestic:
-            active_urls = {j[0] for j in jobs}
+            active_urls = {j[3] for j in jobs}
             for src in self.summary()["sources"]:
                 years = re.findall(r"20\d{2}", src["title"])
                 if (
@@ -467,7 +542,7 @@ class SolarLibrary:
                             publisher=src["publisher"],
                             url=src["origin"],
                             data_url=src["url"],
-                            digest=src["digest"],
+                            digest=src["raw_digest"] or src["digest"],
                             fetched=src["fetched"],
                             locator=locator,
                             text=text,
@@ -497,13 +572,10 @@ class SolarLibrary:
                         shown = [(year, display_value(v, digits)) for year, v in samples]
                         data = "；".join(f"{year}年 {value} {unit}" for year, value in shown)
                         note = trend(samples, unit)
-                        if region in {"新疆", "新疆兵团"} and src["url"].endswith((".jpeg", ".png")):
-                            note += "2024 年原表另列新疆兵团，2025 年只列新疆，跨年比较须先核对范围。"
-                        location = (
-                            "总计"
-                            if region == "China" and src["url"].endswith((".jpeg", ".png"))
-                            else region
-                        )
+                        is_provincial = "光伏并网容量分省统计" in src["title"]
+                        if is_provincial:
+                            note += table_caveat(region, samples[-1][0], quarter="前三季度" in src["title"])
+                        location = "总计" if region == "China" and is_provincial else region
                         add(
                             f"{location} · {metric} · {unit}",
                             f"{region}，{metric}：{data}。" + note,
@@ -604,3 +676,20 @@ def release_rows(raw):
         ):
             passages.append((f"网页第{i}段", line))
     return [], passages
+
+
+def manufacturing_rows(raw, *, year):
+    page = ReleasePage(raw)
+    observations = manufacturing_observations(page.paragraphs, year)
+    # Retain adjacent conditions, rates and the export passage as context.
+    passages = [
+        (f"网页第{i}段", line)
+        for i, line in enumerate(page.paragraphs, 1)
+        if 24 <= len(line) <= 1400
+        and (
+            ("产量" in line and "同比" in line)
+            or ("组件出口" in line and "出口量" in line)
+            or ("全年主要光伏产品" in line and "价格" in line)
+        )
+    ]
+    return observations, passages

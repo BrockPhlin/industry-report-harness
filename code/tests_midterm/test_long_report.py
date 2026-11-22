@@ -9,6 +9,7 @@ import unittest
 from unittest.mock import patch
 
 from report_app.errors import AppError
+from report_app.manufacturing import manufacturing_observations
 from report_app import long_report as report
 from report_app.research import Research
 from report_app.provinces import provincial_rows, region_name
@@ -60,6 +61,22 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(self.library.browse("China", 2021, 2021)[0]["value"], "30")
         plan = dict(regions=["China"], start=2021, end=2021, keywords=[])
         self.assertEqual(self.library.select([one], plan)[0]["raw_series"], [(2021, "20")])
+
+    def test_parser_schema_creates_a_new_snapshot_with_the_same_public_fingerprint(self):
+        old, _ = self.ingest()
+        args = (
+            "https://ourworldindata.org/solar.csv",
+            "装机",
+            "IRENA",
+            "https://ourworldindata.org/chart",
+            capacity_rows,
+        )
+        new, _ = self.library.ingest(*args, schema="add-column")
+        self.assertNotEqual(old, new)
+        self.assertEqual(self.library.ingest(*args, schema="add-column")[0], new)
+        plan = dict(regions=["China"], start=2021, end=2021, keywords=[])
+        snapshots = self.library.select([old, new], plan)
+        self.assertEqual(snapshots[0]["digest"], snapshots[1]["digest"])
 
     def test_same_source_fetched_concurrently(self):
         with ThreadPoolExecutor(2) as pool:
@@ -140,9 +157,39 @@ class EvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "更换原表"):
             provincial_rows(b"replacement", year=2025)
 
+    def test_manufacturing_parser_keeps_publisher_and_lower_bound(self):
+        data = [
+            "多晶硅环节，1—12月全国产量超过143万吨。",
+            "硅片环节，1—12月全国产量超过622GW。",
+            "电池环节，1—12月全国晶硅电池产量超过545GW。",
+            "组件环节，1—12月全国晶硅组件产量超过499GW。",
+        ]
+        manufacturing = manufacturing_observations(data, 2023)
+        self.assertEqual(
+            manufacturing[-1], ("China", 2023, "光伏组件产量（工信部，晶硅，发布下限）", "GW", "499")
+        )
+        with self.assertRaisesRegex(ValueError, "组件产量段"):
+            manufacturing_observations(data[:-1], 2023)
+
 
 class WritingTests(unittest.TestCase):
     sample = {"E1": {"text": "2024年，累计装机为20 GW。", "title": "年度统计"}}
+
+    def test_named_interim_chapter_extends_the_annual_retrieval_window(self):
+        plan = dict(
+            title="浙苏光伏",
+            regions=["浙江", "江苏"],
+            start=2021,
+            end=2025,
+            keywords=["光伏", "并网"],
+            sections=["模型的提纲"],
+        )
+        with patch.object(report, "answer", return_value=plan):
+            actual = report.make_plan(
+                {}, "比较浙江和江苏", "", [], 2000, ["2021—2025 年比较", "2026 年前三季度更新"]
+            )
+        self.assertEqual((actual["start"], actual["end"]), (2021, 2026))
+        self.assertTrue(actual["quarter_requested"])
 
     def test_chinese_lengths_and_revisions(self):
         for prompt, expected in [
@@ -198,6 +245,24 @@ class WritingTests(unittest.TestCase):
         md, trace = report.assemble(plan, [row], [], [["章节 [E1]"]], ["摘要 [E1]"], [], 800, "research")
         self.assertIn("| 年份 | China |\n| --- | ---: |\n| 2020 | 1 |\n| 2021 | 2 |", md)
         self.assertIn("| 2021 | 2 |", trace["protected_lines"])
+
+    def test_summary_can_only_select_existing_measurements(self):
+        first = "官方分省表记录浙江年末累计装机为20 GW，这只能用来说明装机规模。 [E1]"
+        second = "浙江的全年新增与九月底累计各有时间口径，需要单独解读。 [E2]"
+        chapters = [[first], [second]]
+        with patch.object(report, "answer", return_value={"selected": [777]}):
+            published = report.summarize_report({}, {}, ["统计", "口径"], chapters, 120)
+        self.assertEqual(published, [first, second])
+
+    def test_quarterly_revision_cannot_lose_its_negative_sign(self):
+        catalog = {
+            "E1": {"text": "2026年前三季度，江西集中式新增并网容量为-122.8 万千瓦。", "title": "原表"}
+        }
+        submitted = {
+            "paragraphs": [{"text": "原表记录江西的集中式新增并网容量为122.8万千瓦。", "refs": ["E1"]}]
+        }
+        with self.assertRaisesRegex(ValueError, "数值和单位"):
+            report.validate_paragraphs(submitted, catalog, 1, 120)
 
     def test_citations_and_quantities_must_match(self):
         for text, refs in [
