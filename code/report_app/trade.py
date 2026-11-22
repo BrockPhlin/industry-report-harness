@@ -75,32 +75,33 @@ def trade_jobs(plan):
         partners = (0, *sorted({COUNTRIES[p][0] for p in requested if p in COUNTRIES and p != region}))
         for year in range(max(2022, plan["start"]), min(date.today().year - 1, plan["end"]) + 1):
             for flow, label in flows:
-                params = dict(
-                    period=year,
-                    reporterCode=reporter,
-                    cmdCode=",".join(products),
-                    flowCode=flow,
-                    partnerCode=",".join(map(str, partners)),
-                    partner2Code=0,
-                    customsCode="C00",
-                    motCode=0,
-                    maxRecords=max(5, len(partners) * len(products)),
-                )
-                url = TRADE + "?" + urlencode(params)
-                if len(partners) == len(products) == 1:
-                    title = f"{year} 年 {region} {PRODUCTS[products[0]]}{label}额"
-                else:
-                    title = f"{year} 年 {region} 光伏产品{label}额分市场统计"
-                parser = partial(
-                    trade_rows,
-                    year=year,
-                    region=region,
-                    flow=flow,
-                    label=label,
-                    products=products,
-                    partners=partners,
-                )
-                jobs.append((url, title, "联合国 Comtrade", url, parser))
+                for product in products:
+                    params = dict(
+                        period=year,
+                        reporterCode=reporter,
+                        cmdCode=product,
+                        flowCode=flow,
+                        partnerCode=",".join(map(str, partners)),
+                        partner2Code=0,
+                        customsCode="C00",
+                        motCode=0,
+                        maxRecords=max(5, len(partners)),
+                    )
+                    url = TRADE + "?" + urlencode(params)
+                    if len(partners) == 1:
+                        title = f"{year} 年 {region} {PRODUCTS[product]}{label}额"
+                    else:
+                        title = f"{year} 年 {region} {PRODUCTS[product]}{label}额分市场统计"
+                    parser = partial(
+                        trade_rows,
+                        year=year,
+                        region=region,
+                        flow=flow,
+                        label=label,
+                        products=(product,),
+                        partners=partners,
+                    )
+                    jobs.append((url, title, "联合国 Comtrade", url, parser))
     return jobs
 
 

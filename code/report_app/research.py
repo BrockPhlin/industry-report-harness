@@ -15,7 +15,7 @@ from .generator import chat_completion, model_connection
 from .pv_evidence import load_inputs
 from .service import text_field
 from .store import now
-from .solar_data import SolarLibrary
+from .solar_data import SOURCE_GROUPS, SolarLibrary
 from . import long_report
 
 
@@ -39,8 +39,20 @@ class Research:
                 phase TEXT, turns TEXT DEFAULT '[]', progress TEXT DEFAULT '', checkpoint TEXT DEFAULT '{}')""")
 
             db.execute("BEGIN IMMEDIATE")
-            if "outline" not in {r["name"] for r in db.execute("PRAGMA table_info(long_jobs)")}:
+            columns = {r["name"] for r in db.execute("PRAGMA table_info(long_jobs)")}
+            if "outline" not in columns:
                 db.execute("ALTER TABLE long_jobs ADD COLUMN outline TEXT DEFAULT '[]'")
+            if "source_groups" not in columns:
+                db.execute("ALTER TABLE long_jobs ADD COLUMN source_groups TEXT DEFAULT '[]'")
+
+    @staticmethod
+    def source_groups(data):
+        groups = data.get("source_groups", [])
+        if not isinstance(groups, list) or any(
+            not isinstance(x, str) or x not in SOURCE_GROUPS for x in groups
+        ):
+            raise AppError("请从工作台列出的资料来源中选择")
+        return [group for group in SOURCE_GROUPS if group in groups]
 
     @staticmethod
     def outline(data):
@@ -57,7 +69,7 @@ class Research:
         return titles
 
     def spec(self, key, *, checkpoint=False):
-        fields = "workflow,scope,target,style,phase,turns,progress,outline" + (
+        fields = "workflow,scope,target,style,phase,turns,progress,outline,source_groups" + (
             ",checkpoint" if checkpoint else ""
         )
         with closing(self.store.connect()) as db:
@@ -67,6 +79,7 @@ class Research:
         result = dict(row)
         result["turns"] = json.loads(result["turns"])
         result["outline"] = json.loads(result["outline"])
+        result["source_groups"] = json.loads(result["source_groups"])
         if checkpoint:
             result["checkpoint"] = json.loads(result["checkpoint"])
         return result
@@ -75,6 +88,7 @@ class Research:
         question = text_field(data, "question", 2400, True)
         scope = text_field(data, "scope", 1800)
         outline = self.outline(data)
+        groups = self.source_groups(data)
         workflow = data.get("workflow")
         style = data.get("style", "research")
         target = data.get("target")
@@ -102,7 +116,8 @@ class Research:
                 (key, question, "[]", "live", model, now()),
             )
             db.execute(
-                "INSERT INTO long_jobs(id,workflow,scope,target,style,phase,turns,outline) VALUES(?,?,?,?,?,?,?,?)",
+                """INSERT INTO long_jobs(id,workflow,scope,target,style,phase,turns,outline,source_groups)
+                   VALUES(?,?,?,?,?,?,?,?,?)""",
                 (
                     key,
                     workflow,
@@ -112,6 +127,7 @@ class Research:
                     phase,
                     json.dumps(turns, ensure_ascii=False),
                     json.dumps(outline, ensure_ascii=False),
+                    json.dumps(groups),
                 ),
             )
         if phase == "writing":
@@ -151,6 +167,7 @@ class Research:
         target = data.get("target")
         style = data.get("style")
         outline = self.outline(data)
+        groups = json.dumps(self.source_groups(data)) if "source_groups" in data else None
         if (
             type(target) is not int
             or not long_report.MIN_LENGTH <= target <= long_report.MAX_LENGTH
@@ -163,9 +180,9 @@ class Research:
                 raise AppError("请等待当前讨论回复后修改", 409)
             with closing(self.store.connect()) as db, db:
                 changed = db.execute(
-                    """UPDATE long_jobs SET scope=?,target=?,style=?,outline=?
+                    """UPDATE long_jobs SET scope=?,target=?,style=?,outline=?,source_groups=COALESCE(?,source_groups)
                                WHERE id=? AND phase='planning'""",
-                    (scope, target, style, json.dumps(outline, ensure_ascii=False), key),
+                    (scope, target, style, json.dumps(outline, ensure_ascii=False), groups, key),
                 ).rowcount
                 if not changed:
                     raise AppError("只有确认写作前可以调整范围", 409)
@@ -191,6 +208,7 @@ class Research:
         return dict(
             model=model,
             styles=long_report.STYLES,
+            source_groups=SOURCE_GROUPS,
             sections=[s["title"] for s in self.template["sections"]],
             sources=list(self.sources.values()),
         )

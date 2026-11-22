@@ -10,14 +10,17 @@ from html.parser import HTMLParser
 import io
 import json
 import re
+import ssl
 import time
 from email.utils import parsedate_to_datetime
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, HTTPSHandler, Request, build_opener
 
 from .errors import AppError
 from . import irena
+from . import eurostat
+from . import nbs
 from .manufacturing import RELEASES as MANUFACTURING_RELEASES, manufacturing_observations
 from .policy import POLICIES, parse_policy
 from .store import now
@@ -42,6 +45,17 @@ RELEASES = {
     "2025年可再生能源并网运行情况": "https://www.nea.gov.cn/20260212/742b8c6a078347b0b39de676c05c5d58/c.html",
     "2024年可再生能源并网运行情况": "https://www.nea.gov.cn/20250221/e10f363cabe3458aaf78ba4558970054/c.html",
 }
+SOURCE_GROUPS = {
+    "grid": "国家能源局并网原表",
+    "utilization": "光伏发电利用率",
+    "manufacturing": "中国光伏制造与贸易发布",
+    "trade": "联合国 Comtrade",
+    "eurostat": "Eurostat 欧洲进口统计",
+    "international": "IRENASTAT 与 OWID",
+    "policy": "国家及省级政策原文",
+    "releases": "国家能源局运行发布",
+    "nbs": "国家统计局规上工业发电",
+}
 HOSTS = {
     "www.nea.gov.cn",
     "www.miit.gov.cn",
@@ -61,6 +75,7 @@ HOSTS = {
     "public.solarbe.com",
     "pxweb.irena.org",
     "www.irena.org",
+    "ec.europa.eu",
 }
 METRICS = {
     "solar_electricity": ("太阳能发电量", "TWh"),
@@ -117,7 +132,18 @@ def fetch(url, *, data=None):
             raise ValueError("该数据源未登记查询接口")
         headers["Content-Type"] = "application/json"
     request = Request(url, data=data, headers=headers)
-    with build_opener(PublicRedirect()).open(request, timeout=25) as response:
+    try:
+        response = build_opener(PublicRedirect()).open(request, timeout=25)
+    except URLError as error:
+        if not isinstance(error.reason, ssl.SSLCertVerificationError):
+            raise
+        try:
+            import truststore
+        except ImportError:
+            raise error from None
+        context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        response = build_opener(PublicRedirect(), HTTPSHandler(context=context)).open(request, timeout=25)
+    with response:
         raw = response.read(24_000_001)
     if len(raw) > 24_000_000:
         raise ValueError("下载内容过大")
@@ -295,11 +321,13 @@ class SolarLibrary:
                 else (None, "未取得可用数据：" + str(exc)[:95])
             )
 
-    def collect_manufacturing(self, plan):
+    def collect_manufacturing(self, plan, *, force=False):
         if "China" not in plan["regions"]:
             return []
         intent = plan["title"] + " " + " ".join(plan["keywords"])
-        if not any(word in intent for word in ("产量", "制造", "多晶硅", "硅片", "组件", "出口", "产业链")):
+        if not force and not any(
+            word in intent for word in ("产量", "制造", "多晶硅", "硅片", "组件", "出口", "产业链")
+        ):
             return []
         results = []
         for year, (publisher, primary, mirror) in MANUFACTURING_RELEASES.items():
@@ -336,8 +364,7 @@ class SolarLibrary:
             loader=lambda url: fetch(url, data=query),
         )
 
-    def collect(self, plan):
-        words = plan["keywords"] + [str(y) for y in range(plan["start"], plan["end"] + 1)]
+    def owid_jobs(self):
         jobs = [
             (
                 ENERGY,
@@ -381,120 +408,162 @@ class SolarLibrary:
                     parse_cost,
                 )
             )
-        domestic = bool(set(plan["regions"]) & (REGIONS | GRID_AREAS | {"China"}))
-        if domestic:
-            for year, page in HTML_TABLES.items():
+        return jobs
+
+    def province_jobs(self, plan):
+        jobs = []
+        for year, page in HTML_TABLES.items():
+            if plan["start"] <= year <= plan["end"]:
+                jobs.append(
+                    (
+                        page,
+                        f"{year} 年光伏并网容量分省统计",
+                        "国家能源局",
+                        page,
+                        partial(html_provincial_rows, year=year),
+                        "provincial-html-v1",
+                    )
+                )
+        for year, (page, filename, _) in TABLES.items():
+            if plan["start"] <= year <= plan["end"]:
+                period = "年前三季度" if year == 2026 else "年"
+                jobs.append(
+                    (
+                        urljoin(page, filename),
+                        f"{year} {period}光伏并网容量分省统计",
+                        "国家能源局",
+                        page,
+                        partial(provincial_rows, year=year),
+                        "household-columns-v2" if year in (2024, 2025) else "",
+                    )
+                )
+        if plan.get("quarter_requested") or plan["end"] >= 2026:
+            for year, page in HTML_QUARTER_TABLES.items():
                 if plan["start"] <= year <= plan["end"]:
                     jobs.append(
                         (
                             page,
-                            f"{year} 年光伏并网容量分省统计",
+                            f"{year} 年前三季度光伏并网容量分省统计",
                             "国家能源局",
                             page,
-                            partial(html_provincial_rows, year=year),
+                            partial(html_provincial_rows, year=year, quarter=True),
                             "provincial-html-v1",
                         )
                     )
-            for year, (page, filename, _) in TABLES.items():
-                if plan["start"] <= year <= plan["end"]:
-                    period = "年前三季度" if year == 2026 else "年"
-                    jobs.append(
-                        (
-                            urljoin(page, filename),
-                            f"{year} {period}光伏并网容量分省统计",
-                            "国家能源局",
-                            page,
-                            partial(provincial_rows, year=year),
-                            "household-columns-v2" if year in (2024, 2025) else "",
-                        )
-                    )
-            if plan.get("quarter_requested") or plan["end"] >= 2026:
-                for year, page in HTML_QUARTER_TABLES.items():
-                    if plan["start"] <= year <= plan["end"]:
-                        jobs.append(
-                            (
-                                page,
-                                f"{year} 年前三季度光伏并网容量分省统计",
-                                "国家能源局",
-                                page,
-                                partial(html_provincial_rows, year=year, quarter=True),
-                                "provincial-html-v1",
-                            )
-                        )
-        notices = []
-        if domestic:
-            intent = plan["title"] + " " + " ".join([*plan["keywords"], *plan.get("sections", [])])
-            if any(word in intent for word in ("利用率", "消纳", "弃光", "限电", "弃电", "受限电量")):
-                for years, publisher, origin, download, digest, loc in UTILIZATION_SOURCES:
-                    if any(plan["start"] <= year <= plan["end"] for year in years):
-                        title = f"{years[-1]} 年光伏并网消纳年度统计"
-                        parser = partial(utilization_rows, years=years, fingerprint=digest, location=loc)
-                        jobs.append((download, title, publisher, origin, parser))
-            policy_scope = {*plan["regions"], "China"}
+        return jobs
+
+    def release_jobs(self, plan, notices):
+        jobs = []
+        words = plan["keywords"] + [str(year) for year in range(plan["start"], plan["end"] + 1)]
+        links = dict(RELEASES)
+        try:
+            page = ReleasePage(self.download(INDEX))
+            found = []
+            for href, title in page.links:
+                if not any(t in title for t in ("光伏", "可再生能源并网", "太阳能")) or "报告" in title:
+                    continue
+                url = urljoin(INDEX, href).replace("http://www.nea.gov.cn/", "https://www.nea.gov.cn/")
+                if permitted(url) and urlsplit(url).path.endswith((".htm", ".html")):
+                    found.append((title, url))
+            eligible = [
+                (title, url)
+                for title, url in dict(found).items()
+                if not re.search(r"20\d{2}", title)
+                or any(plan["start"] <= int(y) <= plan["end"] for y in re.findall(r"20\d{2}", title))
+            ]
+            links.update(sorted(eligible, key=lambda v: -match_score(v[0], words))[:7])
+            notices.append(
+                {"source": "国家能源局发布目录", "result": f"联网发现 {len(dict(found))} 条相关发布"}
+            )
+        except (OSError, ValueError):
+            notices.append({"source": "国家能源局发布目录", "result": "目录访问失败，尝试已登记的统计发布"})
+        for title, url in links.items():
+            if url in {
+                *HTML_TABLES.values(),
+                *HTML_QUARTER_TABLES.values(),
+                *(page for page, _, _ in TABLES.values()),
+            }:
+                continue
+            years = [int(y) for y in re.findall(r"20\d{2}", title)]
+            if years and not any(plan["start"] <= y <= plan["end"] for y in years):
+                continue
+            publisher = "工信部" if "miit.gov.cn" in url else "国家能源局"
+            jobs.append((url, title, publisher, url, release_rows))
+        return jobs
+
+    def collect(self, plan):
+        groups = set(plan.get("source_groups", []))
+        auto = not groups
+        jobs, notices, keys = [], [], []
+        domestic = bool(set(plan["regions"]) & (REGIONS | GRID_AREAS | {"China"}))
+        intent = plan["title"] + " " + " ".join([*plan["keywords"], *plan.get("sections", [])])
+        if auto or "international" in groups:
+            jobs.extend(self.owid_jobs())
+        if domestic and (auto or "grid" in groups):
+            jobs.extend(self.province_jobs(plan))
+        if domestic and (auto or "releases" in groups):
+            jobs.extend(self.release_jobs(plan, notices))
+        if domestic and (
+            "utilization" in groups
+            or auto
+            and any(word in intent for word in ("利用率", "消纳", "弃光", "限电", "弃电", "受限电量"))
+        ):
+            for years, publisher, origin, download, digest, loc in UTILIZATION_SOURCES:
+                if any(plan["start"] <= year <= plan["end"] for year in years):
+                    title = f"{years[-1]} 年光伏并网消纳年度统计"
+                    parser = partial(utilization_rows, years=years, fingerprint=digest, location=loc)
+                    jobs.append((download, title, publisher, origin, parser))
+        if domestic and (auto or "policy" in groups):
             for policy in POLICIES:
                 if (
                     policy.year <= plan["end"]
-                    and policy.region in policy_scope
-                    and match_score(intent, policy.topics)
+                    and policy.region in {*plan["regions"], "China"}
+                    and ("policy" in groups or match_score(intent, policy.topics))
                 ):
                     title = f"{policy.year} 年 {policy.title}"
                     jobs.append(
                         (policy.url, title, policy.issuer, policy.url, partial(parse_policy, policy=policy))
                     )
-            links = dict(RELEASES)
+        if "eurostat" in groups or (
+            auto and any(word in intent for word in ("进口", "贸易", "出口", "出海"))
+        ):
+            jobs.extend(eurostat.jobs(plan))
+        if "China" in plan["regions"] and plan["end"] >= 2025 and (
+            "nbs" in groups
+            or auto and "发电" in intent and (
+                "规上" in intent or "规模以上" in intent or plan.get("monthly_requested")
+            )
+        ):
             try:
-                page = ReleasePage(self.download(INDEX))
-                found = []
-                for href, title in page.links:
-                    if not any(t in title for t in ("光伏", "可再生能源并网", "太阳能")) or "报告" in title:
-                        continue
-                    url = urljoin(INDEX, href).replace("http://www.nea.gov.cn/", "https://www.nea.gov.cn/")
-                    if permitted(url) and urlsplit(url).path.endswith((".htm", ".html")):
-                        found.append((title, url))
-                eligible = [
-                    (title, url)
-                    for title, url in dict(found).items()
-                    if not re.search(r"20\d{2}", title)
-                    or any(plan["start"] <= int(y) <= plan["end"] for y in re.findall(r"20\d{2}", title))
-                ]
-                links.update(sorted(eligible, key=lambda v: -match_score(v[0], words))[:7])
-                notices.append(
-                    {"source": "国家能源局发布目录", "result": f"联网发现 {len(dict(found))} 条相关发布"}
-                )
+                publications = ReleasePage(self.download(nbs.INDEX)).links
             except (OSError, ValueError):
+                publications = []
                 notices.append(
-                    {"source": "国家能源局发布目录", "result": "目录访问失败，尝试已登记的统计发布"}
+                    {"source": "国家统计局数据发布目录", "result": "目录访问失败，尝试已登记的月表"}
                 )
-            for title, url in links.items():
-                if url in {
-                    *HTML_TABLES.values(),
-                    *HTML_QUARTER_TABLES.values(),
-                    *(page for page, _, _ in TABLES.values()),
-                }:
-                    continue
-                years = [int(y) for y in re.findall(r"20\d{2}", title)]
-                if years and not any(plan["start"] <= y <= plan["end"] for y in years):
-                    continue
-                publisher = "工信部" if "miit.gov.cn" in url else "国家能源局"
-                jobs.append((url, title, publisher, url, release_rows))
+            jobs.extend(nbs.jobs(plan, publications))
         with ThreadPoolExecutor(max_workers=4) as pool:
             results = list(pool.map(lambda job: self.ingest(*job), jobs))
-        # Query one reporter and year at a time, batching product/partner rows.
-        # Process those requests sequentially to respect the provider's limit.
-        for trade in trade_jobs(plan):
-            jobs.append(trade)
-            results.append(self.ingest(*trade))
-        keys = []
+        # Batch partner rows within a reporter, product and year. Keep separate
+        # requests sequential to respect the provider's limit.
+        if auto or "trade" in groups:
+            for trade in trade_jobs(plan):
+                jobs.append(trade)
+                results.append(self.ingest(*trade))
         for job, (sid, status) in zip(jobs, results):
             notices.append({"source": job[1], "result": status, "url": job[3]})
-            if sid is not None and sid not in keys:
+            if sid is not None:
                 keys.append(sid)
-        for sid, notice in self.collect_manufacturing(plan):
-            notices.append(notice)
-            if sid is not None and sid not in keys:
-                keys.append(sid)
-        inquiry = plan["title"] + " " + " ".join([*plan["keywords"], *plan.get("sections", [])])
-        if any(word in inquiry for word in ("装机", "离网", "接网", "发电容量")):
+        if auto or "manufacturing" in groups:
+            for sid, notice in self.collect_manufacturing(plan, force="manufacturing" in groups):
+                notices.append(notice)
+                if sid is not None:
+                    keys.append(sid)
+        if (
+            "international" in groups
+            or auto
+            and any(word in intent for word in ("装机", "离网", "接网", "发电容量"))
+        ):
             sid, message = self.collect_irena()
             notices.append({"source": "IRENASTAT 年末光伏装机", "result": message, "url": irena.LANDING})
             if sid is not None:
@@ -512,20 +581,24 @@ class SolarLibrary:
                 notices.append({"source": title, "result": message, "url": irena.REGIONAL_REPORT})
                 if sid is not None:
                     keys.append(sid)
-        if domestic:
-            active_urls = {j[3] for j in jobs}
+        if domestic and (auto or "releases" in groups):
+            active_urls = {n.get("url") for n in notices}
             for src in self.summary()["sources"]:
                 years = re.findall(r"20\d{2}", src["title"])
                 if (
-                    src["passages"]
+                    not src["observations"]
+                    and src["passages"]
+                    and src["publisher"] == "国家能源局"
+                    and src["url"].startswith("https://www.nea.gov.cn/")
                     and src["url"] not in active_urls
                     and years
                     and any(plan["start"] <= int(y) <= plan["end"] for y in years)
                     and match_score(src["title"], plan["keywords"])
+                    and all(policy.url != src["url"] for policy in POLICIES)
                 ):
                     keys.append(src["id"])
                     notices.append(dict(source=src["title"], result="复用历史资料快照", url=src["url"]))
-        return self.select(keys, plan), notices
+        return self.select(list(dict.fromkeys(keys)), plan), notices
 
     def select(self, ids, plan):
         evidence = []
@@ -560,6 +633,8 @@ class SolarLibrary:
                     for year, metric, unit, value in rows:
                         by_metric.setdefault((metric, unit), []).append((year, value))
                     for (metric, unit), series in by_metric.items():
+                        if not plan.get("monthly_requested") and re.search(r"（Eurostat，\d+月）$", metric):
+                            continue
                         # Keep first, last and evenly spaced interior observations on long horizons.
                         selected = sorted(
                             {
@@ -568,7 +643,7 @@ class SolarLibrary:
                             }
                         )
                         samples = [series[i] for i in selected]
-                        digits = 4 if "美元" in unit else 2
+                        digits = 4 if "美元" in unit or "欧元" in unit else 2
                         shown = [(year, display_value(v, digits)) for year, v in samples]
                         data = "；".join(f"{year}年 {value} {unit}" for year, value in shown)
                         note = trend(samples, unit)

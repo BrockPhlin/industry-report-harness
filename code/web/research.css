@@ -605,6 +605,23 @@ dialog::backdrop {
   max-height: 80dvh;
   overflow: auto;
 }
+.source-options {
+  border-block: 1px solid var(--rule);
+  padding: 7px 0;
+  margin: 9px 0;
+}
+.source-options summary {
+  cursor: pointer;
+}
+.source-option {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 0;
+}
+.source-option input {
+  accent-color: var(--accent);
+}
 .paper-table {
   max-width: 100%;
   overflow-x: auto;

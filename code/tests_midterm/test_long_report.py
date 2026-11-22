@@ -1,6 +1,7 @@
 """Counterexamples around evidence provenance, length, and the two entry paths."""
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 from urllib.error import HTTPError
 import json
 from pathlib import Path
@@ -9,7 +10,7 @@ import unittest
 from unittest.mock import patch
 
 from report_app.errors import AppError
-from report_app import irena
+from report_app import eurostat, irena, nbs
 from report_app.manufacturing import manufacturing_observations
 from report_app.policy import Policy, parse_policy
 from report_app import long_report as report
@@ -94,6 +95,60 @@ class EvidenceTests(unittest.TestCase):
         line = dict(found[0], value="-122.8", metric="=malformed value")
         self.assertIn(",'=malformed value,-122.8,", observations_csv([line]).decode("utf-8-sig"))
         self.assertEqual(len(line["digest"]), 64)
+
+    def test_nbs_keeps_month_ytd_and_published_yoy_separate(self):
+        raw = (
+            '<meta name="ArticleTitle" content="2026年1—4月份规模以上工业增加值增长5.6%">'
+            '<table><tr><th>指标</th><th>4月</th><th>1—4月</th></tr>'
+            '<tr><th>绝对量</th><th>同比增长（%）</th><th>绝对量</th><th>同比增长（%）</th></tr>'
+            '<tr><td>太阳能发电量（亿千瓦时）</td><td>571</td><td>7.1</td><td>2045</td><td>9.8</td></tr>'
+            '</table>'
+        ).encode()
+        rows, notes = nbs.rows(raw, year=2026, month=4)
+        self.assertEqual(rows[0], ("China", 2026, nbs.LEVEL + "（4月）", "亿千瓦时", "571"))
+        self.assertEqual(rows[-1], ("China", 2026, nbs.GROWTH + "（1—4月）", "%", "9.8"))
+        self.assertIn("同比为原表", notes[0][1])
+        with self.assertRaises(ValueError):
+            nbs.rows(raw, year=2025, month=4)
+        intake = raw[raw.index(b"<table>"):]
+        with self.assertRaises(ValueError):
+            nbs.rows(raw + intake.replace(b"2045", b"2222"), year=2026, month=4)
+
+    def test_monthly_table_sorts_joint_period_before_march_and_excludes_it_from_chart(self):
+        def source(month, val, ref):
+            return dict(
+                ref=ref, metric=f"{nbs.LEVEL}（{month}月）", region="China", unit="亿千瓦时",
+                series=[(2026, val)],
+            )
+
+        records = [
+            source("3", "547", "E1"), source("1—2", "920", "E2"), source("4", "571", "E3"),
+        ]
+        table, = report.monthly_tables(dict(regions=["China"]), records)
+        self.assertEqual(table[4], "| 2026年1—2月 | 920 |")
+        self.assertEqual([p["value"] for p in report.chart_data(table)["points"]], ["547", "571"])
+
+    def test_explicit_source_scope_never_reuses_other_catalogs(self):
+        self.ingest()
+        plan = dict(
+            title="比较装机与出口",
+            regions=["China"],
+            keywords=["装机", "出口"],
+            start=2020,
+            end=2021,
+            source_groups=["grid"],
+        )
+        with (
+            patch.object(self.library, "province_jobs", return_value=[]),
+            patch.object(self.library, "release_jobs") as release,
+            patch.object(self.library, "collect_irena") as published,
+            patch.object(self.library, "owid_jobs") as owid,
+        ):
+            rows, trace = self.library.collect(plan)
+        self.assertEqual((rows, trace), ([], []))
+        release.assert_not_called()
+        owid.assert_not_called()
+        published.assert_not_called()
 
     def test_unrelated_web_content_cannot_become_evidence(self):
         raw = "<p>登录导航新闻报告声明联系我们</p><p>2024年光伏组件产量达到588GW，同比增长13.5%。</p>".encode()
@@ -246,6 +301,62 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(rows[0], ("United States", 2025, irena.METRICS["All"], "GW", "2.4"))
         self.assertEqual(rows[1], ("United States", 2025, irena.METRICS["On-grid"], "GW", "2.3"))
 
+    def test_eurostat_never_sums_an_incomplete_month_window(self):
+        dimensions = dict(
+            zip(
+                eurostat.DIMENSIONS,
+                [
+                    ["M"],
+                    ["EU27_2020"],
+                    ["CN"],
+                    ["85414300"],
+                    ["1"],
+                    ["VALUE_IN_EUROS"],
+                    ["2025-01", "2025-02", "2026-01", "2026-02"],
+                ],
+            )
+        )
+        payload = {
+            "source": "ESTAT",
+            "id": list(dimensions),
+            "size": [len(v) for v in dimensions.values()],
+            "value": {"0": 100000000, "1": 200000000, "3": 700000000},
+            "dimension": {
+                key: {"category": {"index": {value: i for i, value in enumerate(values)}}}
+                for key, values in dimensions.items()
+            },
+        }
+        result, _ = eurostat.rows(
+            json.dumps(payload),
+            expected_reporters={"EU27_2020": "European Union"},
+            code="85414300",
+            start_year=2025,
+            through=date(2026, 2, 28),
+            months=2,
+        )
+        combined = [
+            (year, amount)
+            for _, year, metric, unit, amount in result
+            if "1—2月" in metric and unit == "亿欧元"
+        ]
+        self.assertEqual(combined, [(2025, "3")])
+
+    def test_comtrade_uses_one_product_per_preview(self):
+        jobs = trade_jobs(
+            dict(
+                title="光伏出口",
+                keywords=["组件", "电池片"],
+                start=2024,
+                end=2024,
+                regions=["China"],
+                trade_partners=["India", "Brazil"],
+                trade_products=["854143", "854142"],
+            )
+        )
+        self.assertEqual(len(jobs), 2)
+        self.assertTrue(all("partnerCode=0%2C76%2C699" in job[0] for job in jobs))
+        self.assertEqual([job[0].split("cmdCode=")[1].split("&")[0] for job in jobs], ["854143", "854142"])
+
 
 class WritingTests(unittest.TestCase):
     sample = {"E1": {"text": "2024年，累计装机为20 GW。", "title": "年度统计"}}
@@ -265,6 +376,9 @@ class WritingTests(unittest.TestCase):
             )
         self.assertEqual((actual["start"], actual["end"]), (2021, 2026))
         self.assertTrue(actual["quarter_requested"])
+        with patch.object(report, "answer", return_value=plan):
+            limited = report.make_plan({}, "只用国家能源局分省原表", "", [], 2000)
+        self.assertEqual(limited["source_groups"], ["grid"])
 
     def test_chinese_lengths_and_revisions(self):
         for prompt, expected in [
@@ -318,7 +432,7 @@ class WritingTests(unittest.TestCase):
             title="装机", sections=["变化"], regions=["China"], keywords=["装机"], start=2020, end=2021
         )
         md, trace = report.assemble(plan, [row], [], [["章节 [E1]"]], ["摘要 [E1]"], [], 800, "research")
-        self.assertIn("| 年份 | China |\n| --- | ---: |\n| 2020 | 1 |\n| 2021 | 2 |", md)
+        self.assertIn("| 年份 | 中国 |\n| --- | ---: |\n| 2020 | 1 |\n| 2021 | 2 |", md)
         self.assertIn("| 2021 | 2 |", trace["protected_lines"])
 
     def test_summary_can_only_select_existing_measurements(self):

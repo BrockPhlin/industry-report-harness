@@ -10,8 +10,10 @@ from tempfile import TemporaryDirectory
 from time import monotonic
 
 from .errors import AppError
+from .eurostat import ALIASES as EUROSTAT_ALIASES
 from .generator import chat_completion, model_connection
-from .solar_data import match_score
+from .nbs import GROWTH as NBS_GROWTH, LEVEL as NBS_LEVEL, SCOPE as NBS_SCOPE
+from .solar_data import SOURCE_GROUPS, match_score
 from .provinces import region_name
 from .trade import COUNTRIES, PRODUCTS, trade_country
 
@@ -20,6 +22,10 @@ STYLES = json.loads(
 )
 MIN_LENGTH, MAX_LENGTH = 800, 10000
 POLICY_TERMS = ("政策", "绿电直连", "电价改革", "上网电价", "市场化", "机制电价", "适用范围", "备案")
+REGION_LABELS = {key: value[1] for key, value in COUNTRIES.items()} | {
+    "World": "全球",
+    "European Union": "欧盟",
+}
 
 
 def requested_length(text, default):
@@ -117,9 +123,18 @@ def strings(values, limit):
     return list(dict.fromkeys(short_text(v) for v in values))
 
 
-def make_plan(config, question, scope, turns, target, outline=()):
+def make_plan(config, question, scope, turns, target, outline=(), source_groups=()):
     count = min(9, max(3, round(target / 850)))
     today = date.today()
+    if not source_groups:
+        # Apply explicit natural-language restrictions when they refer to a known
+        # source group. A discussion reply from the model cannot set this field.
+        prompts = [question, scope, *(turn["question"] for turn in turns)]
+        exclusive = re.compile(
+            r"(?:仅|只)(?:用|使用|采用|依据|看|参考)\s*(?:国家能源局)?\s*(?:光伏)?(?:分省|省级)\s*(?:并网|光伏|统计)*\s*原表"
+        )
+        if any(exclusive.search(text) for text in prompts):
+            source_groups = ("grid",)
     # A user-supplied section is part of the agreed scope. In particular, a
     # section on the current partial year often sits outside the annual window.
     named_periods = tuple(
@@ -131,7 +146,7 @@ def make_plan(config, question, scope, turns, target, outline=()):
     raw = answer(
         config,
         f"""你是光伏行业研究编辑。按任务和用户最后一次修订设计提纲。默认中国，国际对标时尊重指定地区。
-可检索中国官方发布、2021至2025年分省光伏并网年表、2025与2026年前三季度分省表、2021至2025年光伏发电利用率、国际装机和发电、组件基准价、光伏平准化成本，以及2022年起UN Comtrade光伏组件和未组装电池片的分市场贸易额。
+可检索中国官方发布、2021至2025年分省光伏并网年表、2025与2026年前三季度分省表、2021至2025年光伏发电利用率、2025年起国家统计局规上工业太阳能发电量和同比、国际装机和发电、组件基准价、光伏平准化成本，以及2022年起UN Comtrade光伏组件和未组装电池片的分市场贸易额。欧洲从中国进口组件可用Eurostat的月度数据，欧盟地区填European Union。
 可选择制造、价格、分布式、技术、市场、政策等自定义议题；缺少覆盖时安排说明证据边界。绝不擅自添加企业、年份或地域。
 只输出 JSON，对象含 title（具体题目）、regions（最多6个地区，国家用英文名，全球填World，中国省级地区填中文简称如浙江、江苏）、start、end（整数年份）、
 trade_regions（商品贸易的报告方英文名，无交易任务时空数组）、trade_partners（仅用户明确要求分析的目的地或进口原产地的国家英文名，至多6个；全球合计无需填，目的地不自动作为报告方）、
@@ -144,6 +159,7 @@ trade_products（商品代码列表，854143 为组件，854142 为未组装电�
             conversation=turns,
             target=target,
             用户指定章名=outline,
+            用户选定资料来源=[SOURCE_GROUPS[group] for group in source_groups],
             章名明确指定的年份=named_periods,
         ),
     )
@@ -161,9 +177,13 @@ trade_products（商品代码列表，854143 为组件，854142 为未组装电�
     products = raw.get("trade_products") or ["854143"]
     if not isinstance(partners, list) or not isinstance(products, list):
         raise AppError("贸易提纲的商品或市场格式有误，请重试", 502)
-    normalized_regions = [trade_country(region_name(region)) for region in regions]
+    normalized_regions = [
+        EUROSTAT_ALIASES.get(region, trade_country(region_name(region))) for region in regions
+    ]
     partner_names = [trade_country(name) for name in partners if isinstance(name, str)]
     reporter_names = [trade_country(name) for name in reporters if isinstance(name, str)]
+    text_to_scope = " ".join((question, scope, *outline, *(turn["question"] for turn in turns)))
+    months = re.findall(r"1\s*[-—至~到]\s*([1-9]|1[0-2])\s*月", text_to_scope)
     return dict(
         title=title,
         regions=list(dict.fromkeys(normalized_regions)),
@@ -177,6 +197,11 @@ trade_products（商品代码列表，854143 为组件，854142 为未组装电�
         quarter_requested=bool(
             re.search(r"前三季度|前3季度|[Qq]3|九月底|9月底", " ".join((question, scope, *outline)))
         ),
+        source_groups=list(source_groups),
+        trade_months=int(months[-1])
+        if months
+        else (6 if "上半年" in text_to_scope and "前三季度" not in text_to_scope else 9),
+        monthly_requested=bool(re.search(r"逐月|月度|单月", text_to_scope)),
     )
 
 
@@ -210,15 +235,14 @@ def choose_evidence(evidence, section):
         if term in section
     }
     years = {int(year) for year in re.findall(r"20\d{2}", section)}
-    quarter = bool(re.search(r"前三季度|[Qq]3|九月底|9月底", section))
+    quarter = bool(re.search(r"前三季度|[Qq]3|九月底|9月底|1\s*[-—至~到]\s*9月", section))
     annual = "年度" in section or "年末" in section or "全年" in section
     corrections = "修正" in section or "负值" in section
-    region_labels = {key: value[1] for key, value in COUNTRIES.items()} | {"World": "全球"}
     named = {
         row["region"]
         for row in evidence
         if row.get("region")
-        if region_labels.get(row["region"], row["region"]) in section
+        if REGION_LABELS.get(row["region"], row["region"]) in section
         or (row["region"] == "China" and "全国" in section)
     }
     policy_topic = any(term in section for term in POLICY_TERMS)
@@ -231,7 +255,7 @@ def choose_evidence(evidence, section):
         sample_years = {year for year, _ in row.get("series", [])}
         field = row.get("metric") or row["text"]
         name = row["title"] + " " + row["locator"] + " " + field
-        is_q3 = "前三季度" in name or "九月底" in name
+        is_q3 = "前三季度" in name or "九月底" in name or "1—9月" in name
         signed_revision = corrections and any(Decimal(value) < 0 for _, value in row.get("series", []))
         return (
             signed_revision,
@@ -251,15 +275,21 @@ def choose_evidence(evidence, section):
     passages = [row for row in ranked if not row.get("series")]
     if policy_topic:
         tagged = [r for r in passages if re.match(r"^(China|浙江|江苏) · (正文第|PDF 第)", r["locator"])]
+        if ("国家" in section or "全国" in section) and not named:
+            tagged = [r for r in tagged if region_of(r) == "China"]
         if tagged:
             selected = []
             per_region = {}
+            per_source = {}
             for row in tagged:
                 region = region_of(row)
+                source = row["title"]
                 taken = per_region.get(region, 0)
-                if taken < 5:
+                used = per_source.get(source, 0)
+                if taken < 7 and used < 3:
                     selected.append(row)
                     per_region[region] = taken + 1
+                    per_source[source] = used + 1
             return selected[:15]
     cohorts = {}
     for row in series:
@@ -283,7 +313,7 @@ def numbers(text):
 
 
 QUANTITY = re.compile(
-    r"([+−-]?\d+(?:\.\d+)?)\s*(个百分点|亿美元|元/千瓦时|美元/kWh|美元/W|万亿千瓦时|亿千瓦时|万千瓦时|亿千瓦|万千瓦|万吨|千瓦时|TWh|GWh|kWh/人|GW|MW|%|％)"
+    r"([+−-]?\d+(?:\.\d+)?)\s*(个百分点|亿美元|亿欧元|元/千瓦时|美元/kWh|美元/W|万亿千瓦时|亿千瓦时|万千瓦时|亿千瓦|万千瓦|万吨|千瓦时|TWh|GWh|kWh/人|GW|MW|%|％)"
 )
 
 
@@ -369,7 +399,7 @@ def anchors_for(evidence):
     for row in evidence:
         if row.get("series"):
             samples = row["series"]
-            region = {"China": "中国", "Germany": "德国", "World": "全球"}.get(row["region"], row["region"])
+            region = REGION_LABELS.get(row["region"], row["region"])
             first, last = samples[0], samples[-1]
             metric, unit = row["metric"], row["unit"]
             lower_bound = "发布下限" in metric
@@ -379,10 +409,10 @@ def anchors_for(evidence):
             if last != first:
                 claim += f"，{last[0]}年{verb}{last[1]} {unit}"
         else:
-            sentences = [s for s in re.split(r"[。；]", row["text"]) if len(s) > 15 and re.search(r"\d", s)]
+            sentences = [s for s in re.split(r"[。；]", row["text"]) if 18 <= len(s) <= 140]
             if not sentences:
                 continue
-            claim = sentences[0].strip("。； ")
+            claim = min(sentences, key=lambda s: (not bool(re.search(r"\d", s)), len(s))).strip("。； ")
         anchors[f"K{len(anchors) + 1}"] = (row["ref"], claim)
     return anchors
 
@@ -409,6 +439,8 @@ analysis 应至少写两句，讲清一个可核对的问题或结论。避免�
         raw = answer(config, instruction, data)
         paragraphs = []
         seen = set()
+        ceiling = round(1.24 * target)
+        size = 0
         supplied = raw.get("paragraphs")
         for item in supplied if isinstance(supplied, list) else []:
             if not isinstance(item, dict) or not isinstance(item.get("keys"), list):
@@ -420,9 +452,18 @@ analysis 应至少写两句，讲清一个可核对的问题或结论。避免�
             keys = [key for key in dict.fromkeys(keys) if key not in seen]
             if not keys:
                 continue
-            facts = [anchors[key][1] + "。" for key in keys]
-            seen.update(keys)
-            refs = [anchors[key][0] for key in keys]
+            facts = []
+            refs = []
+            for key in keys:
+                ref, claim = anchors[key]
+                fact = claim + "。"
+                if size + length_of(fact) <= ceiling:
+                    facts.append(fact)
+                    refs.append(ref)
+                    seen.add(key)
+                    size += length_of(fact)
+            if not facts:
+                continue
             source = " ".join(catalog[k]["text"] + " " + catalog[k]["title"] for k in refs)
             allowed_numbers, allowed_quantities = numbers(source), quantities(source)
             support = []
@@ -433,12 +474,14 @@ analysis 应至少写两句，讲清一个可核对的问题或结论。避免�
                     and numbers(sentence) <= allowed_numbers
                     and quantities(sentence) <= allowed_quantities
                     and not any(sentence.strip("。！？ ") in fact for fact in facts)
+                    and size + length_of(sentence) <= ceiling
                 ):
                     support.append(sentence)
+                    size += length_of(sentence)
             paragraphs.append(dict(text="".join(facts + support), refs=refs))
         try:
             return validate_paragraphs(
-                {"paragraphs": paragraphs}, catalog, round(0.8 * target), round(1.24 * target)
+                {"paragraphs": paragraphs}, catalog, round(0.8 * target), ceiling
             )
         except ValueError as exc:
             data["修改提示"] = str(exc)
@@ -453,6 +496,8 @@ def write_part(config, task, plan, evidence, heading, target, previous, style):
 精确引用证据里的数字与单位。可用数据工具预先计算的累计变化，保留期间、方向和口径；不自行换算、取整或预测。严格区分发电量和装机，期末和新增，纯光伏和含光热的太阳能，前三季度与全年。前三季度累计值须注明截至九月底，用前三季度增量计算同比时只能和上年同期比较。若原表注明统计修正，不把负新增写成工程建设的物理拆除量。
 制造产量中的“发布下限”须用“超过”等原有口径表达。工信部与机电商会数据可分别列示，直接拼接不能作为同比依据。注明机构和所统计的产品范围。
 贸易须标明报告方、商品和伙伴。出口申报目的地可含中转地，不可当作最终消费地。进口伙伴按报告方原产地口径。不同产品的金额、国家进口镜像、组件物理容量须分别说明。
+Eurostat按欧洲进口申报方统计来自中国的给定商品，使用欧元。按相同月份窗口比较，欧盟合计已包括成员国。所引统计能说明申报金额与覆盖对象，不支持判定中转的数量、路线或终端需求。
+国家统计局规上工业太阳能发电量只涵盖统计范围内的工业企业。单月与期内累计分别引原表，1—2月合并发布，不能把公布的单月值相加来替代原表累计值，也不能用上年已经发布的绝对量替代原表可比口径的同比。
 涉及政策时分别说明国家规定、地方细则的适用地区、起始日期和项目类型。政策规定与行业结果分开写。摘记仅限该页条款，推断原因需要另有证据。
 光伏利用率反映特定统计口径内的消纳情况，区分发电量占比、利用小时数和组件转换效率。蒙东、蒙西分别发布，无可用发电量时不得用算术平均代替全区。
 不要重复前章。不写标题、编号、表格、Markdown或来源名称堆砌。仅输出 JSON：{"paragraphs":[{"text":"一整段正文","refs":["E1"]}]}。
@@ -476,16 +521,39 @@ def write_part(config, task, plan, evidence, heading, target, previous, style):
     return anchored_part(config, task, plan, evidence, heading, target, previous, style)
 
 
-def coverage(config, task, evidence):
+def coverage(config, task, evidence, plan):
     """Treat gaps as reportable constraints; an unrelated corpus cannot support a study."""
+    measures, articles = {}, {}
+    for row in evidence:
+        if row.get("series"):
+            name = f"{row['region']} · {row['metric']} · {row['unit']}"
+            measures.setdefault(name, set()).update(year for year, _ in row["series"])
+        else:
+            articles.setdefault(row["title"], []).append(row)
+    samples = {}
+    for section in plan["sections"]:
+        # Coverage only needs to see enough context to identify an available
+        # metric or policy. Exact values are attached to the writing step.
+        for row in choose_evidence(evidence, section)[:3]:
+            samples[row["ref"]] = row
+    for group in articles.values():
+        samples[group[0]["ref"]] = group[0]
     raw = answer(
         config,
         "判断检索到的数据能否回答用户的核心问题。只输出 JSON："
         '{"usable":true,"limits":["范围缺口"]}。允许部分覆盖，在limits写清缺的具体地区、时期、指标。'
         "若用户主要问特定企业财务、某省、价格预测或政策等而没有直接相关资料，则usable为false。"
         "全国数据不能证明某省的情况，国际市场基准不能冒充本土成交价。"
-        "每项局限写出读者还缺什么数据和因此无法判断的事项，避免内部证据编号。资料充分时填空数组。",
-        {"研究任务": task, "本次证据": public_evidence(evidence)},
+        "每项局限用一句话说缺的是哪项数据、影响哪项判断，不复述已取得的完整数字。"
+        "指标清单列出了全部可用量化数据及对应年份，只举了部分原文样例。清单中已出现的指标和年份不能列作缺失。"
+        "区分全年新增、年末累计、年内分段和月度值。正式发布的全年原表可直接确认为全年统计。"
+        "只报告会影响用户提问的缺口。部分分项缺失不影响其他判断。资料充分时填空数组。",
+        {
+            "研究任务": task,
+            "指标与覆盖年度": {name: sorted(years) for name, years in measures.items()},
+            "公开资料目录": {title: len(rows) for title, rows in articles.items()},
+            "证据样例": public_evidence(samples.values()),
+        },
     )
     if type(raw.get("usable")) is not bool or not isinstance(raw.get("limits"), list):
         raise AppError("资料覆盖核查未返回有效结果，请继续重试。", 502)
@@ -495,48 +563,21 @@ def coverage(config, task, evidence):
     return limits
 
 
-def audit(config, chapter, corpus):
-    refs = set(re.findall(r"\[(E\d+)\]", " ".join(chapter)))
-    subset = [r for r in corpus if r["ref"] in refs]
-    raw = answer(
-        config,
-        "逐段核对中文产业报告与所引证据，注意数字的年份、单位、对象、统计分母、新增与累计、发电量与用电量，"
-        "区分结论和假设。仅指出有具体依据的事实性错误、无依据因果或跨地区挪用。"
-        "不要润色或因为不穷尽所有证据而报错。仅输出JSON对象，issues为字符串数组，每项指出第几段、错句和怎样纠正，"
-        "无实质问题时返回空数组。",
-        {"段落": chapter, "原始数据与定位": public_evidence(subset)},
-    )
-    items = raw.get("issues")
-    if not isinstance(items, list) or any(not isinstance(x, str) for x in items):
-        raise AppError("语义核对未完成，请重试。", 502)
-    return items[:5]
-
-
-def checked_part(config, task, plan, evidence, title, target, previous, style):
-    if target > 1450:
-        parts = []
-        count = (target + 1199) // 1200
-        for index in range(count):
-            focus = dict(
-                task,
-                章内进度=f"本章第{index + 1}部分，共{count}部分。各部分连续成文；先交代数据，再比较、解释与讨论边界。",
-                本章前文=parts[-2:],
-            )
-            parts.extend(
-                checked_part(config, focus, plan, evidence, title, round(target / count), previous, style)
-            )
-        return parts
-    draft = write_part(config, task, plan, evidence, title, target, previous, style)
-    for _ in range(2):
-        issues = audit(config, draft, evidence)
-        if not issues:
-            return draft
-        task = dict(task, 必须修正的事实问题=issues, 待修订章节=draft)
-        draft = write_part(config, task, plan, evidence, title, target, previous, style)
-    remaining = audit(config, draft, evidence)
-    if remaining:
-        raise AppError(f"「{title}」仍需核对：" + " ".join(remaining)[:320], 502)
-    return draft
+def draft_section(config, task, plan, evidence, title, target, previous, style):
+    if target <= 1450:
+        return write_part(config, task, plan, evidence, title, target, previous, style)
+    parts = []
+    count = (target + 1199) // 1200
+    for index in range(count):
+        focus = dict(
+            task,
+            章内进度=f"本章第{index + 1}部分，共{count}部分。各部分连续成文；先交代数据，再比较、解释与讨论边界。",
+            本章前文=parts[-2:],
+        )
+        parts.extend(
+            write_part(config, focus, plan, evidence, title, round(target / count), previous, style)
+        )
+    return parts
 
 
 def review_scope(config, task, title, paragraphs, evidence, limits):
@@ -552,7 +593,9 @@ def review_scope(config, task, title, paragraphs, evidence, limits):
         "章名": title,
         "资料缺口": limits,
         "证据": public_evidence(catalog.values()),
-        "本次检索目录": [r["title"] + " · " + r["locator"] for r in evidence],
+        "本次检索目录": list(
+            dict.fromkeys(r["title"] + (" · " + r["region"] if r.get("region") else "") for r in evidence)
+        ),
         "章内可对照的统计": public_evidence(
             r for r in choose_evidence(evidence, title) if r["ref"] not in catalog
         ),
@@ -561,9 +604,11 @@ def review_scope(config, task, title, paragraphs, evidence, limits):
             for i, lines in enumerate(sentences, 1)
         ],
     }
-    prompt = """你是核对产业统计结论的编辑。检查每一句结论的地域、时期、因果和统计口径是否得到该段所引来源支持。
+    prompt = """你是核对产业统计结论的编辑。检查每句的数值、符号、单位、年份、地域、统计分母及指标名称是否对应该段所引来源，同时核对因果和适用口径。即使数字都出现在引用中，调换地区、年份或指标也要删除原句。
 把全国项目结构当作省内增长原因、把装机容量当作电网负荷、把两地增速接近当成政策影响同步、
 用其他国家的贸易额替代本国缺口、用出口金额推断销量或利润，均应删除相应原句。核对数据和本身合理的建议请保留。
+若来源只是统计表，删除把变化归因于光伏政策、电价、季节或投资动机的断言，同样删除关于贸易中转份额、路线和终端投用地点未经证实的事实表述。
+保留规上工业太阳能的完整指标名称。不能把各月发布量加总当作累计值，或用两年的绝对量重算并冒充原表同比。
 若将前三季度新增写成全年新增、用 9 月底与上年末累计值声称同比变化，删除对应原句。
 原表说存在统计数据修正时，不能断言某个负值具体由何种调整造成，除非有专项说明。
 工信部与机电商会发布口径各自保留。将“超过”的下限写成确定产量，或用跨机构公布值计算同比，均须删除该句。
@@ -571,7 +616,7 @@ def review_scope(config, task, title, paragraphs, evidence, limits):
 只有两省的数据不能证明它们在全国的排名。提及资料缺失时要对照本次检索目录，避免把本段没引用的资料当作没有。
 只对有问题的段落返回 JSON，例如 {"edits":[{"paragraph":3,"remove":[2],"note":"判断当地配网压力还需核对峰时负荷。"}]}。
 paragraph 和 remove 均使用输入给出的整数编号。note 可留空，或简短说明还缺什么资料和如何核实。
-note 只写可执行的核实办法，不复述数据、章号、年份或任何数字。不要另写新事实。无问题返回 {"edits":[]}。"""
+note 只写直接入文的可执行核实建议，不说“原句”“此处”等编辑意见，不复述数据、章号、年份或任何数字。不要另写新事实。无问题返回 {"edits":[]}。"""
     for _ in range(3):
         result = answer(config, prompt, payload).get("edits")
         try:
@@ -590,7 +635,11 @@ note 只写可执行的核实办法，不复述数据、章号、年份或任何
                     type(n) is not int or not 1 <= n <= len(sentences[index]) for n in remove
                 ):
                     raise ValueError("remove 只填写该段的原句编号")
-                if not isinstance(note, str) or re.search(r"[0-9\n\[\]#{}]", note) or len(note) > 350:
+                if (
+                    not isinstance(note, str)
+                    or re.search(r"[0-9\n\[\]#{}]|原句|本段|此处|原稿|已删除", note)
+                    or len(note) > 350
+                ):
                     note = ""
                 kept = [s for n, s in enumerate(sentences[index], 1) if n not in remove]
                 body = "".join(kept) + note.strip()
@@ -694,7 +743,7 @@ def study_table(plan, evidence, used):
 NUMBER_VALUE = re.compile(r"[+-]?\d+(?:\.\d+)?")
 
 
-def table_for_series(rows, metric, unit, columns, number, *, expected_years=()):
+def table_for_series(rows, metric, unit, columns, number, *, expected_years=(), period_label="年份"):
     lookup = {}
     for row in rows:
         values = lookup.setdefault(row["region"], {})
@@ -708,13 +757,13 @@ def table_for_series(rows, metric, unit, columns, number, *, expected_years=()):
     if not columns:
         return []
     observed_years = set().union(*(values.keys() for values in lookup.values()))
-    years = sorted(observed_years | set(expected_years))
+    years = sorted(observed_years | set(expected_years), key=lambda period: str(period).replace("年1—2月", "年02月"))
     refs = list(dict.fromkeys(row["ref"] for row in rows if row["region"] in columns))
     caption = f"表 {number}　{metric}（{unit}） " + " ".join(f"[{ref}]" for ref in refs)
     lines = [
         "## 数据附表",
         caption,
-        "| 年份 | " + " | ".join(columns) + " |",
+        f"| {period_label} | " + " | ".join(REGION_LABELS.get(name, name) for name in columns) + " |",
         "| --- | " + " | ".join("---:" for _ in columns) + " |",
     ]
     for year in years:
@@ -728,9 +777,40 @@ def table_for_series(rows, metric, unit, columns, number, *, expected_years=()):
     return lines
 
 
+def monthly_tables(plan, evidence):
+    groups = {}
+    for row in evidence:
+        if not row.get("series"):
+            continue
+        label = row["metric"]
+        match = re.fullmatch(r"(.+额)（Eurostat，(\d+)月）", label)
+        if match and plan.get("monthly_requested"):
+            metric, month = match.groups()
+            periods = [(f"{year}年{int(month):02d}月", value) for year, value in row["series"]]
+            groups.setdefault((metric + "（Eurostat，单月）", row["unit"]), []).append(
+                dict(row, series=periods)
+            )
+        match = re.fullmatch(rf"({NBS_LEVEL}|{NBS_GROWTH})（(1—2|[3-9]|1[0-2])月）", label)
+        if match:
+            metric, month = match.groups()
+            period = month if month == "1—2" else f"{int(month):02d}"
+            periods = [(f"{year}年{period}月", value) for year, value in row["series"]]
+            groups.setdefault((metric + "（分月发布）", row["unit"]), []).append(dict(row, series=periods))
+    result = []
+    for (metric, unit), rows in groups.items():
+        if sum(len(row["series"]) for row in rows) < 2:
+            continue
+        table = table_for_series(
+            rows, metric, unit, plan["regions"], len(result) + 1, period_label="统计期"
+        )
+        if table:
+            result.append(table)
+    return result
+
+
 def report_tables(plan, evidence, cited, target):
     """Use the actual data windows, with table titles separating incomparable periods."""
-    selected = []
+    selected = monthly_tables(plan, evidence)
     trade = {}
     for row in evidence:
         if not row.get("series"):
@@ -799,13 +879,13 @@ def chart_data(table):
     regions = [v.strip() for v in table[2].strip("|").split("|")][1:]
     rows = [[v.strip() for v in line.strip("|").split("|")] for line in table[4:]]
     if len(regions) == 1:
-        cells = [(r[0], r[1]) for r in rows[-8:]]
+        cells = [(r[0], r[1]) for r in rows if not r[0].endswith("年1—2月")][-8:]
     else:
         shared = [r for r in rows if all(NUMBER_VALUE.fullmatch(v) for v in r[1:])]
         if not shared:
             return None
         latest = shared[-1]
-        caption += " · " + latest[0] + " 年"
+        caption += " · " + latest[0] + (" 年" if latest[0].isdigit() else "")
         cells = list(zip(regions, latest[1:]))
         if "世界" in regions and len(regions) > 2:
             cells = [(label, value) for label, value in cells if label != "世界"]
@@ -843,23 +923,34 @@ def assemble(plan, evidence, notices, chapters, summary, limits, target, style):
     body.extend(
         [
             "## 数据口径与覆盖范围",
-            f"本次按 {plan['start']}—{plan['end']} 年检索，地区范围为 {', '.join(plan['regions'])}。引用后的编号可查到数据源及原文位置。",
+            f"本次按 {plan['start']}—{plan['end']} 年检索。地区范围为 "
+            + "、".join(REGION_LABELS.get(name, name) for name in plan["regions"])
+            + "。证据编号对应数据源及原文位置。",
         ]
     )
-    if any(
-        "series" in r and r["ref"] in used and ("装机" in r["metric"] or "发电量" in r["metric"])
-        for r in evidence
-    ):
+    if plan.get("source_groups"):
         body.append(
-            "跨国序列采用数据发布方的太阳能统计口径。装机为累计容量，可能包含光热；发电量按年度计。正文与附表按显示精度列值，可在资料库核对原始精度。"
+            "本次使用指定资料来源。"
+            + "、".join(SOURCE_GROUPS[group] for group in plan["source_groups"])
+            + "。"
         )
+    used_rows = [r for r in evidence if r["ref"] in used]
+    metrics = {r["metric"] for r in used_rows if r.get("series")}
+    if metrics:
+        body.append("正文与附表采用显示精度，可在资料库核对原始值。")
+    if any("含光热" in metric for metric in metrics):
+        body.append("含光热的太阳能装机与纯光伏装机分别列示。")
+    if any(metric.startswith(NBS_LEVEL) for metric in metrics):
+        body.append(NBS_SCOPE)
+    if any("（Eurostat，" in metric for metric in metrics):
+        body.append("Eurostat 按进口报关原产地统计名义欧元金额。欧盟合计含成员国，单列的荷兰金额属于该合计。")
     partial = [n["source"] for n in notices if "失败" in n["result"] or "未取得" in n["result"]]
     for limit in limits:
         body.append("资料局限：" + limit)
     if partial:
         body.append("本次未能在线取得或更新的资料：" + "、".join(partial) + "。")
     body.append("## 资料来源")
-    cited = [r for r in evidence if r["ref"] in used]
+    cited = used_rows
     groups = {}
     for row in cited:
         groups.setdefault((row["url"], row["digest"]), []).append(row)
@@ -930,6 +1021,7 @@ def generate(config, library, root, row, spec, progress, save):
                 spec["turns"],
                 spec["target"],
                 spec.get("outline", []),
+                spec.get("source_groups", []),
             )
     plan = checkpoint["plan"]
     if "evidence" not in checkpoint:
@@ -942,7 +1034,7 @@ def generate(config, library, root, row, spec, progress, save):
     if "limits" not in checkpoint:
         progress("正在核对地区、时间和指标是否覆盖研究问题")
         with record_stage(config, checkpoint, save, "coverage", "核对资料覆盖范围") as stage_config:
-            checkpoint["limits"] = coverage(stage_config, task, checkpoint["evidence"])
+            checkpoint["limits"] = coverage(stage_config, task, checkpoint["evidence"], plan)
     chapters = checkpoint["chapters"]
     total = len(plan["sections"])
     summary_target = min(420, round(spec["target"] * 0.12))
@@ -959,11 +1051,13 @@ def generate(config, library, root, row, spec, progress, save):
                 min(round(1.25 * per_chapter), round(remaining / (total - index))),
             )
             chapters.append(
-                checked_part(stage_config, task, plan, evidence, title, allocation, previous, spec["style"])
+                draft_section(
+                    stage_config, task, plan, evidence, title, allocation, previous, spec["style"]
+                )
             )
     # Older checkpoints used just the citations in the paragraph to judge gaps.
-    if checkpoint.get("scope_review_version") != 2:
-        checkpoint.update(scope_review_version=2, scope_reviewed=0, summary_reviewed=False)
+    if checkpoint.get("scope_review_version") != 3:
+        checkpoint.update(scope_review_version=3, scope_reviewed=0, summary_reviewed=False)
     for index in range(checkpoint.get("scope_reviewed", 0), total):
         title = plan["sections"][index]
         progress(f"第 {index + 1}/{total} 章 · 核对结论的适用范围")

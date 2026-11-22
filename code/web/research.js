@@ -1,7 +1,7 @@
 "use strict";
 
 const $ = id => document.getElementById(id);
-const state = {settings: null, row: null, version: 0, timer: null, busy: false, scope: "", target: null, style: "research", outline: []};
+const state = {settings: null, row: null, version: 0, timer: null, busy: false, scope: "", target: null, style: "research", outline: [], source_groups: []};
 function element(tag, text, style) {
   const el = document.createElement(tag);
   if (text !== undefined) el.textContent = text;
@@ -65,6 +65,20 @@ $("focus-btn").onclick = () => {
     style.append(option);
   }
   style.value = state.style;
+  const sources = element("details",undefined,"source-options");
+  sources.append(element("summary","限定资料来源"));
+  const sourceChoices = new Map();
+  for (const [code,label] of Object.entries(state.settings.source_groups || {})) {
+    const option = element("label",undefined,"source-option");
+    const checkbox = element("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = state.source_groups.includes(code);
+    sourceChoices.set(code,checkbox);
+    option.append(checkbox,label);
+    sources.append(option);
+  }
+  sources.open = state.source_groups.length > 0;
+  sources.append(element("p","留空时按问题自动选取。勾选后仅从所选来源取数。","caption"));
   function field(label, input) {
     const l = element("label",label,"scope-field");
     l.append(input);
@@ -85,7 +99,8 @@ $("focus-btn").onclick = () => {
       message.textContent = "请填写不超过12个不同的简短章名。"; return;
     }
     const changes = {scope:scope.value.trim(), target:count.value ? Number(count.value) : null,
-      style:style.value, outline:titles};
+      style:style.value, outline:titles,
+      source_groups:[...sourceChoices].filter(([,checkbox]) => checkbox.checked).map(([code]) => code)};
     if (state.row?.status === "planning") {
       apply.disabled = true;
       try {
@@ -98,7 +113,7 @@ $("focus-btn").onclick = () => {
     $("dialog").close();
   },"action");
   dialog("范围与篇幅",field("读者、地区、年份及研究重点",scope),field("目标正文字数",count),field("自定提纲（可选）",outline),
-    field("写作结构",style),reference,message,apply);
+    field("写作结构",style),reference,sources,message,apply);
 };
 $("sources").onclick = async () => {
   try {
@@ -205,6 +220,7 @@ function fresh() {
   state.row = null;
   state.busy = false;
   state.scope = ""; state.target = null; state.style = "research"; state.outline = [];
+  state.source_groups = [];
   window.history.replaceState(null, "", location.pathname);
   focusLabel();
   nav(false);
@@ -340,8 +356,11 @@ function render(row) {
     state.target = row.spec.target;
     state.style = row.spec.style;
     state.outline = row.spec.outline || [];
+    state.source_groups = row.spec.source_groups || [];
     focusLabel();
     if (state.scope) article.append(element("p",state.scope,"caption"));
+    if (state.source_groups.length) article.append(element("p","取数范围 · "+
+      state.source_groups.map(code=>state.settings.source_groups[code]).join("、"),"caption"));
     if (state.outline.length) article.append(element("p","指定提纲 · "+state.outline.join(" / "),"caption"));
     article.append(element("p","目标约 "+row.spec.target+" 字。可以继续补充要求，也可以开始写作。","caption"),
       button("按这个范围写",()=>action("/write",{}),"action"));
@@ -363,6 +382,7 @@ function render(row) {
       state.target = row.spec.target;
       state.style = row.spec.style;
       state.outline = [...(row.spec.outline || [])];
+      state.source_groups = [...(row.spec.source_groups || [])];
       focusLabel();
       controls();
     },"link"));
@@ -472,7 +492,8 @@ $("composer").onsubmit = e => {
   if (state.row?.status === "planning") action("/plan",{question,target:null});
   else if (state.row) action("/ask", {question});
   else if ($("workflow").value === "fixture") action("",{question,mode:"fixture",focus:state.settings.sections});
-  else action("",{question, workflow:$("workflow").value, scope:state.scope, target:state.target,style:state.style,outline:state.outline});
+  else action("",{question, workflow:$("workflow").value, scope:state.scope, target:state.target,
+    style:state.style,outline:state.outline,source_groups:state.source_groups});
 };
 $("prompt").onkeydown = e => {
   if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
