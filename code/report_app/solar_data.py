@@ -23,7 +23,7 @@ from . import eurostat
 from . import nbs
 from . import studies
 from .manufacturing import RELEASES as MANUFACTURING_RELEASES, manufacturing_observations
-from .policy import POLICIES, parse_policy
+from .policy import POLICIES, TAX_TOPICS, parse_policy
 from .store import now
 from .trade import TRADE, trade_jobs
 from .utilization import AREAS as GRID_AREAS, SOURCES as UTILIZATION_SOURCES, utilization_rows
@@ -563,7 +563,8 @@ class SolarLibrary:
                     and (not policy_topics or policy_topics.intersection(policy.topics))
                     and ("policy" in groups or match_score(intent, policy.topics))
                     and (
-                        "出口退税" not in policy.topics or match_score(intent, policy.topics)
+                        not set(TAX_TOPICS).intersection(policy.topics)
+                        or policy_topics or match_score(intent, policy.topics)
                     )
                 ):
                     title = f"{policy.year} 年 {policy.title}"

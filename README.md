@@ -25,7 +25,7 @@ demo=$(mktemp -d .build/pv-demo-XXXXXX)
 
 ## 在网页里使用
 
-将 `code/.env.example` 复制为 `code/.env`，在本机填写 Chat Completions 地址、模型名和密钥。安装上面的 Python 依赖后，运行：
+装好 Python 依赖后即可打开网页并选择「离线样例」。如需联网研究，将 `code/.env.example` 复制为 `code/.env`，在本机填写 Chat Completions 地址、模型名和密钥。
 
 ```sh
 .venv/bin/python code/run.py --port 8765

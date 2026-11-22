@@ -6,6 +6,9 @@ from html.parser import HTMLParser
 import re
 
 
+TAX_TOPICS = ("出口退税", "消费税")
+
+
 @dataclass(frozen=True)
 class Policy:
     year: int
@@ -160,6 +163,15 @@ POLICIES = (
         ),
         "https://szs.mof.gov.cn/zhengcefabu/202601/P020260109557339206884.pdf",
     ),
+    Policy(
+        2026,
+        "China",
+        "光伏电池消费税公告（2026年第20号）",
+        "财政部、海关总署、税务总局",
+        "https://szs.mof.gov.cn/zhengcefabu/202607/t20260717_3993743.htm",
+        ("消费税",),
+        "财政部海关总署税务总局公告2026年第20号",
+    ),
 )
 
 MARKERS = (
@@ -232,11 +244,13 @@ def parse_policy(raw, *, policy):
     parser = LeafBlocks()
     parser.feed(article)
     parser.close()
+    minimum_length = 28 if set(TAX_TOPICS).intersection(policy.topics) else 48
+    markers = ("光伏电池", "国家标准", "应税电池") if "消费税" in policy.topics else MARKERS
     selected = [
         (f"{policy.region} · 正文第 {index} 段", line)
         for index, line in enumerate(parser.blocks, 1)
-        if (28 if "出口退税" in policy.topics else 48) <= len(line) <= 1800
-        and any(key in line for key in MARKERS)
+        if minimum_length <= len(line) <= 1800
+        and any(key in line for key in markers)
         and not line.startswith(("各省、", "各省（", "各设区市", "为贯彻落实"))
     ]
     if not selected:

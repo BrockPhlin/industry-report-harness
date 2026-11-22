@@ -19,6 +19,7 @@ from .nbs import (
     LEVEL as NBS_LEVEL,
     SCOPE as NBS_SCOPE,
 )
+from .policy import TAX_TOPICS
 from .solar_data import SOURCE_GROUPS, match_score
 from .provinces import region_name
 from .trade import COUNTRIES, PRODUCTS, trade_country
@@ -28,7 +29,7 @@ STYLES = json.loads(
 )
 MIN_LENGTH, MAX_LENGTH = 800, 10000
 RETRYABLE_DRAFT_FORMATS = {"draft_reply_invalid", "model_output_truncated"}
-POLICY_TERMS = ("政策", "绿电直连", "电价改革", "上网电价", "市场化", "机制电价", "适用范围", "备案", "出口退税")
+POLICY_TERMS = ("政策", "绿电直连", "电价改革", "上网电价", "市场化", "机制电价", "适用范围", "备案", *TAX_TOPICS)
 REGION_LABELS = {key: value[1] for key, value in COUNTRIES.items()} | {
     "World": "全球",
     "European Union": "欧盟",
@@ -212,11 +213,11 @@ trade_products（商品代码列表，854143 为组件，854142 为未组装电�
     ) or text_to_scope
     months = re.findall(r"1\s*[-—至~到]\s*([1-9]|1[0-2])\s*月", trade_scope)
     trade_years = section_years(trade_scope)
-    tax_only = (
-        re.search(r"(?:仅|只)(?:用|使用|采用|依据|参考)(?:财政部|税务总局)", text_to_scope)
-        and "退税" in text_to_scope
+    tax_topics = [topic for topic in TAX_TOPICS if topic in text_to_scope]
+    fiscal_sources_only = bool(tax_topics) and bool(
+        re.search(r"(?:仅|只)(?:用|使用|采用|依据|参考)\s*(?:财政部|税务总局)", text_to_scope)
     )
-    if tax_only and not source_groups:
+    if fiscal_sources_only and not source_groups:
         source_groups = ("policy",)
     nbs_focus = " ".join(outline)
     if not re.search(r"发电|光伏电池|太阳能电池|电池片", nbs_focus):
@@ -237,7 +238,7 @@ trade_products（商品代码列表，854143 为组件，854142 为未组装电�
         cell_requested=bool(re.search(r"光伏电池|太阳能电池|电池片", nbs_focus)),
         nbs_generation_requested="发电" in nbs_focus,
         source_groups=list(source_groups),
-        policy_topics=["出口退税"] if tax_only else [],
+        policy_topics=tax_topics if fiscal_sources_only else [],
         trade_months=int(months[-1])
         if months
         else (6 if "上半年" in trade_scope and "前三季度" not in trade_scope else 9),
@@ -369,8 +370,9 @@ def choose_evidence(evidence, section):
     passages = [row for row in ranked if not row.get("series")]
     if policy_topic:
         tagged = [r for r in passages if re.match(r"^(China|浙江|江苏) · (正文第|PDF 第|附件第)", r["locator"])]
-        if "出口退税" in section:
-            tax = [r for r in tagged if "出口退税" in r["title"]]
+        taxes = [topic for topic in TAX_TOPICS if topic in section]
+        if taxes:
+            tax = [r for r in tagged if any(topic in r["title"] for topic in taxes)]
             if tax:
                 tagged = tax
         elif "绿电直连" in section and "上网电价" not in section:
@@ -391,6 +393,10 @@ def choose_evidence(evidence, section):
             # compares policy categories. Keep both decrees' source passages.
             if "绿电直连" in section:
                 tagged.sort(key=lambda r: not any(k in r["text"] for k in ("单一电力用户", "多个不同法人")))
+            if taxes == ["消费税"]:
+                tagged.sort(key=lambda r: not (
+                    "光伏电池" in r["text"] or "国家标准" in r["text"]
+                ))
             if "目标" in section:
                 tagged.sort(key=lambda r: not bool(re.search(r"到20\d{2}年.*(?:达到|建成)", r["text"])))
             selected = []
@@ -401,7 +407,8 @@ def choose_evidence(evidence, section):
                 source = row["title"]
                 taken = per_region.get(region, 0)
                 used = per_source.get(source, 0)
-                if taken < 7 and used < 3:
+                source_limit = 4 if "消费税" in source and "消费税" in taxes else 3
+                if taken < 7 and used < source_limit:
                     selected.append(row)
                     per_region[region] = taken + 1
                     per_source[source] = used + 1
@@ -555,7 +562,8 @@ def anchors_for(evidence, years=()):
             if last != first:
                 claim += f"，{last[0]}年{verb}{last[1]} {unit}"
         else:
-            sentences = [s for s in re.split(r"[。；]", row["text"]) if 18 <= len(s) <= 140]
+            separators = r"[。]" if any(topic in row["title"] for topic in TAX_TOPICS) else r"[。；]"
+            sentences = [s for s in re.split(separators, row["text"]) if 18 <= len(s) <= 140]
             if not sentences:
                 continue
             claim = min(sentences, key=lambda s: (not bool(re.search(r"\d", s)), len(s))).strip("。； ")
@@ -664,6 +672,7 @@ Eurostat按欧洲进口申报方统计来自中国的给定商品，使用欧元
 统计局太阳能电池（光伏电池）是规上工业的产品产量，原单位为万千瓦。区分电池、组件和装机，采用原表的可比口径同比。
 国家能源局的全国光伏发电量与国统局规上工业太阳能发电量是分别发布的口径。不得把差额归为分布式、规模以下企业或某一技术发电量。
 涉及政策时分别说明国家规定、地方细则的适用地区、起始日期和项目类型。政策规定与行业结果分开写。摘记仅限该页条款，推断原因需要另有证据。
+区分消费税与增值税出口退税，分阶段税率逐档配对实施日期。规则限于公告所列产品，勿对单笔业务下结论。
 光伏利用率反映特定统计口径内的消纳情况，区分发电量占比、利用小时数和组件转换效率。蒙东、蒙西分别发布，无可用发电量时不得用算术平均代替全区。
 不要重复前章。不写标题、编号、表格、Markdown或来源名称堆砌。仅输出 JSON：{"paragraphs":[{"text":"一整段正文","refs":["E1"]}]}。
 每段1至3个已有证据编号。每一段的阿拉伯数字必须能在所引证据中逐个找到。用完整自然段。"""
@@ -815,6 +824,7 @@ def review_scope(config, task, title, paragraphs, evidence, limits):
 比较IEA PVPS直流侧、交流侧和其他来源时，不能将GWdc写作GWac，或用差值推断漏统计、建设缺口或实际项目变化。LCOE不等于零售电价、组件单价或买卖成交价。
 将规划目标表述为已经建成的数字应删除。
 光伏出口退税公告的附件有多项商品，不能将本次引用的两种光伏商品写成整个附件的全名单，也不能由该公告判断单票业务是否已满足其他申报要求。
+消费税与增值税出口退税分别核对。各阶段税率和日期成对核对，符合公告的税率不能因为另有一档而删去。
 跨地区“领先、最高、规模更大”等判断要有同一指标、同一时间的成对数据支撑。若几年内顺序变化，不能用起点代表整段时期。
 只有两省的数据不能证明它们在全国的排名。提及资料缺失时要对照本次检索目录，避免把本段没引用的资料当作没有。
 只对有问题的段落返回 JSON，例如 {"edits":[{"paragraph":3,"remove":[2],"note":"判断当地配网压力还需核对峰时负荷。"}]}。
@@ -908,6 +918,49 @@ def ensure_nbs_measurements(title, paragraphs, evidence):
     return [*facts, *paragraphs]
 
 
+def ensure_pv_excise_schedule(title, paragraphs, evidence):
+    """Restore the dated rates together when a chapter omits one of them."""
+    if "消费税" not in title or not re.search(r"税率|日期|时间", title):
+        return paragraphs
+    source = next(
+        (row for row in evidence if "光伏电池消费税公告" in row["title"] and "按照" in row["text"]
+         and "税率征收消费税" in row["text"]),
+        None,
+    )
+    if source is None:
+        return paragraphs
+    pairs = re.findall(
+        r"自(20\d{2}年\d{1,2}月\d{1,2}日)起，对光伏电池[^，。；]*按照(\d+(?:\.\d+)?)%税率征收消费税",
+        source["text"],
+    )
+    text = "".join(paragraphs)
+    if len(pairs) < 2 or all(
+        re.search(rf"{day}[^。；]{{0,80}}(?<!\d){re.escape(rate)}\s*%", text) for day, rate in pairs
+    ):
+        return paragraphs
+    dates = "；".join(f"自{day}起按{rate}%税率征收" for day, rate in pairs)
+    sentence = f"公告规定，光伏电池消费税{dates}。 [{source['ref']}]"
+    return [sentence, *paragraphs]
+
+
+def summary_candidates_in_order(candidates):
+    """Keep the first occurrence of a measurement restated in nearly the same words."""
+    kept = []
+    for candidate in candidates:
+        sentence = re.sub(r"\[E\d+\]|\s", "", candidate)
+        numbers = set(re.findall(r"[+−-]?\d+(?:\.\d+)?", sentence))
+        fragments = {sentence[i:i + 3] for i in range(len(sentence) - 2)}
+        duplicate = any(
+            sentence == prior
+            or numbers and numbers == prior_numbers
+            and len(fragments & prior_fragments) * 2 >= len(fragments | prior_fragments)
+            for prior, prior_numbers, prior_fragments in kept
+        )
+        if not duplicate:
+            kept.append((sentence, numbers, fragments))
+            yield candidate
+
+
 def summarize_report(config, task, outline, chapters, target):
     """Select verified sentences so the summary cannot add new measurements."""
     candidates = []
@@ -918,6 +971,9 @@ def summarize_report(config, task, outline, chapters, target):
             refs = re.findall(r"\[E\d+\]", paragraph)
             clean = re.sub(r"(?:\s*\[E\d+\])+$", "", paragraph).strip()
             for sentence in re.findall(r"[^。！？]+[。！？]", clean):
+                if re.match(r"^[二三四五六七八九十]+是", sentence):
+                    continue
+                sentence = re.sub(r"^(?:[一二三四五六七八九十]+、|一是)", "", sentence)
                 if not 18 <= length_of(sentence) <= max(240, target) or not refs:
                     continue
                 if re.match(r"^(?:因此|此外|这|上述|值得注意|也就是说|从该|相较之下)", sentence):
@@ -932,8 +988,9 @@ def summarize_report(config, task, outline, chapters, target):
         result = answer(
             config,
             '从已核查原文中选择能独立成句的主要发现和重要限制。按原文章节顺序，只输出JSON对象 {"selected":[1,4]}。'
-            "优先选直接回答任务指定的地区、月份或指标的句子，选三至五句。"
-            "不要选相互重复或依赖“该指标”“此情况”的句子。无需选满全部章节。",
+            "第一句先直接回答题目中最主要的问题。政策报告先写主题产品的规定与日期，再选例外。"
+            "选二至五句，优先覆盖不同章节。即使来自不同章节，也不要重复同一组数字或结论。"
+            "避免选依赖“该指标”“此情况”的句子。无需选满全部章节。",
             {
                 "任务": task,
                 "约多少字": target,
@@ -942,10 +999,19 @@ def summarize_report(config, task, outline, chapters, target):
             },
         )
         indices = result.get("selected")
-        if isinstance(indices, list) and all(type(n) is int and 1 <= n <= len(candidates) for n in indices):
-            selected = [candidates[i - 1] for i in sorted(set(indices))]
+        if (
+            isinstance(indices, list)
+            and 1 <= len(indices) <= 5
+            and all(type(n) is int and 1 <= n <= len(candidates) for n in indices)
+        ):
+            selected = list(summary_candidates_in_order(candidates[i - 1] for i in sorted(set(indices))))
             size = sum(length_of(p) for p in selected)
-            if max(45, round(target * 0.5)) <= size <= max(240, round(target * 1.48)):
+            first_chapter = [candidates[i - 1] for i in groups[0]["候选"]]
+            if (
+                min(2, len(groups)) <= len(selected) <= 5
+                and selected[0] in first_chapter
+                and max(45, round(target * 0.5)) <= size <= max(240, round(target * 1.48))
+            ):
                 return selected
     except AppError:
         # The report is already written. A failed summary call must not lose it.
@@ -954,13 +1020,19 @@ def summarize_report(config, task, outline, chapters, target):
     remaining = max(180, round(target * 1.24))
     for group in groups:
         sentences = [candidates[i - 1] for i in group["候选"]]
-        short = [s for s in sentences if length_of(s) <= remaining]
+        short = [
+            s for s in sentences
+            if length_of(s) <= remaining
+            and len(list(summary_candidates_in_order([*selected, s]))) > len(selected)
+        ]
         if short:
             best = max(
                 short, key=lambda s: (bool(quantities(s)), min(length_of(s), target // max(1, len(groups))))
             )
             selected.append(best)
             remaining -= length_of(best)
+        if len(selected) == 5:
+            break
     return selected or [min(candidates, key=length_of)]
 
 
@@ -1433,7 +1505,8 @@ def generate(config, library, root, row, spec, progress, save):
             approved = review_scope(
                 stage_config, task, title, chapters[index], checkpoint["evidence"], checkpoint["limits"]
             )
-            chapters[index] = ensure_nbs_measurements(title, approved, checkpoint["evidence"])
+            approved = ensure_nbs_measurements(title, approved, checkpoint["evidence"])
+            chapters[index] = ensure_pv_excise_schedule(title, approved, checkpoint["evidence"])
             checkpoint["scope_reviewed"] = index + 1
     if "summary" not in checkpoint:
         progress("正在编写摘要并核查全文引用")

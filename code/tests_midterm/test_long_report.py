@@ -524,6 +524,29 @@ class WritingTests(unittest.TestCase):
             published = report.summarize_report({}, {}, ["统计", "口径"], chapters, 120)
         self.assertEqual(published, [first, second])
 
+    def test_summary_drops_repeated_numeric_finding_and_keeps_main_finding(self):
+        schedule = "自2027年4月1日起，对光伏电池按照2%税率征收消费税。 [E1]"
+        duplicate = "公告规定自2027年4月1日起对光伏电池按照2%税率征收消费税。 [E2]"
+        exception = "享受减免的产品应符合对应国家标准，首次申报前还需取得检测报告。 [E3]"
+        chapters = [[schedule], [duplicate, exception]]
+        with patch.object(report, "answer", return_value={"selected": [1, 2]}):
+            result = report.summarize_report({}, {}, ["实施日期", "检测条件"], chapters, 120)
+        self.assertEqual(result, [schedule, exception])
+
+    def test_tax_schedule_keeps_the_rates_with_both_effective_dates(self):
+        statute = (
+            "二、自2027年4月1日起，对光伏电池（又称太阳能电池）按照2%税率征收消费税；"
+            "自2028年4月1日起，对光伏电池按照4%税率征收消费税。"
+        )
+        evidence = [{"title": "光伏电池消费税公告", "ref": "E1", "text": statute}]
+        self.assertEqual(report.anchors_for(evidence)["K1"][1], statute.rstrip("。"))
+        chapter = ["自2028年4月1日起，对光伏电池按照4%税率征收消费税。 [E1]"]
+        title = "光伏电池消费税税率"
+        revised = report.ensure_pv_excise_schedule(title, chapter, evidence)
+        self.assertIn("2027年4月1日起按2%", revised[0])
+        self.assertIn("2028年4月1日起按4%", revised[0])
+        self.assertEqual(report.ensure_pv_excise_schedule(title, revised, evidence), revised)
+
     def test_stage_trace_records_usage_and_resume_failure_without_prompts(self):
         checkpoint = {}
         saved = []
