@@ -99,8 +99,11 @@ def pdf_blocks(markdown):
         yield {"kind": kinds.get(prefix, "paragraph"), "text": tail if sep and prefix in kinds else line}
 
 
-def study_blocks(markdown, chart=None):
+def study_blocks(markdown, charts=(), evidence=()):
     rows = []
+    table_number = 0
+    figures = {chart.get("table_number",1): chart for chart in charts}
+    links = {row["ref"]:row["url"] for row in evidence}
     for block in pdf_blocks(markdown):
         line = block["text"]
         if line.startswith("|") and line.endswith("|"):
@@ -108,15 +111,24 @@ def study_blocks(markdown, chart=None):
                 rows.append([cell.strip() for cell in line[1:-1].split("|")])
             continue
         if rows:
+            table_number += 1
             yield {"kind": "table", "rows": rows}
-            if chart:
-                yield {"kind":"chart", **chart}
+            if table_number in figures:
+                yield {"kind":"chart", **figures[table_number]}
             rows = []
         if block["kind"] == "heading" and line == "摘要":
             yield {"kind": "contents"}
+        if block["kind"] == "paragraph":
+            if re.match(r"^表 \d+",line):
+                block["kind"] = "caption"
+            pieces = re.split(r"(\[E\d+\])",line)
+            if len(pieces)>1:
+                block["spans"] = [{"text":part,"url":links.get(part[1:-1])} for part in pieces if part]
         yield block
     if rows:
         yield {"kind": "table", "rows": rows}
+        if table_number+1 in figures:
+            yield {"kind":"chart", **figures[table_number+1]}
 
 
 def approve_run(args, *, confirmation="explicit_cli_confirmation"):
@@ -145,7 +157,9 @@ def approve_run(args, *, confirmation="explicit_cli_confirmation"):
         raise AppError("导出 PDF 需要安装 Typst")
     with tempfile.TemporaryDirectory(dir=args.output) as tmp:
         staging = Path(tmp)
-        write_json(staging / "brief.json", list(study_blocks(approved,trace.get("chart")) if is_long else pdf_blocks(approved)))
+        charts = trace.get("charts", [trace["chart"]] if trace.get("chart") else [])
+        blocks = study_blocks(approved,charts,trace.get("evidence",[])) if is_long else pdf_blocks(approved)
+        write_json(staging / "brief.json", list(blocks))
         template = "solar-study.typ" if is_long else "pv-brief.typ"
         shutil.copyfile(CODE_DIR / "templates" / template, staging / "brief.typ")
         fonts = CODE_DIR.parent / "assets/fonts"
@@ -175,8 +189,8 @@ def inspect_run(args):
     trace = json.loads((args.output / "trace.json").read_text(encoding="utf-8"))
     if trace.get("kind") == "long":
         if args.json:
-            fields = ("plan", "target", "body_length", "evidence", "retrieval", "missing")
-            print(json.dumps({field: trace[field] for field in fields}, ensure_ascii=False, indent=2))
+            fields = ("plan", "target", "body_length", "evidence", "retrieval", "missing", "operations")
+            print(json.dumps({field: trace[field] for field in fields if field in trace}, ensure_ascii=False, indent=2))
         else:
             print(f"{trace['plan']['title']} ｜ 正文 {trace['body_length']} 字")
             for source in trace["retrieval"]:

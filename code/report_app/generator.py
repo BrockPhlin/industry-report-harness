@@ -76,6 +76,12 @@ def chat_completion(connection, messages, opener=urlopen, *, request_timeout=60,
             raise ValueError("empty completion")
         if choice.get("finish_reason") == "length":
             raise AppError("模型输出被截断，请缩小任务后重试", 502, "model_output_truncated")
+        usage = result.get("usage")
+        if isinstance(usage, dict):
+            counts = {key: usage[key] for key in ("prompt_tokens","completion_tokens","total_tokens")
+                      if type(usage.get(key)) is int and usage[key]>=0}
+            if counts:
+                choice = {**choice,"usage":counts}
         return choice
     except HTTPError as exc:
         # Never forward the provider response body, URL or credentials to UI.

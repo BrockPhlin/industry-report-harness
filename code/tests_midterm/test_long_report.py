@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from report_app.errors import AppError
 from report_app.manufacturing import manufacturing_observations
+from report_app.policy import Policy, parse_policy
 from report_app import long_report as report
 from report_app.research import Research
 from report_app.provinces import provincial_rows, region_name
@@ -20,11 +21,10 @@ from report_app.solar_data import (
     display_value,
     permitted,
     release_rows,
-    trade_jobs,
-    trade_rows,
     trend,
 )
 from report_app.store import Store
+from report_app.trade import trade_jobs, trade_rows
 
 
 def csv_source(value):
@@ -150,6 +150,30 @@ class EvidenceTests(unittest.TestCase):
             self.assertIn("限流", reason)
             download.assert_called_once()
 
+    def test_trade_batch_uses_the_same_product_and_flow_as_share_denominator(self):
+        common = dict(
+            period=2025, reporterCode=156, flowCode="X", partner2Code=0, motCode=0, customsCode="C00"
+        )
+        rows = [
+            dict(common, cmdCode="854143", partnerCode=0, primaryValue=1000000000),
+            dict(common, cmdCode="854143", partnerCode=528, primaryValue=300000000),
+            dict(common, cmdCode="854142", partnerCode=0, primaryValue=2000000000),
+            dict(common, cmdCode="854142", partnerCode=528, primaryValue=None),
+        ]
+        values, notes = trade_rows(
+            json.dumps({"data": rows}),
+            year=2025,
+            region="China",
+            flow="X",
+            label="出口",
+            products=("854143", "854142"),
+            partners=(0, 528),
+        )
+        self.assertEqual(len(values), 3)
+        self.assertIn("30.00%", notes[0][1])
+        self.assertIn("未组装光伏电池片对荷兰", notes[-1][1])
+        self.assertIn("没有返回记录", notes[-1][1])
+
     def test_provincial_inputs_are_tied_to_verified_images(self):
         self.assertEqual(region_name("浙江省"), "浙江")
         self.assertEqual(region_name("Inner Mongolia"), "内蒙古")
@@ -170,6 +194,19 @@ class EvidenceTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "组件产量段"):
             manufacturing_observations(data[:-1], 2023)
+
+    def test_policy_handles_official_div_with_breaks(self):
+        policy = Policy(
+            2025, "China", "市场化政策", "发文机关", "https://www.ndrc.gov.cn/test", ("上网电价",), "136号"
+        )
+        html = (
+            '<div class="TRS_Editor"><div>通知</div><span>136号</span><br/>'
+            "<span>新能源项目需要按上网电量参与市场交易。各地根据市场规则确定结算方式，分开公布项目申报流程和适用日期。</span><br/>"
+            "<script>never evaluate source markup</script></div>"
+        )
+        self.assertIn("上网电量", parse_policy(html.encode(), policy=policy)[1][0][1])
+        with self.assertRaisesRegex(ValueError, "政策文号"):
+            parse_policy(html.replace("136号", "135号").encode(), policy=policy)
 
 
 class WritingTests(unittest.TestCase):
@@ -253,6 +290,82 @@ class WritingTests(unittest.TestCase):
         with patch.object(report, "answer", return_value={"selected": [777]}):
             published = report.summarize_report({}, {}, ["统计", "口径"], chapters, 120)
         self.assertEqual(published, [first, second])
+
+    def test_stage_trace_records_usage_and_resume_failure_without_prompts(self):
+        checkpoint = {}
+        saved = []
+        original = {"MODEL_API_KEY": "fake"}
+        with (
+            self.assertRaises(AppError),
+            report.record_stage(original, checkpoint, saved.append, "draft", "并网") as cfg,
+        ):
+            cfg["_research_observer"]({"total_tokens": 40})
+            cfg["_research_observer"](None)
+            raise AppError("中断")
+        stage = saved[0]["operations"][0]
+        self.assertEqual(
+            (stage["status"], stage["model_requests"], stage["reported_tokens"]["total_tokens"]),
+            ("interrupted", 2, 40),
+        )
+        self.assertNotIn("fake", json.dumps(saved))
+
+    def test_annual_cohort_keeps_latest_source_and_excludes_quarter(self):
+        rows = []
+        for region in ("浙江", "江苏", "江西"):
+            for year in range(2021, 2026):
+                rows.append(
+                    dict(
+                        ref=f"E{len(rows) + 1}",
+                        title=f"{year} 年原表",
+                        locator=region,
+                        metric="分布式光伏年末累计并网容量",
+                        unit="万千瓦",
+                        region=region,
+                        series=[(year, "14")],
+                    )
+                )
+        rows.append(
+            dict(
+                ref="E99",
+                title="2026年前三季度",
+                locator="江苏",
+                metric="分布式光伏截至九月底累计并网容量",
+                unit="万千瓦",
+                region="江苏",
+                series=[(2026, "15")],
+            )
+        )
+        chosen = report.choose_evidence(rows, "浙江和江苏的年度分布式光伏比较")
+        self.assertEqual(
+            {(r["region"], r["series"][0][0]) for r in chosen},
+            {(region, year) for region in ("浙江", "江苏") for year in range(2021, 2026)},
+        )
+
+    def test_tables_keep_trade_products_separate(self):
+        records = [
+            dict(
+                ref=f"E{i}",
+                metric=f"{label}出口额（HS {product}，对{market}，现价）",
+                unit="亿美元",
+                region="China",
+                series=[(2025, value)],
+            )
+            for i, (product, label, market, value) in enumerate(
+                [
+                    ("854143", "光伏组件", "世界", "4"),
+                    ("854143", "光伏组件", "荷兰", "1"),
+                    ("854142", "未组装光伏电池片", "世界", "10"),
+                    ("854142", "未组装光伏电池片", "荷兰", "3"),
+                ],
+                1,
+            )
+        ]
+        plan = dict(trade_products=["854143", "854142"], trade_partners=["Netherlands"], sections=[])
+        tables = report.report_tables(plan, records, set(), 2500)
+        self.assertIn("| 年份 | 世界 | 荷兰 |", tables[0])
+        self.assertIn("| 2025 | 4 | 1 |", tables[0])
+        self.assertIn("| 2025 | 10 | 3 |", tables[1])
+        self.assertEqual(report.chart_data(tables[1])["table_number"], 2)
 
     def test_quarterly_revision_cannot_lose_its_negative_sign(self):
         catalog = {

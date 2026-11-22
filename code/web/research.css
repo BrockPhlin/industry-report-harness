@@ -605,16 +605,24 @@ dialog::backdrop {
   max-height: 80dvh;
   overflow: auto;
 }
+.paper-table {
+  max-width: 100%;
+  overflow-x: auto;
+}
 .paper table {
-  width: min(100%, 520px);
+  min-width: min(100%, 520px);
   border-collapse: collapse;
   margin: 14px 0;
   font-variant-numeric: tabular-nums;
 }
 .paper td, .paper th {
-  text-align: left;
+  text-align: right;
   padding: 5px 12px;
   border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+.paper tr > :first-child {
+  text-align: left;
 }
 .paper th {
   background: var(--mist);

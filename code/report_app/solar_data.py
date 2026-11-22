@@ -5,7 +5,6 @@ from contextlib import closing
 import csv
 from hashlib import sha256
 from decimal import Decimal
-from datetime import date
 from functools import partial
 from html.parser import HTMLParser
 import io
@@ -14,12 +13,14 @@ import re
 import time
 from email.utils import parsedate_to_datetime
 from urllib.error import HTTPError
-from urllib.parse import urlencode, urljoin, urlsplit
+from urllib.parse import urljoin, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .errors import AppError
 from .manufacturing import RELEASES as MANUFACTURING_RELEASES, manufacturing_observations
+from .policy import POLICIES, parse_policy
 from .store import now
+from .trade import TRADE, trade_jobs
 from .provinces import (
     HTML_QUARTER_TABLES,
     HTML_TABLES,
@@ -50,6 +51,11 @@ HOSTS = {
     "www.ciaps.org.cn",
     "www.cpem.org.cn",
     "www.cccme.org.cn",
+    "www.ndrc.gov.cn",
+    "zfxxgk.ndrc.gov.cn",
+    "zfxxgk.nea.gov.cn",
+    "fzggw.jiangsu.gov.cn",
+    "zjjcmspublic.oss-cn-hangzhou-zwynet-d01-a.internet.cloud.zj.gov.cn",
 }
 METRICS = {
     "solar_electricity": ("太阳能发电量", "TWh"),
@@ -76,81 +82,6 @@ COSTS = {
     ),
 }
 CAP_METRIC = ("太阳能累计装机（含光热）", "GW")
-
-
-REPORTERS = {
-    "China": 156,
-    "Germany": 276,
-    "United States": 842,
-    "India": 699,
-    "Japan": 392,
-    "Netherlands": 528,
-    "Brazil": 76,
-    "France": 251,
-    "Australia": 36,
-    "Spain": 724,
-    "Vietnam": 704,
-    "Malaysia": 458,
-    "South Korea": 410,
-    "United Kingdom": 826,
-}
-TRADE = "https://comtradeapi.un.org/public/v1/preview/C/A/HS"
-
-
-def trade_jobs(plan):
-    topic = plan["title"] + " " + " ".join(plan["keywords"])
-    if not any(w in topic for w in ("贸易", "出口", "进口", "进出口", "海关")):
-        return []
-    flows = []
-    if any(w in topic for w in ("进口", "进出口")):
-        flows.append(("M", "进口"))
-    if "出口" in topic or not flows:
-        flows.append(("X", "出口"))
-    jobs = []
-    for region in plan.get("trade_regions", plan["regions"]):
-        if region not in REPORTERS:
-            continue
-        for year in range(max(2022, plan["start"]), min(date.today().year - 1, plan["end"]) + 1):
-            for flow, label in flows:
-                params = dict(
-                    period=year,
-                    reporterCode=REPORTERS[region],
-                    cmdCode="854143",
-                    flowCode=flow,
-                    partnerCode=0,
-                    partner2Code=0,
-                    customsCode="C00",
-                    motCode=0,
-                    maxRecords=5,
-                )
-                url = TRADE + "?" + urlencode(params)
-                title = f"{year} 年 {region} 光伏组件{label}额"
-                parser = partial(trade_rows, year=year, region=region, flow=flow, label=label)
-                jobs.append((url, title, "联合国 Comtrade", url, parser))
-    return jobs
-
-
-def trade_rows(raw, *, year, region, flow, label):
-    observed = []
-    for row in json.loads(raw)["data"]:
-        if (
-            str(row.get("period")) == str(year)
-            and row.get("reporterCode") == REPORTERS[region]
-            and row.get("cmdCode") == "854143"
-            and row.get("flowCode") == flow
-            and row.get("partnerCode") == 0
-            and row.get("partner2Code") == 0
-            and row.get("motCode") == 0
-            and row.get("customsCode") == "C00"
-            and row.get("primaryValue") is not None
-        ):
-            value = Decimal(str(row["primaryValue"])) / 100_000_000
-            observed.append(
-                (region, year, f"光伏组件{label}额（HS 854143，对世界，现价）", "亿美元", str(value))
-            )
-    if len(observed) != 1:
-        raise ValueError("没有唯一的年度世界合计记录")
-    return observed, []
 
 
 def permitted(url):
@@ -460,6 +391,18 @@ class SolarLibrary:
                         )
         notices = []
         if domestic:
+            intent = plan["title"] + " " + " ".join([*plan["keywords"], *plan.get("sections", [])])
+            policy_scope = {*plan["regions"], "China"}
+            for policy in POLICIES:
+                if (
+                    policy.year <= plan["end"]
+                    and policy.region in policy_scope
+                    and match_score(intent, policy.topics)
+                ):
+                    title = f"{policy.year} 年 {policy.title}"
+                    jobs.append(
+                        (policy.url, title, policy.issuer, policy.url, partial(parse_policy, policy=policy))
+                    )
             links = dict(RELEASES)
             try:
                 page = ReleasePage(self.download(INDEX))
@@ -498,8 +441,8 @@ class SolarLibrary:
                 jobs.append((url, title, publisher, url, release_rows))
         with ThreadPoolExecutor(max_workers=4) as pool:
             results = list(pool.map(lambda job: self.ingest(*job), jobs))
-        # The anonymous preview serves one year and reporter per request.
-        # Query trade records sequentially to respect the provider's fair-use limit.
+        # Query one reporter and year at a time, batching product/partner rows.
+        # Process those requests sequentially to respect the provider's limit.
         for trade in trade_jobs(plan):
             jobs.append(trade)
             results.append(self.ingest(*trade))

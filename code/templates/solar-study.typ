@@ -7,6 +7,11 @@
 #let teal = rgb("#195959")
 #show heading.where(level: 1): it => block(above: 12pt, below: 7pt, text(fill: teal, size: 15pt, it.body))
 #let blocks = json("brief.json")
+#let paragraph-text(block) = if "spans" in block {
+  block.spans.map(part => if part.url == none { part.text } else {
+    link(part.url, text(fill: teal, part.text))
+  }).join()
+} else { block.text }
 #for b in blocks {
   if b.kind == "title" {
     block(above: 14mm, below: 8mm, text(size: 24pt, fill: teal, weight: "bold", b.text))
@@ -22,6 +27,8 @@
       fill: (x,y) => if y == 0 { rgb("#e6f1ed") },
       table.header(..b.rows.first().map(c => text(weight: "bold", c))),
       ..b.rows.slice(1).flatten().map(c => text(c)))
+  } else if b.kind == "caption" {
+    block(sticky: true, above: 9pt, below: 4pt)[#text(size: 9pt, weight: "bold", paragraph-text(b))]
   } else if b.kind == "chart" {
     block(breakable: false, above: 7pt, below: 7pt, width: 100%)[
       #text(size: 10pt, weight: "bold", b.title)
@@ -38,6 +45,6 @@
   } else if b.kind == "link" {
     par(text(size: 9pt, link(b.url, text(fill: teal, b.text))))
   } else {
-    par(b.text)
+    par(paragraph-text(b))
   }
 }

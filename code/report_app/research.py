@@ -235,6 +235,8 @@ class Research:
                     )
                 row.update(
                     chart=trace.get("chart"),
+                    charts=trace.get("charts", [trace["chart"]] if trace.get("chart") else []),
+                    operations=trace.get("operations", []),
                     evidence=trace["evidence"],
                     retrieval=trace["retrieval"],
                     length=trace["body_length"],
@@ -251,6 +253,8 @@ class Research:
         else:
             row["status"] = "failed"
             row["error"] = row["error"] or "上次运行中断，可从已完成的章节继续。"
+            if spec:
+                row["operations"] = self.spec(key, checkpoint=True)["checkpoint"].get("operations", [])
         return row
 
     def start(self, data):

@@ -228,18 +228,27 @@ function dataFigure(chart) {
 }
 function documentView(markdown) {
   const paper = element("div", undefined, "paper");
+  const figures = new Map((state.row?.charts || (state.row?.chart ? [state.row.chart] : []))
+    .map(chart => [chart.table_number || 1, chart]));
   let table = null;
+  let tableNumber = 0;
   for (const line of markdown.split("\n").filter(Boolean)) {
     if (line.startsWith("|")) {
       if (/^\|[\s:|-]+$/.test(line)) continue;
       const first = !table;
-      if (first) { table = element("table"); paper.append(table); }
+      if (first) {
+        table = element("table");
+        const scroll = element("div", undefined, "paper-table");
+        scroll.append(table);
+        paper.append(scroll);
+        tableNumber++;
+      }
       const tr = element("tr");
       for (const cell of line.slice(1,-1).split("|")) tr.append(element(first ? "th" : "td",cell.trim()));
       table.append(tr);
       continue;
     }
-    if (table && state.row?.chart) paper.append(dataFigure(state.row.chart));
+    if (table && figures.has(tableNumber)) paper.append(dataFigure(figures.get(tableNumber)));
     table = null;
     const citation = /^\[([^\]]+)\]\((https:\/\/[^\s)]+)\)(.*)$/.exec(line);
     if (citation) {
@@ -251,6 +260,7 @@ function documentView(markdown) {
     else if (line.startsWith("- ")) paper.append(citedText(line.slice(2), "metric"));
     else paper.append(citedText(line, line.startsWith("运行方式") ? "meta" : ""));
   }
+  if (table && figures.has(tableNumber)) paper.append(dataFigure(figures.get(tableNumber)));
   return paper;
 }
 function traceView(events) {
@@ -261,6 +271,21 @@ function traceView(events) {
     const hits = e.returned.map(h => h.source + " · " + h.locator);
     detail.append(element("p", e.section + (e.stage === "initial" ? "检索" : "补查") + " · " +
       ([...new Set(hits)].join("、") || "没有命中资料")));
+  }
+  return detail;
+}
+function operationsView(operations) {
+  const detail = element("details", undefined, "details");
+  detail.append(element("summary","生成过程"));
+  for (const step of operations) {
+    const stage = step.stage === "draft" ? "写作" : step.stage === "review" ? "核查" : "";
+    const time = step.seconds < 60 ? Math.round(step.seconds)+" 秒" : Math.floor(step.seconds/60)+" 分 "+Math.round(step.seconds%60)+" 秒";
+    const parts = [stage ? stage+" · "+step.label : step.label, step.status==="interrupted" ? "中断" : "完成", time];
+    if (step.model_requests) parts.push(step.model_requests+" 次模型请求");
+    if (step.reported_tokens?.total_tokens !== undefined) {
+      parts.push(step.reported_tokens.total_tokens.toLocaleString()+" tokens（模型返回）");
+    }
+    detail.append(element("p",parts.join(" · ")));
   }
   return detail;
 }
@@ -301,6 +326,7 @@ function render(row) {
       element("p", "已完成 " + done.length + " / " + row.focus.length + " 章", "caption"));
   } else if (row.status === "failed") {
     article.append(element("p", row.error), button("继续生成", () => action("/retry", {}), "action"));
+    if (row.operations?.length) article.append(operationsView(row.operations));
     if (row.spec) article.append(button("调整范围后重写",() => {
       fresh();
       $("workflow").value = "discuss";
@@ -317,7 +343,9 @@ function render(row) {
       const info = element("details",undefined,"details");
       info.append(element("summary","取数记录 · 正文 "+row.length+" 字 / 目标 "+row.spec.target+" 字"));
       for (const n of row.retrieval) info.append(element("p",n.source+" · "+n.result));
-      article.append(info,documentView(row.markdown));
+      article.append(info);
+      if (row.operations?.length) article.append(operationsView(row.operations));
+      article.append(documentView(row.markdown));
       const download = element("a","下载 Markdown");
       download.href = "/api/research/" + row.id + "/markdown";
       article.append(download);
