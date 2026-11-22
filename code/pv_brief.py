@@ -36,16 +36,23 @@ def baseline_sources(sources, facts):
             for source in sources.values()]
 
 
-def create_run(args):
+def create_run(args, *, config=None, question=None, focus=None):
     from report_app.pv_agent import FixtureWriter, generate_brief
 
     if args.output.exists():
         raise AppError("任务目录已存在，请指定新目录")
     template, sources, facts = load_inputs(args.omit_source, template_path=args.template, corpus_path=args.corpus)
+    if focus is not None:
+        sections = [s for s in template["sections"] if s["title"] in focus]
+        if not sections or len(sections) != len(focus):
+            raise AppError("请选择模板中已有的研究重点")
+        template = dict(template, sections=[dict(s, research_question=question) for s in sections],
+                        scope="本次依据公开统计，核对2024年中国光伏的" +
+                              "、".join(s["title"] for s in sections) + "。")
     if not sources:
         raise AppError("演示任务至少需要一份资料")
     if args.mode == "live":
-        model = ChatWriter(read_config(CODE_DIR / ".env"), request_timeout=args.request_timeout)
+        model = ChatWriter(read_config(CODE_DIR / ".env") if config is None else config, request_timeout=args.request_timeout)
         route = model.connection[:2]
     else:
         model = FixtureWriter()
@@ -92,7 +99,7 @@ def pdf_blocks(markdown):
         yield {"kind": kinds.get(prefix, "paragraph"), "text": tail if sep and prefix in kinds else line}
 
 
-def approve_run(args):
+def approve_run(args, *, confirmation="explicit_cli_confirmation"):
     trace = json.loads((args.output / "trace.json").read_text(encoding="utf-8"))
     draft_path = args.markdown or args.output / "draft.md"
     draft = draft_path.read_text(encoding="utf-8")
@@ -104,6 +111,8 @@ def approve_run(args):
     status = "状态：已按命令确认，仍有待核实项。" if pending else "状态：已按命令确认。"
     if draft.count("状态：待人工核对。") != 1:
         raise AppError("审阅稿缺少唯一的待确认标识")
+    if confirmation == "explicit_web_confirmation":
+        status = status.replace("按命令确认", "经网页审阅确认")
     approved = draft.replace("状态：待人工核对。", status, 1)
     final_dir = args.output / "reviewed"
     if final_dir.exists():
@@ -126,7 +135,7 @@ def approve_run(args):
         write_json(finished / "confirmation.json", {
             "mode": trace["mode"], "missing": trace["missing"], "conflicts": trace.get("conflicts", []),
             "markdown_sha256": sha256(approved.encode()).hexdigest(),
-            "source_approval": "explicit_cli_confirmation",
+            "source_approval": confirmation,
         })
         finished.rename(final_dir)
     print(f"已导出 {final_dir / 'brief.pdf'}")

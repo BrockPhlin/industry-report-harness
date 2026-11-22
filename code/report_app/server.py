@@ -2,15 +2,19 @@
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
+import re
 import sqlite3
 from urllib.parse import urlsplit
 
 from .errors import AppError
+from .research import Research
 
 WEB = Path(__file__).resolve().parents[1] / "web"
 
 
 def make_server(service, host="127.0.0.1", port=8000):
+    research = Research(service)
+
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt, *args):
             # Log only status line, not request body or provider configuration.
@@ -45,9 +49,22 @@ def make_server(service, host="127.0.0.1", port=8000):
                 if method == "POST" and origin and origin != expected:
                     raise AppError("请求来源与本地服务不一致", 403, "origin_mismatch")
                 path = urlsplit(self.path).path
+                task = re.fullmatch(r"/api/research/([a-f0-9]{32})(?:/(approve|pdf|ask|retry))?", path)
                 if method == "GET":
+                    if path == "/api/research/settings":
+                        return self.respond(200, research.settings())
+                    if path == "/api/research":
+                        return self.respond(200, research.rows())
+                    if task and task[2] in (None, "pdf"):
+                        row = research.task(task[1])
+                        if task[2] == "pdf":
+                            if not row.get("approved"):
+                                raise AppError("核对草稿并确认后才可下载", 409)
+                            return self.respond(200, (research.root / task[1] / "reviewed/brief.pdf").read_bytes(),
+                                                "application/pdf", "pv-brief.pdf")
+                        return self.respond(200, row)
                     if path == "/api/health":
-                        return self.respond(200, {"status": "ok", "stage": "baseline", "harness": False})
+                        return self.respond(200, {"status": "ok", "stage": "research", "harness": True})
                     if path == "/api/sources":
                         return self.respond(200, service.store.list_sources())
                     if path.startswith("/api/sources/"):
@@ -65,12 +82,13 @@ def make_server(service, host="127.0.0.1", port=8000):
                         if len(parts) == 4:
                             return self.respond(200, report["markdown"].encode(), "text/markdown; charset=utf-8", f"report-{report['id']}.md")
                         return self.respond(200, report)
-                    static = {"/": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"), "/style.css": ("style.css", "text/css")}
+                    static = {"/": ("research.html", "text/html"), "/research.js": ("research.js", "text/javascript"),
+                              "/research.css": ("research.css", "text/css"), "/baseline": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"), "/style.css": ("style.css", "text/css")}
                     if path in static:
                         name, kind = static[path]
                         return self.respond(200, (WEB / name).read_bytes(), kind + "; charset=utf-8")
                     raise AppError("页面或接口不存在", 404, "not_found")
-                if path not in {"/api/sources", "/api/reports"}:
+                if path not in {"/api/sources", "/api/reports", "/api/research"} and not (task and task[2] in ("approve", "ask", "retry")):
                     raise AppError("接口不存在", 404, "not_found")
                 if self.headers.get_content_type() != "application/json":
                     raise AppError("请求须为application/json", 415)
@@ -87,6 +105,17 @@ def make_server(service, host="127.0.0.1", port=8000):
                     raise AppError("请求不是完整有效的UTF-8 JSON") from None
                 if not isinstance(data, dict):
                     raise AppError("请求JSON必须为对象")
+                if path == "/api/research":
+                    return self.respond(202, research.start(data))
+                if task:
+                    if task[2] == "approve":
+                        if data.get("confirm") is not True:
+                            raise AppError("请先确认已核对草稿")
+                        return self.respond(200, research.approve(task[1]))
+                    if task[2] == "ask":
+                        return self.respond(200, research.ask(task[1], data))
+                    research.launch(task[1])
+                    return self.respond(202, research.task(task[1]))
                 result = service.add_source(data) if path == "/api/sources" else service.generate(data)
                 self.respond(201, result)
             except AppError as exc:

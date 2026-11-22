@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>光伏研究室 · 产业研究工作台</title>
+  <link rel="stylesheet" href="/research.css">
+  <script src="/research.js" defer></script>
+</head>
+<body>
+  <aside id="rail">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">◒</span>光伏研究室
+      <button id="close-nav" class="mobile icon" aria-label="关闭历史研究">×</button>
+    </div>
+    <button id="new" class="new"><span aria-hidden="true">＋</span> 新建研究</button>
+    <h2 class="navtitle">历史研究</h2>
+    <nav id="history" aria-label="历史研究"></nav>
+    <div class="rail-foot">
+      <button id="sources" class="plain">资料库 <span aria-hidden="true">↗</span></button>
+      <a href="/baseline">开题版工作台 ↗</a>
+    </div>
+  </aside>
+  <button id="shade" aria-label="关闭侧栏" hidden></button>
+  <main>
+    <header>
+      <div class="location">
+        <button id="menu" class="mobile icon" aria-label="打开历史研究">☰</button>
+        <span>研究空间</span><i>/</i><b id="breadcrumb">新建研究</b>
+      </div>
+      <button id="model-info" class="connection"><i></i><span id="model-label">读取模型配置…</span></button>
+    </header>
+    <div id="canvas">
+      <article id="conversation" hidden></article>
+      <section id="welcome">
+        <div class="sun" aria-hidden="true"><span></span></div>
+        <h1>2024 年，中国光伏怎么样？</h1>
+        <p>从工信部和国家能源局的两份统计，查组件产量、价格和新增装机。</p>
+      </section>
+      <section id="input-area">
+        <form id="composer">
+          <label class="sr" for="prompt">研究问题</label>
+          <textarea id="prompt" rows="2" maxlength="300" placeholder="输入研究问题，或选下方的示例…" required></textarea>
+          <div class="tools">
+            <button type="button" id="focus-btn" class="pill" aria-haspopup="dialog">
+              <span aria-hidden="true">☷</span> 选章节
+            </button>
+            <select id="mode" aria-label="生成方式">
+              <option value="live">用模型生成</option>
+              <option value="fixture">离线演练</option>
+            </select>
+            <button id="send" class="send" aria-label="发送问题">↑</button>
+          </div>
+        </form>
+        <div id="suggestions">
+          <button data-focus="制造与价格">组件产量和价格怎么变了？ <span>↗</span></button>
+          <button data-focus="发电新增装机">新增装机规模有多大？ <span>↗</span></button>
+        </div>
+        <p id="notice" role="status" aria-live="polite"></p>
+      </section>
+    </div>
+  </main>
+  <dialog id="dialog">
+    <div class="dialog-head">
+      <h2 id="dialog-title"></h2>
+      <button id="dismiss" class="icon" aria-label="关闭">×</button>
+    </div>
+    <div id="dialog-body"></div>
+  </dialog>
+</body>
+</html>

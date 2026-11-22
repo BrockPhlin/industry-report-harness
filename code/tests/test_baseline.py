@@ -161,7 +161,7 @@ class HttpTests(unittest.TestCase):
 
     def test_real_http_roundtrip_and_download(self):
         with self.request("/api/health") as r:
-            self.assertEqual(json.load(r)["harness"], False)
+            self.assertTrue(json.load(r)["harness"])
         with self.request("/api/sources", {"title": "原文", "body": "验证资料"}) as r:
             source = json.load(r)
             self.assertEqual(r.status, 201)
