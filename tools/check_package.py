@@ -164,8 +164,10 @@ version = midterm_deck["version"]
 slides = midterm_deck["slides"]
 speech = (midterm / "ppt/讲稿.md").read_text(encoding="utf-8")
 deck_pptx = midterm / f"ppt/第11组_中期展示_{version}.pptx"
+midterm_report = (midterm / "report/report.md").read_text(encoding="utf-8")
+report_version = re.search(r"\*\*版本\*\*：(v\d+(?:\.\d+)+)", midterm_report)[1]
 for pdf in [midterm / f"ppt/第11组_中期展示_{version}.pdf",
-            midterm / f"report/第11组_系统设计报告_{version}.pdf"]:
+            midterm / f"report/第11组_系统设计报告_{report_version}.pdf"]:
     with pdf.open("rb") as file:
         assert file.read(5) == b"%PDF-", f"Invalid PDF: {pdf}"
 assert len(slides) == midterm_deck["formal_slides"]
