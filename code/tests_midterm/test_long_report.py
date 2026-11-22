@@ -165,17 +165,19 @@ class WritingTests(unittest.TestCase):
             "这个数字表明全省生产效率已经提高。 [E1]",
         ]
         replacement = {
-            "index": 2,
-            "text": "要比较生产效率，还需要同期产量、投入和统计口径，装机数据只能说明容量。",
-            "refs": ["E1"],
+            "paragraph": 2,
+            "remove": [1],
+            "note": "要比较生产效率，还需要核对同期产量、投入和统计口径。",
         }
-        wrong = dict(replacement, text="统计资料显示2024年并网容量合计为30 GW。")
-        with patch.object(
-            report, "answer", side_effect=[{"revisions": [wrong]}, {"revisions": [replacement]}]
-        ):
+        wrong = dict(replacement, note="统计资料显示2024年并网容量合计为30 GW。")
+        with patch.object(report, "answer", return_value={"edits": [wrong]}):
+            self.assertEqual(
+                report.review_scope({}, "比较效率", "统计口径", original, evidence, []), original[:1]
+            )
+        with patch.object(report, "answer", return_value={"edits": [replacement]}):
             updated = report.review_scope({}, "比较效率", "统计口径", original, evidence, [])
         self.assertEqual(updated[0], original[0])
-        self.assertEqual(updated[1], replacement["text"] + " [E1]")
+        self.assertEqual(updated[1], replacement["note"] + " [E1]")
 
     def test_markdown_export_has_one_contiguous_table(self):
         row = dict(

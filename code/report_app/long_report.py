@@ -475,38 +475,59 @@ def checked_part(config, task, plan, evidence, title, target, previous, style):
 
 def review_scope(config, task, title, paragraphs, evidence, limits):
     """Keep the writer's valid paragraphs and correct unsupported interpretations in place."""
-    cited = set(re.findall(r"\[(E\d+)\]", " ".join(paragraphs)))
+    refs = [re.findall(r"\[(E\d+)\]", p) for p in paragraphs]
+    cited = {ref for group in refs for ref in group}
     catalog = {row["ref"]: row for row in evidence if row["ref"] in cited}
+    sentences = [
+        re.findall(r"[^。！？]+[。！？]?", re.sub(r"(?:\s*\[E\d+\])+$", "", p).strip()) for p in paragraphs
+    ]
     payload = {
         "任务": task,
-        "本节": title,
-        "覆盖缺口": limits,
-        "段落": dict(enumerate(paragraphs, 1)),
-        "本章来源": public_evidence(catalog.values()),
+        "章名": title,
+        "资料缺口": limits,
+        "证据": public_evidence(catalog.values()),
+        "本次检索目录": [r["title"] + " · " + r["locator"] for r in evidence],
+        "段落": [
+            {"段号": i, "原句": dict(enumerate(lines, 1)), "来源": refs[i - 1]}
+            for i, lines in enumerate(sentences, 1)
+        ],
     }
-    prompt = """你是审读产业统计的编辑。逐段区分观测、解释与待核实事项。
-找出把全国数据当作省内原因、把装机容量当作发电量或配网负荷、把同时变化当作因果、用彼国进出口额填本国缺口、
-没有调查却断言动机、政策和收益、超出用户具体限定范围、把汇总数据写成企业行为的句子。
-有错时只替换相应段落，保留该段有根据的事实与统计精度，把无依据判断改为可验证的问题，写清需要什么资料。
-单纯加“可能、提示、一定程度”仍只是猜测；材料不支持的解释要删除。不得用没有数据的长篇套话弥补空缺。
-已有条件语气且明确说明验证办法的建议可以保留。无错段落不动。仅返回JSON：
-{"revisions":[{"index":1,"text":"完整替换段落，不含编号","refs":["E1"]}]}，没有问题返回空数组。"""
+    prompt = """你是核对产业统计结论的编辑。检查每一句结论的地域、时期、因果和统计口径是否得到该段所引来源支持。
+把全国项目结构当作省内增长原因、把装机容量当作电网负荷、把两地增速接近当成政策影响同步、
+用其他国家的贸易额替代本国缺口、用出口金额推断销量或利润，均应删除相应原句。核对数据和本身合理的建议请保留。
+只有两省的数据不能证明它们在全国的排名。提及资料缺失时要对照本次检索目录，避免把本段没引用的资料当作没有。
+只对有问题的段落返回 JSON，例如 {"edits":[{"paragraph":3,"remove":[2],"note":"判断当地配网压力还需核对峰时负荷。"}]}。
+paragraph 和 remove 均使用输入给出的整数编号。note 可留空，或简短说明还缺什么资料和如何核实。
+note 只写可执行的核实办法，不复述数据、章号、年份或任何数字。不要另写新事实。无问题返回 {"edits":[]}。"""
     for _ in range(3):
-        result = answer(config, prompt, payload).get("revisions")
+        result = answer(config, prompt, payload).get("edits")
         try:
             if not isinstance(result, list):
-                raise ValueError("需要 revisions 数组")
+                raise ValueError("需要 edits 数组")
             revised = list(paragraphs)
             seen = set()
             for item in result:
-                index = item.get("index") if isinstance(item, dict) else None
-                if type(index) is not int or not 1 <= index <= len(revised) or index in seen:
-                    raise ValueError("修改项须按原文段落号定位")
-                seen.add(index)
-                revised[index - 1] = validate_paragraphs({"paragraphs": [item]}, catalog, 15, 2200)[0]
-            return revised
+                paragraph = item.get("paragraph") if isinstance(item, dict) else None
+                if type(paragraph) is not int or not 1 <= paragraph <= len(revised) or paragraph in seen:
+                    raise ValueError("请使用有效段落号，每段只出现一次")
+                seen.add(paragraph)
+                index = paragraph - 1
+                remove, note = item.get("remove"), item.get("note", "")
+                if not isinstance(remove, list) or any(
+                    type(n) is not int or not 1 <= n <= len(sentences[index]) for n in remove
+                ):
+                    raise ValueError("remove 只填写该段的原句编号")
+                if not isinstance(note, str) or re.search(r"[0-9\n\[\]#{}]", note) or len(note) > 350:
+                    note = ""
+                kept = [s for n, s in enumerate(sentences[index], 1) if n not in remove]
+                body = "".join(kept) + note.strip()
+                revised[index] = body + " " + " ".join(f"[{r}]" for r in refs[index]) if body else ""
+            if not any(revised):
+                raise ValueError("这一章没有剩余内容，请保留统计观测，或具体交代需要核实的资料")
+            return [p for p in revised if p]
         except ValueError as exc:
             payload["修正输出"] = str(exc)
+            payload["上次返回"] = result
     raise AppError(f"「{title}」的范围复核未完成：{payload['修正输出']}", 502)
 
 
@@ -698,6 +719,9 @@ def generate(config, library, root, row, spec, progress, save):
             checked_part(config, task, plan, evidence, title, allocation, previous, spec["style"])
         )
         save(checkpoint)
+    # Older checkpoints used just the citations in the paragraph to judge gaps.
+    if checkpoint.get("scope_review_version") != 2:
+        checkpoint.update(scope_review_version=2, scope_reviewed=0, summary_reviewed=False)
     for index in range(checkpoint.get("scope_reviewed", 0), total):
         title = plan["sections"][index]
         progress(f"第 {index + 1}/{total} 章 · 核对结论的适用范围")
