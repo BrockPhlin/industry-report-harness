@@ -21,12 +21,14 @@ from .errors import AppError
 from . import irena
 from . import eurostat
 from . import nbs
+from . import studies
 from .manufacturing import RELEASES as MANUFACTURING_RELEASES, manufacturing_observations
 from .policy import POLICIES, parse_policy
 from .store import now
 from .trade import TRADE, trade_jobs
 from .utilization import AREAS as GRID_AREAS, SOURCES as UTILIZATION_SOURCES, utilization_rows
 from .provinces import (
+    HALF_YEAR_TABLES,
     HTML_QUARTER_TABLES,
     HTML_TABLES,
     REGIONS,
@@ -55,6 +57,7 @@ SOURCE_GROUPS = {
     "policy": "国家及省级政策原文",
     "releases": "国家能源局运行发布",
     "nbs": "国家统计局规上工业发电",
+    "studies": "IEA PVPS 与 IRENA 研究报告",
 }
 HOSTS = {
     "www.nea.gov.cn",
@@ -75,6 +78,7 @@ HOSTS = {
     "public.solarbe.com",
     "pxweb.irena.org",
     "www.irena.org",
+    "iea-pvps.org",
     "ec.europa.eu",
 }
 METRICS = {
@@ -412,6 +416,8 @@ class SolarLibrary:
 
     def province_jobs(self, plan):
         jobs = []
+        half = plan.get("half_year_requested")
+        quarter = plan.get("quarter_requested") or (plan["end"] >= 2026 and not half)
         for year, page in HTML_TABLES.items():
             if plan["start"] <= year <= plan["end"]:
                 jobs.append(
@@ -425,6 +431,8 @@ class SolarLibrary:
                     )
                 )
         for year, (page, filename, _) in TABLES.items():
+            if year == 2026 and not quarter:
+                continue
             if plan["start"] <= year <= plan["end"]:
                 period = "年前三季度" if year == 2026 else "年"
                 jobs.append(
@@ -437,7 +445,7 @@ class SolarLibrary:
                         "household-columns-v2" if year in (2024, 2025) else "",
                     )
                 )
-        if plan.get("quarter_requested") or plan["end"] >= 2026:
+        if quarter:
             for year, page in HTML_QUARTER_TABLES.items():
                 if plan["start"] <= year <= plan["end"]:
                     jobs.append(
@@ -450,6 +458,13 @@ class SolarLibrary:
                             "provincial-html-v1",
                         )
                     )
+        if half:
+            for year, (page, filename, _) in HALF_YEAR_TABLES.items():
+                if plan["start"] <= year <= plan["end"]:
+                    jobs.append((
+                        urljoin(page, filename), f"{year} 年上半年光伏并网容量分省统计",
+                        "国家能源局", page, partial(provincial_rows, year=year, half_year=True),
+                    ))
         return jobs
 
     def release_jobs(self, plan, notices):
@@ -482,6 +497,7 @@ class SolarLibrary:
                 *HTML_TABLES.values(),
                 *HTML_QUARTER_TABLES.values(),
                 *(page for page, _, _ in TABLES.values()),
+                *(page for page, _, _ in HALF_YEAR_TABLES.values()),
             }:
                 continue
             years = [int(y) for y in re.findall(r"20\d{2}", title)]
@@ -522,7 +538,14 @@ class SolarLibrary:
                 ):
                     title = f"{policy.year} 年 {policy.title}"
                     jobs.append(
-                        (policy.url, title, policy.issuer, policy.url, partial(parse_policy, policy=policy))
+                        (
+                            policy.document_url or policy.url,
+                            title,
+                            policy.issuer,
+                            policy.url,
+                            partial(parse_policy, policy=policy),
+                            "policy-v2",
+                        )
                     )
         if "eurostat" in groups or (
             auto and any(word in intent for word in ("进口", "贸易", "出口", "出海"))
@@ -542,6 +565,8 @@ class SolarLibrary:
                     {"source": "国家统计局数据发布目录", "result": "目录访问失败，尝试已登记的月表"}
                 )
             jobs.extend(nbs.jobs(plan, publications))
+        if auto or "studies" in groups:
+            jobs.extend(studies.jobs(plan, force="studies" in groups))
         with ThreadPoolExecutor(max_workers=4) as pool:
             results = list(pool.map(lambda job: self.ingest(*job), jobs))
         # Batch partner rows within a reporter, product and year. Keep separate
@@ -633,7 +658,13 @@ class SolarLibrary:
                     for year, metric, unit, value in rows:
                         by_metric.setdefault((metric, unit), []).append((year, value))
                     for (metric, unit), series in by_metric.items():
-                        if not plan.get("monthly_requested") and re.search(r"（Eurostat，\d+月）$", metric):
+                        euro_month = re.search(r"（Eurostat，(\d+)月）$", metric)
+                        if euro_month and (
+                            not plan.get("monthly_requested")
+                            or plan.get("trade_window_fixed") and int(euro_month[1]) > plan["trade_months"]
+                        ):
+                            continue
+                        if plan.get("trade_window_fixed") and metric.endswith("（Eurostat，全年）"):
                             continue
                         # Keep first, last and evenly spaced interior observations on long horizons.
                         selected = sorted(
@@ -643,13 +674,16 @@ class SolarLibrary:
                             }
                         )
                         samples = [series[i] for i in selected]
-                        digits = 4 if "美元" in unit or "欧元" in unit else 2
+                        digits = 4 if "美元" in unit or "欧元" in unit or unit in {"GWac", "GWdc"} else 2
                         shown = [(year, display_value(v, digits)) for year, v in samples]
                         data = "；".join(f"{year}年 {value} {unit}" for year, value in shown)
                         note = trend(samples, unit)
                         is_provincial = "光伏并网容量分省统计" in src["title"]
                         if is_provincial:
-                            note += table_caveat(region, samples[-1][0], quarter="前三季度" in src["title"])
+                            note += table_caveat(
+                                region, samples[-1][0],
+                                quarter="前三季度" in src["title"], half_year="上半年" in src["title"],
+                            )
                         location = "总计" if region == "China" and is_provincial else region
                         add(
                             f"{location} · {metric} · {unit}",
@@ -660,10 +694,16 @@ class SolarLibrary:
                             metric=metric,
                             region=region,
                         )
-                passages = db.execute(
-                    "SELECT locator,body FROM solar_passages WHERE source=? ORDER BY rowid", (sid,)
-                )
-                for loc, body in sorted(passages, key=lambda p: -match_score(p[1], plan["keywords"]))[:8]:
+                passages = list(db.execute(
+                    "SELECT locator,body FROM solar_passages WHERE source=? ORDER BY rowid",
+                    (sid,),
+                ))
+                ranked = sorted(passages, key=lambda p: -match_score(p[1], plan["keywords"]))
+                if passages and any(policy.url == src["origin"] for policy in POLICIES):
+                    # Keep the first substantive clause when narrowing a later section.
+                    targets = [p for p in passages if re.search(r"到20\d{2}年.*(?:达到|建成)", p[1])]
+                    ranked = list(dict.fromkeys([passages[0], *targets[:2], *ranked]))
+                for loc, body in ranked[:8]:
                     add(loc, body)
         return evidence
 

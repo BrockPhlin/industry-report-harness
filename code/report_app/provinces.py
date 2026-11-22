@@ -15,6 +15,18 @@ HTML_TABLES = {
 HTML_QUARTER_TABLES = {
     2025: "https://www.nea.gov.cn/20251112/35126d06a151461882b61d0a2e5706a6/c.html",
 }
+HALF_YEAR_TABLES = {
+    2025: (
+        "https://www.nea.gov.cn/20250811/b32802d80ef04148b704e6bc1cd51eb2/c.html",
+        "20250811b32802d80ef04148b704e6bc1cd51eb2_2025081146a96ed2e6924771b787a7d2e5fdc2d3.jpg",
+        "1b319bbb5c34411c644fd705c1d31a1194507e5489272e9732423f8811e12f09",
+    ),
+    2026: (
+        "https://www.nea.gov.cn/20261113/49ccc766220c42e1a46719120952d1a3/c.html",
+        "2026111349ccc766220c42e1a46719120952d1a3_2026111304018af0894a4b9d8dc53ad7b481913f.jpg",
+        "6c103dfd23647cb11ce51e79dda721be9971326e95a526af88894492c87f1d22",
+    ),
+}
 TABLES = {
     2024: (
         "https://www.nea.gov.cn/20250221/f04452701c914d51a89d0c0ea6f4acd1/c.html",
@@ -53,11 +65,12 @@ def region_name(region):
     return ALIASES.get(cleaned.replace(" ", "-"), cleaned)
 
 
-def provincial_rows(raw, *, year):
-    if sha256(raw).hexdigest() != TABLES[year][2]:
+def provincial_rows(raw, *, year, half_year=False):
+    releases = HALF_YEAR_TABLES if half_year else TABLES
+    if sha256(raw).hexdigest() != releases[year][2]:
         raise ValueError("发布方已更换原表，待核对新版表格")
     rows = []
-    filename = "2026-q3.csv" if year == 2026 else f"{year}.csv"
+    filename = f"{year}-h1.csv" if half_year else ("2026-q3.csv" if year == 2026 else f"{year}.csv")
     with (TABLE_DIR / filename).open(encoding="utf-8", newline="") as stream:
         for row in csv.DictReader(stream):
             region = row.pop("地区")
@@ -141,16 +154,23 @@ def html_provincial_rows(raw, *, year, quarter=False):
     return results, []
 
 
-def table_caveat(region, year, *, quarter=False):
+def table_caveat(region, year, *, quarter=False, half_year=False):
     notes = []
     if quarter:
         notes.append("新增只统计前三季度，累计值截至九月底。")
         if year == 2026:
             notes.append("原表注明江西等部分省份有统计数据修正。")
+    if half_year:
+        notes.append("新增只统计上半年，累计值截至六月底。")
+        if year == 2026:
+            notes.append("原表注明江西、湖北、广西、新疆等地存在项目退出运行或户用统计口径修正。")
     if region in {"新疆", "新疆兵团"}:
-        notes.append(
-            "2021 至 2024 年表另列新疆兵团，2025 年和 2026 年前三季度表只列新疆，跨期比较须核对范围。"
-        )
+        if half_year:
+            notes.append("上半年原表只列新疆，未单列新疆兵团。")
+        else:
+            notes.append(
+                "2021 至 2024 年表另列新疆兵团，2025 年和 2026 年前三季度表只列新疆，跨期比较须核对范围。"
+            )
     if year <= 2022:
         notes.append("原表注释说明部分省份存在退运减容，期末累计以发布值为准。")
     return "".join(notes)

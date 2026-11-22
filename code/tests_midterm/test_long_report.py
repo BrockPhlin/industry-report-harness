@@ -128,6 +128,30 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(table[4], "| 2026年1—2月 | 920 |")
         self.assertEqual([p["value"] for p in report.chart_data(table)["points"]], ["547", "571"])
 
+    def test_explicit_month_gets_the_matching_absolute_value_and_published_growth(self):
+        def source(year, period, metric, value, unit, ref):
+            return dict(
+                ref=ref, metric=f"{metric}（{period}月）", region="China", unit=unit,
+                series=[(year, value)], text=f"{year}年为{value}{unit}。", title="官方原表",
+                locator="China", publisher="国家统计局", source=year * 100 + int(period.split("—")[-1]),
+            )
+
+        records = [
+            source(2025, "10", nbs.LEVEL, "394", "亿千瓦时", "E1"),
+            source(2026, "1—10", nbs.LEVEL, "6105", "亿千瓦时", "E2"),
+            source(2026, "10", nbs.LEVEL, "594", "亿千瓦时", "E3"),
+            source(2026, "10", nbs.GROWTH, "31", "%", "E4"),
+            source(2026, "1—10", nbs.GROWTH, "14.3", "%", "E5"),
+        ]
+        title = "2026年10月和1—10月太阳能发电量"
+        self.assertEqual(report.calendar_periods("2026年8—10月"), {"8月", "9月", "10月"})
+        self.assertIn(report.choose_evidence(records, title)[0]["ref"], {"E2", "E3"})
+        outline = report.ensure_nbs_measurements(title, [], records)
+        self.assertTrue(any("594亿千瓦时" in p and "31%" in p for p in outline))
+        self.assertTrue(any("6105亿千瓦时" in p and "14.3%" in p for p in outline))
+        self.assertFalse(any("394" in p for p in outline))
+        self.assertEqual(report.ensure_nbs_measurements(title, outline, records), outline)
+
     def test_explicit_source_scope_never_reuses_other_catalogs(self):
         self.ingest()
         plan = dict(
@@ -393,6 +417,20 @@ class WritingTests(unittest.TestCase):
         self.assertIn("1174.96 TWh", report.restore_rounded_values("约1175 TWh", "全年1174.96 TWh"))
         for facts in ("1174.96 GW", "1174.96 TWh，1175.08 TWh"):
             self.assertEqual(report.restore_rounded_values("1175 TWh", facts), "1175 TWh")
+
+    def test_observation_gate_detects_swapped_year_values_in_the_same_reference(self):
+        catalog = {
+            "E1": dict(
+                region="浙江", metric="分布式光伏新增并网容量", unit="万千瓦",
+                series=[(2024, "1204"), (2025, "1390.5")], title="浙江年度原表",
+                text="2024年为1204万千瓦，2025年为1390.5万千瓦。",
+            )
+        }
+        valid = {"text": "2025年浙江的分布式光伏新增并网容量为1390.5万千瓦。", "refs": ["E1"]}
+        self.assertIn("1390.5万千瓦", report.validate_paragraphs({"paragraphs": [valid]}, catalog, 0, 50)[0])
+        invalid = dict(valid, text=valid["text"].replace("1390.5", "1204"))
+        with self.assertRaisesRegex(ValueError, "地区或年度"):
+            report.validate_paragraphs({"paragraphs": [invalid]}, catalog, 0, 50)
 
     def test_scope_review_keeps_other_paragraphs_and_checks_replacement(self):
         evidence = [dict(ref="E1", title="年度装机", locator="总计", text="2024 年累计装机为20 GW。")]
