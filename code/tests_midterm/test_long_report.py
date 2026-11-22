@@ -80,6 +80,9 @@ class EvidenceTests(unittest.TestCase):
         plan = dict(regions=["China"], start=2021, end=2021, keywords=[])
         snapshots = self.library.select([old, new], plan)
         self.assertEqual(snapshots[0]["digest"], snapshots[1]["digest"])
+        with patch("report_app.solar_data.now", return_value="2099-01-01T00:00:00+00:00"):
+            self.assertEqual(self.ingest()[0], old)
+        self.assertEqual(self.library.summary()["sources"][0]["id"], new)
 
     def test_same_source_fetched_concurrently(self):
         with ThreadPoolExecutor(2) as pool:

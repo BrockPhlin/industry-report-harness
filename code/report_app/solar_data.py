@@ -777,8 +777,13 @@ class SolarLibrary:
                 for row in db.execute("""SELECT id,title,publisher,origin url,checked,
                 (SELECT COUNT(*) FROM solar_observations o WHERE o.source=s.id) observations,
                 (SELECT COUNT(*) FROM solar_passages p WHERE p.source=s.id) passages
-                FROM solar_sources s WHERE id=(SELECT id FROM solar_sources t WHERE t.url=s.url
-                ORDER BY t.checked DESC,t.id DESC LIMIT 1) ORDER BY checked DESC""")
+                FROM solar_sources s WHERE id=(
+                    SELECT MAX(t.id) FROM solar_sources t WHERE t.url=s.url
+                    AND COALESCE(t.raw_digest,t.digest)=(
+                        SELECT COALESCE(v.raw_digest,v.digest) FROM solar_sources v WHERE v.url=s.url
+                        ORDER BY v.checked DESC,v.id DESC LIMIT 1
+                    )
+                ) ORDER BY checked DESC""")
             ]
             regions = [
                 r[0] for r in db.execute("SELECT DISTINCT region FROM solar_observations ORDER BY region")
