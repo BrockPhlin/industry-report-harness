@@ -161,11 +161,12 @@ assert list(map(int,contents_targets))==list(range(1,11))
 midterm = ROOT / "presentations/02-midterm"
 midterm_deck = json.loads((midterm / "ppt/slides.json").read_text(encoding="utf-8"))
 version = midterm_deck["version"]
+report_version = midterm_deck.get("report_version", version)
 slides = midterm_deck["slides"]
 speech = (midterm / "ppt/讲稿.md").read_text(encoding="utf-8")
 deck_pptx = midterm / f"ppt/第11组_中期展示_{version}.pptx"
 for pdf in [midterm / f"ppt/第11组_中期展示_{version}.pdf",
-            midterm / f"report/第11组_系统设计报告_{version}.pdf"]:
+            midterm / f"report/第11组_系统设计报告_{report_version}.pdf"]:
     with pdf.open("rb") as file:
         assert file.read(5) == b"%PDF-", f"Invalid PDF: {pdf}"
 assert len(slides) == midterm_deck["formal_slides"]
