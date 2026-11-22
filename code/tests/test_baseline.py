@@ -215,7 +215,7 @@ class HttpTests(unittest.TestCase):
             self.assertEqual(ctx.exception.code, 404)
 
     def test_static_paths_are_allowlisted(self):
-        for path in ["/../run.py", "/.env", "/api/reports/missing/unknown"]:
+        for path in ["/../run.py", "/.env", "/api/reports/missing/unknown", "/baseline", "/app.js", "/style.css"]:
             with self.subTest(path=path), self.assertRaises(HTTPError) as ctx:
                 self.request(path)
             self.assertEqual(ctx.exception.code, 404)

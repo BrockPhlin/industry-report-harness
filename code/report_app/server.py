@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import re
 import sqlite3
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from .errors import AppError
 from .research import Research
@@ -49,14 +49,30 @@ def make_server(service, host="127.0.0.1", port=8000):
                 if method == "POST" and origin and origin != expected:
                     raise AppError("请求来源与本地服务不一致", 403, "origin_mismatch")
                 path = urlsplit(self.path).path
-                task = re.fullmatch(r"/api/research/([a-f0-9]{32})(?:/(approve|pdf|ask|retry))?", path)
+                task = re.fullmatch(r"/api/research/([a-f0-9]{32})(?:/(approve|pdf|ask|retry|plan|write|edit|scope|markdown))?", path)
                 if method == "GET":
+                    if path == "/api/research/observations":
+                        params = parse_qs(urlsplit(self.path).query)
+                        try:
+                            start = int(params.get("start",["2000"])[0])
+                            end = int(params.get("end",["2100"])[0])
+                        except ValueError:
+                            raise AppError("年份格式无效") from None
+                        return self.respond(200,research.library.browse(params.get("region",["China"])[0],start,end))
+                    if path == "/api/research/library":
+                        return self.respond(200, research.library.summary())
                     if path == "/api/research/settings":
                         return self.respond(200, research.settings())
                     if path == "/api/research":
                         return self.respond(200, research.rows())
-                    if task and task[2] in (None, "pdf"):
+                    if task and task[2] in (None, "pdf", "markdown"):
                         row = research.task(task[1])
+                        if task[2] == "markdown":
+                            if row["status"] != "ready":
+                                raise AppError("草稿尚未完成", 409)
+                            # Older local drafts stored blank lines between table rows.
+                            markdown = re.sub(r"(?m)^(\|[^\n]*\|)\n\n(?=\|)", r"\1\n", row["markdown"])
+                            return self.respond(200, markdown.encode(), "text/markdown; charset=utf-8", "solar-report.md")
                         if task[2] == "pdf":
                             if not row.get("approved"):
                                 raise AppError("核对草稿并确认后才可下载", 409)
@@ -83,12 +99,12 @@ def make_server(service, host="127.0.0.1", port=8000):
                             return self.respond(200, report["markdown"].encode(), "text/markdown; charset=utf-8", f"report-{report['id']}.md")
                         return self.respond(200, report)
                     static = {"/": ("research.html", "text/html"), "/research.js": ("research.js", "text/javascript"),
-                              "/research.css": ("research.css", "text/css"), "/baseline": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"), "/style.css": ("style.css", "text/css")}
+                              "/research.css": ("research.css", "text/css")}
                     if path in static:
                         name, kind = static[path]
                         return self.respond(200, (WEB / name).read_bytes(), kind + "; charset=utf-8")
                     raise AppError("页面或接口不存在", 404, "not_found")
-                if path not in {"/api/sources", "/api/reports", "/api/research"} and not (task and task[2] in ("approve", "ask", "retry")):
+                if path not in {"/api/sources", "/api/reports", "/api/research"} and not (task and task[2] in ("approve", "ask", "retry", "plan", "write", "edit", "scope")):
                     raise AppError("接口不存在", 404, "not_found")
                 if self.headers.get_content_type() != "application/json":
                     raise AppError("请求须为application/json", 415)
@@ -108,6 +124,14 @@ def make_server(service, host="127.0.0.1", port=8000):
                 if path == "/api/research":
                     return self.respond(202, research.start(data))
                 if task:
+                    if task[2] == "scope":
+                        return self.respond(200,research.revise_scope(task[1],data))
+                    if task[2] == "edit":
+                        return self.respond(200,research.edit(task[1],data))
+                    if task[2] == "plan":
+                        return self.respond(200, research.plan_turn(task[1],data))
+                    if task[2] == "write":
+                        return self.respond(202, research.begin(task[1]))
                     if task[2] == "approve":
                         if data.get("confirm") is not True:
                             raise AppError("请先确认已核对草稿")

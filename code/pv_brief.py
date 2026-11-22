@@ -99,13 +99,37 @@ def pdf_blocks(markdown):
         yield {"kind": kinds.get(prefix, "paragraph"), "text": tail if sep and prefix in kinds else line}
 
 
+def study_blocks(markdown, chart=None):
+    rows = []
+    for block in pdf_blocks(markdown):
+        line = block["text"]
+        if line.startswith("|") and line.endswith("|"):
+            if not re.fullmatch(r"[| :\-]+", line):
+                rows.append([cell.strip() for cell in line[1:-1].split("|")])
+            continue
+        if rows:
+            yield {"kind": "table", "rows": rows}
+            if chart:
+                yield {"kind":"chart", **chart}
+            rows = []
+        if block["kind"] == "heading" and line == "摘要":
+            yield {"kind": "contents"}
+        yield block
+    if rows:
+        yield {"kind": "table", "rows": rows}
+
+
 def approve_run(args, *, confirmation="explicit_cli_confirmation"):
     trace = json.loads((args.output / "trace.json").read_text(encoding="utf-8"))
     draft_path = args.markdown or args.output / "draft.md"
     draft = draft_path.read_text(encoding="utf-8")
-    if len(draft) > 20000:
-        raise AppError("审阅稿不能超过20000字符")
-    if review_contract(draft, trace["protected_lines"]) != trace["review_contract"]:
+    is_long = trace.get("kind") == "long"
+    if len(draft) > (90000 if is_long else 20000):
+        raise AppError("审阅稿超过导出长度上限")
+    if is_long and args.markdown:
+        from report_app.long_report import editorial_revision
+        editorial_revision((args.output / "draft.md").read_text(encoding="utf-8"),draft)
+    elif review_contract(draft, trace["protected_lines"]) != trace["review_contract"]:
         raise AppError("审阅稿更改了指标、待核实项或对应来源，请重新生成后核对")
     pending = trace["missing"] or trace.get("conflicts")
     status = "状态：已按命令确认，仍有待核实项。" if pending else "状态：已按命令确认。"
@@ -121,8 +145,9 @@ def approve_run(args, *, confirmation="explicit_cli_confirmation"):
         raise AppError("导出 PDF 需要安装 Typst")
     with tempfile.TemporaryDirectory(dir=args.output) as tmp:
         staging = Path(tmp)
-        write_json(staging / "brief.json", list(pdf_blocks(approved)))
-        shutil.copyfile(CODE_DIR / "templates/pv-brief.typ", staging / "brief.typ")
+        write_json(staging / "brief.json", list(study_blocks(approved,trace.get("chart")) if is_long else pdf_blocks(approved)))
+        template = "solar-study.typ" if is_long else "pv-brief.typ"
+        shutil.copyfile(CODE_DIR / "templates" / template, staging / "brief.typ")
         fonts = CODE_DIR.parent / "assets/fonts"
         result = subprocess.run(["typst", "compile", "--font-path", str(fonts), "brief.typ", "brief.pdf"],
                                 cwd=staging, capture_output=True, text=True, timeout=30)
@@ -148,6 +173,17 @@ def evidence_command(args):
 
 def inspect_run(args):
     trace = json.loads((args.output / "trace.json").read_text(encoding="utf-8"))
+    if trace.get("kind") == "long":
+        if args.json:
+            fields = ("plan", "target", "body_length", "evidence", "retrieval", "missing")
+            print(json.dumps({field: trace[field] for field in fields}, ensure_ascii=False, indent=2))
+        else:
+            print(f"{trace['plan']['title']} ｜ 正文 {trace['body_length']} 字")
+            for source in trace["retrieval"]:
+                print(f"{source['source']} ｜ {source['result']}")
+            for item in trace["missing"]:
+                print("待补资料 ｜ " + item)
+        return
     if args.json:
         public = {key: trace[key] for key in ("mode", "framework", "sources", "events", "missing")}
         if trace.get("conflicts"):

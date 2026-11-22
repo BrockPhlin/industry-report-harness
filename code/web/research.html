@@ -18,7 +18,6 @@
     <nav id="history" aria-label="历史研究"></nav>
     <div class="rail-foot">
       <button id="sources" class="plain">资料库 <span aria-hidden="true">↗</span></button>
-      <a href="/baseline">开题版工作台 ↗</a>
     </div>
   </aside>
   <button id="shade" aria-label="关闭侧栏" hidden></button>
@@ -34,27 +33,26 @@
       <article id="conversation" hidden></article>
       <section id="welcome">
         <div class="sun" aria-hidden="true"><span></span></div>
-        <h1>2024 年，中国光伏怎么样？</h1>
-        <p>从工信部和国家能源局的两份统计，查组件产量、价格和新增装机。</p>
+        <h1>你想研究光伏的什么问题？</h1>
+        <p>从一个问题开始，查公开数据，写出带出处的研究报告。</p>
       </section>
       <section id="input-area">
         <form id="composer">
           <label class="sr" for="prompt">研究问题</label>
-          <textarea id="prompt" rows="2" maxlength="300" placeholder="输入研究问题，或选下方的示例…" required></textarea>
+          <textarea id="prompt" rows="2" maxlength="2400" placeholder="输入研究问题，或选下方的示例…" required></textarea>
           <div class="tools">
-            <button type="button" id="focus-btn" class="pill" aria-haspopup="dialog">
-              <span aria-hidden="true">☷</span> 选章节
-            </button>
-            <select id="mode" aria-label="生成方式">
-              <option value="live">用模型生成</option>
-              <option value="fixture">离线演练</option>
+            <select id="workflow" aria-label="写作方式">
+              <option value="discuss">先聊一聊</option>
+              <option value="direct">直接写报告</option>
+              <option value="fixture">离线样例</option>
             </select>
+            <button type="button" id="focus-btn" class="pill" aria-haspopup="dialog">范围与篇幅</button>
             <button id="send" class="send" aria-label="发送问题">↑</button>
           </div>
         </form>
         <div id="suggestions">
-          <button data-focus="制造与价格">组件产量和价格怎么变了？ <span>↗</span></button>
-          <button data-focus="发电新增装机">新增装机规模有多大？ <span>↗</span></button>
+          <button>梳理中国光伏制造、价格和装机的变化 <span>↗</span></button>
+          <button>比较近五年中德太阳能发电的变化 <span>↗</span></button>
         </div>
         <p id="notice" role="status" aria-live="polite"></p>
       </section>
