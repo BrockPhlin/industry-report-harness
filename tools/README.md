@@ -22,7 +22,7 @@ SDK属于材料构建依赖，业务运行不需要它。默认读取Codex托管
 
 `python3 tools/check_package.py`检查当前版本文件、链接、分工、页数、WBS合计及排期。`python3 -m unittest discover -s tests -v`在code目录运行应用基线测试；模型响应为模拟值，不能替代真实模型与业务验证。
 
-`python3 tools/measure_source_payload.py`用临时数据库中的构造资料比较列表JSON字节数，只依赖标准库，不证明运行速度或产业分析质量。
+开题原型的资料列表体积测试保存在[当时的检查记录](../docs/优化检查记录.md)。光伏工作台的引用和资料修订评测见[报告核查与修订](../docs/报告核查与修订.md)。
 
 PDF沿用组长改好的无版本号文件名，版本与日期在文档内标明；PPTX以版本号区分，更新检查通过后删旧稿。报告中的技术图按slides.json的id定位，插入协作页不会导致取错进度图。
 

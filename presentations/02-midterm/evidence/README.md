@@ -19,7 +19,7 @@ E7 产物包括[完整资料 PDF](光伏简报_GLM完整资料.pdf)、[缺装机
 
 ## 复现
 
-在仓库根目录运行，Python 3.10 或以上，PDF 导出另需 Typst。固定依赖与开题基线分装。任务目录应为尚不存在的新路径。
+在仓库根目录运行，Python 3.10 或以上，PDF 导出另需 Typst。E3 的同源摘录已随本页归档；如需重跑当年的摘录实验，使用[当时的 CLI](https://github.com/BrockPhlin/industry-report-harness/blob/c801b3377e5ac26ea090d78c96a41ffe83292d10/code/pv_brief.py)。任务目录应为尚不存在的新路径。
 
 ```sh
 python3 -m venv .venv

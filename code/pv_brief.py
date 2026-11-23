@@ -1,4 +1,4 @@
-"""Generate, compare and confirm a photovoltaic brief from the command line."""
+"""Generate, audit and confirm a photovoltaic brief from the command line."""
 import argparse
 from hashlib import sha256
 import json
@@ -11,9 +11,9 @@ import sys
 import tempfile
 
 from report_app.errors import AppError
-from report_app.generator import excerpt_report, read_config
+from report_app.generator import read_config
 from report_app.pv_checkpoint import RunCheckpoint, input_fingerprint
-from report_app.pv_evidence import CODE_DIR, fact_line, load_inputs, search_evidence
+from report_app.pv_evidence import CODE_DIR, load_inputs, search_evidence
 from report_app.pv_model import ChatWriter
 
 
@@ -27,13 +27,6 @@ def review_contract(markdown, protected_lines):
     return [line for line in markdown.splitlines()
             if line.startswith(("# ", "## ")) or line in selected
             or line.startswith(("运行方式：", "- 待核实：", "- 候选资料："))]
-
-
-def baseline_sources(sources, facts):
-    return [dict(source, body="【本次输入资料摘编】\n" +
-                 "\n".join(fact_line(fact).rsplit(" [", 1)[0]
-                           for rows in facts.values() for fact in rows if fact["source"] == source["id"]))
-            for source in sources.values()]
 
 
 def create_run(args, *, config=None, question=None, focus=None):
@@ -69,17 +62,15 @@ def create_run(args, *, config=None, question=None, focus=None):
                 raise
             raise AppError(f"{exc}。已保存 {len(checkpoint.completed)} 章。重跑原命令并追加 --resume 可继续。",
                            exc.status, exc.code) from None
-        baseline, _ = excerpt_report(template["title"], baseline_sources(sources, facts))
         trace["review_contract"] = review_contract(draft, trace["protected_lines"])
         with tempfile.TemporaryDirectory(dir=args.output.parent) as tmp:
             staging = Path(tmp) / "run"
             staging.mkdir()
             (staging / "draft.md").write_text(draft, encoding="utf-8")
-            (staging / "baseline.md").write_text(baseline, encoding="utf-8")
             write_json(staging / "trace.json", trace)
             staging.rename(args.output)
     shutil.rmtree(checkpoint.path, ignore_errors=True)
-    print(f"草稿、同源摘录基线、调用记录已写入 {args.output}。缺资料 {len(trace['missing'])} 项，"
+    print(f"草稿和调用记录已写入 {args.output}。缺资料 {len(trace['missing'])} 项，"
           f"资料表述不一致 {len(trace['conflicts'])} 项。")
 
 

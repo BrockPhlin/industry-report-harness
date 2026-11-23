@@ -1,142 +1,120 @@
-"""Actual local baseline tests, not industry-quality or live model evidence."""
-from contextlib import contextmanager
+"""HTTP, model adapter and database compatibility checks for the research workspace."""
+from contextlib import closing, contextmanager
 from io import BytesIO
 import json
 from pathlib import Path
 import tempfile
 from threading import Thread
 import unittest
+from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from report_app.errors import AppError
-from report_app.generator import model_report, read_config
+from report_app.generator import chat_completion, model_connection
+from report_app.long_report import answer
+from report_app.research import Research
 from report_app.server import make_server
-from report_app.service import Service
+from report_app.service import Service, text_field
 from report_app.store import Store
 
 
-class BaselineTests(unittest.TestCase):
+class WorkspaceTests(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tmp.cleanup)
-        self.db = Path(self.tmp.name) / "app.sqlite3"
-        self.app = Service(Store(self.db), {})
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.store = Store(Path(tmp.name) / "app.sqlite3")
 
-    def source(self, title="真实输入样例", body="用户提供的原文。\n第二段原文。"):
-        return self.app.add_source(dict(title=title, body=body, publisher="测试机构"))
+    def open_workspace(self):
+        research = Research(Service(self.store, {}))
+        self.addCleanup(research.pool.shutdown)
+        return research
 
-    def test_source_and_report_survive_store_reopen(self):
-        source = self.source()
-        report = self.app.generate(dict(topic="测试主题", source_ids=[source["id"]]))
-        reopened = Store(self.db)
-        self.assertEqual(reopened.get_source(source["id"])["body"], source["body"])
-        self.assertIn("[S1]", reopened.get_report(report["id"])["markdown"])
-        self.assertEqual(reopened.get_report(report["id"])["sources"][0], source)
+    def test_new_workspace_creates_only_current_tables(self):
+        self.assertEqual(self.open_workspace().rows(), [])
+        with closing(self.store.connect()) as db:
+            tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        self.assertTrue({"research", "long_jobs", "solar_sources", "solar_observations"} <= tables)
+        self.assertTrue({"sources", "reports"}.isdisjoint(tables))
 
-    def test_citation_order_tracks_requested_sources(self):
-        first = self.source("甲", "甲的原文")
-        second = self.source("乙", "乙的原文")
-        result = self.app.generate(dict(topic="顺序", source_ids=[second["id"], first["id"]]))
-        self.assertEqual([s["title"] for s in result["sources"]], ["乙", "甲"])
-        self.assertIn("> 乙的原文\n> [S1]", result["markdown"])
-        self.assertIn("> 甲的原文\n> [S2]", result["markdown"])
+    def test_existing_opening_rows_remain_readable_when_opening_workspace(self):
+        with closing(self.store.connect()) as db, db:
+            db.executescript("""
+                CREATE TABLE sources (
+                    id TEXT PRIMARY KEY, title TEXT NOT NULL, publisher TEXT NOT NULL,
+                    published_at TEXT NOT NULL, url TEXT NOT NULL, body TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE reports (
+                    id TEXT PRIMARY KEY, topic TEXT NOT NULL, mode TEXT NOT NULL,
+                    markdown TEXT NOT NULL, sources_json TEXT NOT NULL,
+                    warnings_json TEXT NOT NULL, created_at TEXT NOT NULL
+                );
+                INSERT INTO sources VALUES ('original','资料','机构','2025','','原文','2025');
+                INSERT INTO reports VALUES ('history','题目','excerpt','历史稿','["original"]','[]','2025');
+            """)
+            original_source = tuple(db.execute("SELECT * FROM sources").fetchone())
+            original_report = tuple(db.execute("SELECT * FROM reports").fetchone())
+        self.assertEqual(self.open_workspace().rows(), [])
+        with closing(self.store.connect()) as db:
+            self.assertEqual(tuple(db.execute("SELECT * FROM sources").fetchone()), original_source)
+            self.assertEqual(tuple(db.execute("SELECT * FROM reports").fetchone()), original_report)
 
-    def test_bad_input_and_unknown_source_leave_no_reports(self):
-        for data in [{"topic": "", "source_ids": ["missing"]},
-                     {"topic": "test", "source_ids": []},
-                     {"topic": "test", "source_ids": ["missing", "missing"]},
-                     {"topic": "test", "source_ids": ["missing"], "mode": []}]:
-            with self.subTest(data=data), self.assertRaises(AppError):
-                self.app.generate(data)
+    def test_research_text_fields_validate_type_and_length(self):
+        self.assertEqual(text_field({"scope": " 光伏 "}, "scope", 2, True), "光伏")
+        for value in (None, " ", "光伏报告"):
+            with self.subTest(value=value), self.assertRaises(AppError):
+                text_field({"scope": value}, "scope", 2, True)
+
+
+class ModelAdapterTests(unittest.TestCase):
+    config = dict(MODEL_ENDPOINT="https://example.invalid/v1/chat/completions",
+                  MODEL_NAME="test-model", MODEL_API_KEY="test-only")
+
+    def test_unconfigured_model_reports_missing_configuration(self):
         with self.assertRaises(AppError) as ctx:
-            self.app.generate(dict(topic="test", source_ids=["missing"]))
-        self.assertEqual(ctx.exception.status, 404)
-        self.assertEqual(self.app.store.list_reports(), [])
-
-    def test_empty_source_rejected(self):
-        with self.assertRaises(AppError):
-            self.source(body="  ")
-        self.assertEqual(self.app.store.list_sources(), [])
-
-    def test_source_library_excludes_bodies_but_detail_preserves_them(self):
-        sources = [self.source(f"构造资料{i}", "测" * 50000) for i in range(10)]
-        summaries = self.app.store.list_sources()
-        self.assertEqual([s["id"] for s in summaries], [s["id"] for s in sources])
-        for summary, source in zip(summaries, sources):
-            self.assertNotIn("body", summary)
-            self.assertEqual(summary["body_length"], 50000)
-            self.assertEqual({k: v for k, v in summary.items() if k != "body_length"},
-                             {k: v for k, v in source.items() if k != "body"})
-            self.assertEqual(self.app.store.get_source(source["id"]), source)
-        # Bound transferred bytes for this fixture, not execution time.
-        self.assertLess(len(json.dumps(summaries, ensure_ascii=False).encode()), 10000)
-        report = self.app.generate(dict(topic="完整正文", source_ids=[sources[0]["id"]]))
-        self.assertEqual(report["sources"][0]["body"], sources[0]["body"])
-        self.assertIn(sources[0]["body"], report["markdown"])
-
-    def test_source_character_count_includes_unicode_and_newlines(self):
-        source = self.source(body="中文\nA😀e\u0301")
-        self.assertEqual(self.app.store.list_sources()[0]["body_length"], len(source["body"]))
-
-    def test_unconfigured_model_does_not_silently_fallback(self):
-        source = self.source()
-        with self.assertRaises(AppError) as ctx:
-            self.app.generate(dict(topic="test", source_ids=[source["id"]], mode="model"))
+            model_connection({})
         self.assertEqual(ctx.exception.code, "model_not_configured")
-        self.assertEqual(self.app.store.list_reports(), [])
 
-    def test_model_adapter_payload_and_unknown_citation_warning(self):
-        source = self.source()
-        calls = []
+    def test_adapter_preserves_messages_and_records_reported_usage(self):
+        messages = [{"role": "user", "content": "分析光伏产量"}]
 
         @contextmanager
         def fake(request, timeout):
-            calls.append(json.loads(request.data))
-            yield BytesIO(json.dumps({"choices": [{"message": {"content": "草稿[S99]"}, "finish_reason": "stop"}]}).encode())
+            self.assertEqual(json.loads(request.data), {"model": "test-model", "messages": messages})
+            self.assertEqual(timeout, 15)
+            yield BytesIO(json.dumps({
+                "choices": [{"message": {"content": "草稿"}, "finish_reason": "stop"}],
+                "usage": {"total_tokens": 2},
+            }).encode())
 
-        config = dict(MODEL_ENDPOINT="https://example.invalid/v1/chat/completions", MODEL_NAME="test-model", MODEL_API_KEY="test-only")
-        markdown, warnings = model_report("主题", [source], config, opener=fake)
-        self.assertEqual(calls[0]["model"], "test-model")
-        self.assertEqual(calls[0]["messages"][0]["role"], "system")
-        sent = json.loads(calls[0]["messages"][1]["content"])
-        self.assertEqual(sent["sources"][0]["body"], source["body"])
-        self.assertTrue(any("超出" in x for x in warnings))
-        self.assertIn("草稿[S99]", markdown)
+        choice = chat_completion(model_connection(self.config), messages, fake, request_timeout=15)
+        self.assertEqual(choice["message"]["content"], "草稿")
+        self.assertEqual(choice["usage"], {"total_tokens": 2})
 
     def test_provider_error_body_is_not_exposed(self):
         def fake(request, timeout):
             raise HTTPError("https://secret.invalid", 401, "sensitive-detail", {}, BytesIO(b"secret-key"))
-        config = dict(MODEL_ENDPOINT="https://example.invalid/v1/chat/completions", MODEL_NAME="test", MODEL_API_KEY="secret-key")
         with self.assertRaises(AppError) as ctx:
-            model_report("主题", [self.source()], config, opener=fake)
+            chat_completion(model_connection(self.config), [], fake)
         self.assertIn("401", str(ctx.exception))
         self.assertNotIn("secret", str(ctx.exception))
 
-    def test_truncated_model_output_is_not_saved_as_success(self):
+    def test_truncated_output_is_rejected(self):
         @contextmanager
         def fake(request, timeout):
             yield BytesIO(b'{"choices":[{"message":{"content":"partial"},"finish_reason":"length"}]}')
-        config = dict(MODEL_ENDPOINT="https://example.invalid/chat", MODEL_NAME="test", MODEL_API_KEY="test")
         with self.assertRaises(AppError) as ctx:
-            model_report("主题", [self.source()], config, opener=fake)
+            chat_completion(model_connection(self.config), [], fake)
         self.assertEqual(ctx.exception.code, "model_output_truncated")
 
-    def test_non_stop_model_output_is_rejected(self):
-        @contextmanager
-        def fake(request, timeout):
-            yield BytesIO(json.dumps({"choices": [{"message": {"content": content}, "finish_reason": "content_filter"}]}).encode())
-        config = dict(MODEL_ENDPOINT="https://example.invalid/chat", MODEL_NAME="test", MODEL_API_KEY="test")
-        for content in ["partial", None]:
-            with self.subTest(content=content), self.assertRaises(AppError) as ctx:
-                model_report("主题", [self.source()], config, opener=fake)
-            self.assertEqual(ctx.exception.code, "model_output_incomplete")
-
-    def test_json_safe_storage_and_source_snapshot(self):
-        source = self.source(title="x'); DROP TABLE sources; --", body="<script>alert('x')</script>")
-        report = self.app.generate(dict(topic="test", source_ids=[source["id"]]))
-        self.assertEqual(self.app.store.get_report(report["id"])["sources"][0]["body"], source["body"])
-        self.assertEqual(len(self.app.store.list_sources()), 1)
+    def test_filtered_output_is_rejected_by_research_writer(self):
+        for content in ("partial", None):
+            response = {"message": {"content": content}, "finish_reason": "content_filter"}
+            with self.subTest(content=content), patch("report_app.long_report.chat_completion", return_value=response):
+                with self.assertRaises(AppError) as ctx:
+                    answer(self.config, "test", {})
+                self.assertEqual(ctx.exception.code, "model_reply_filtered")
 
 
 class HttpTests(unittest.TestCase):
@@ -165,17 +143,6 @@ class HttpTests(unittest.TestCase):
         with self.request("/") as r:
             self.assertIn("产业研究工作台", r.read().decode())
 
-    def test_archived_public_sample_keeps_distinct_metrics(self):
-        sample = json.loads((Path(__file__).parents[1] / "examples/public-sources.json").read_text(encoding="utf-8"))
-        ids = [self.service.add_source(item)["id"] for item in sample["sources"][:2]]
-        report = self.service.generate({"topic": sample["topic"], "source_ids": ids})
-        markdown = self.service.store.get_report(report["id"])["markdown"]
-        self.assertIn("588GW", markdown)
-        self.assertIn("2.78亿千瓦", markdown)
-        self.assertIn("[S1]", markdown)
-        self.assertIn("[S2]", markdown)
-        self.assertEqual([s["id"] for s in report["sources"]], ids)
-
     def test_cross_site_post_rejected_without_writes(self):
         with self.assertRaises(HTTPError) as ctx:
             self.request("/api/research", {"question": "x"}, {"Origin": "https://other.invalid"})
@@ -189,8 +156,8 @@ class HttpTests(unittest.TestCase):
                 with self.subTest(path=path, payload=payload), self.assertRaises(HTTPError) as ctx:
                     self.request(path, payload)
                 self.assertEqual(ctx.exception.code, 404)
-        self.assertEqual(self.service.store.list_sources(), [])
-        self.assertEqual(self.service.store.list_reports(), [])
+        with self.request("/api/research") as response:
+            self.assertEqual(json.load(response), [])
 
     def test_research_details_reject_extra_or_empty_path_segments(self):
         task = "0" * 32
