@@ -404,7 +404,8 @@ class Research:
             base = edited if edited.is_file() else original
             if data.get("revision") != sha256(base.read_bytes()).hexdigest():
                 raise AppError("草稿已更新，请刷新后再修改", 409)
-            long_report.editorial_revision(original.read_text(), markdown)
+            evidence = json.loads((out / "trace.json").read_text())["evidence"]
+            long_report.editorial_revision(original.read_text(), markdown, evidence)
             temporary = out / "edited.md.tmp"
             temporary.write_text(markdown, encoding="utf-8")
             temporary.replace(edited)
@@ -436,31 +437,41 @@ class Research:
             row = self.task(key)
             if row["status"] != "ready" or row["mode"] != "live":
                 raise AppError("请先用真实模型生成草稿，再就这份报告追问", 409)
-            messages = [
-                {
-                    "role": "system",
-                    "content": "你为光伏研究员解读本次简报。仅据以下草稿回答，引用事实时标出草稿中的来源编号。缺少数据就直说，不推测。不要把新增装机与组件产量相加。用简短中文。\n"
-                    + row["markdown"],
-                }
-            ]
-            for turn in row["answers"][-4:]:
-                messages.extend(
-                    [
-                        {"role": "user", "content": turn["question"]},
-                        {"role": "assistant", "content": turn["answer"]},
-                    ]
-                )
-            messages.append({"role": "user", "content": question})
-            result = chat_completion(model_connection(self.config), messages, request_timeout=90)
-            answer = result["message"].get("content")
-            if result.get("finish_reason") != "stop" or not isinstance(answer, str) or not answer.strip():
-                raise AppError("模型未返回完整答复，请重试", 502)
-            turns = [*row["answers"], dict(question=question, answer=answer.strip())]
+            if row.get("spec"):
+                from .followup import grounded_followup
+                answer = grounded_followup(self.config, row, question)
+            else:
+                answer = self.brief_followup(row, question)
             with closing(self.store.connect()) as db, db:
-                db.execute(
-                    "UPDATE research SET answers=? WHERE id=?", (json.dumps(turns, ensure_ascii=False), key)
-                )
+                db.execute("BEGIN IMMEDIATE")
+                previous = json.loads(db.execute("SELECT answers FROM research WHERE id=?", (key,)).fetchone()[0])
+                if previous != row["answers"]:
+                    raise AppError("另一条追问已完成，请刷新报告后重试", 409)
+                turn = dict(question=question, answer=answer.strip(), revision=row["revision"])
+                db.execute("UPDATE research SET answers=? WHERE id=?", (json.dumps([*previous, turn], ensure_ascii=False), key))
         finally:
             with self.lock:
                 self.active.discard(key)
         return self.task(key)
+
+    def brief_followup(self, row, question):
+        messages = [
+            {
+                "role": "system",
+                "content": "你为光伏研究员解读本次简报。仅据以下草稿回答，引用事实时标出草稿中的来源编号。缺少数据就直说，不推测。不要把新增装机与组件产量相加。用简短中文。\n"
+                + row["markdown"],
+            }
+        ]
+        for turn in row["answers"][-4:]:
+            messages.extend(
+                [
+                    {"role": "user", "content": turn["question"]},
+                    {"role": "assistant", "content": turn["answer"]},
+                ]
+            )
+        messages.append({"role": "user", "content": question})
+        result = chat_completion(model_connection(self.config), messages, request_timeout=90)
+        answer = result["message"].get("content")
+        if result.get("finish_reason") != "stop" or not isinstance(answer, str) or not answer.strip():
+            raise AppError("模型未返回完整答复，请重试", 502)
+        return answer

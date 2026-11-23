@@ -396,6 +396,7 @@ function render(row) {
       for (const n of row.retrieval) info.append(element("p",n.source+" · "+n.result));
       article.append(info);
       if (row.operations?.length) article.append(operationsView(row.operations));
+      article.append(reportReview(row));
       article.append(documentView(row.markdown));
       const download = element("a","下载 Markdown");
       download.href = "/api/research/" + row.id + "/markdown";

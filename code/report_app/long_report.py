@@ -430,7 +430,8 @@ def choose_evidence(evidence, section):
 
 def numbers(text):
     clean = re.sub(r"(?<![A-Za-z])E\d+", "", text)
-    clean = clean.replace("九月底", "9月底")
+    months = ("一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二")
+    clean = re.sub(r"(十二|十一|十|[一二三四五六七八九])(?=月底)", lambda m: str(months.index(m[0]) + 1), clean)
     return {Decimal(n) for n in re.findall(r"\d+(?:\.\d+)?", clean.replace(",", ""))}
 
 
@@ -543,6 +544,19 @@ def validate_paragraphs(raw, catalog, lo, hi):
     if not lo <= size <= hi:
         raise ValueError(f"正文计数为{size}字，要求{lo}至{hi}字。")
     return result
+
+
+def validate_draft(raw, catalog, lo, hi):
+    """Run the paragraph gate, then check each claim against its own citations."""
+    from .claim_audit import audit_claims
+
+    paragraphs = validate_paragraphs(raw, catalog, lo, hi)
+    audit = audit_claims("\n\n".join(paragraphs), catalog.values())
+    for claim in audit["claims"]:
+        if claim["status"] == "mismatch":
+            refs = "、".join(claim["refs"])
+            raise ValueError(f"请对照{refs}重写原句「{claim['text']}」。{' '.join(claim['reasons'])}")
+    return paragraphs
 
 
 def date_nea_release_text(text, cited):
@@ -658,7 +672,7 @@ analysis 写成可直接纳入研究报告的文字，讲清可核对的比较�
                     size += length_of(sentence)
             paragraphs.append(dict(text="".join(facts + support), refs=refs))
         try:
-            valid = validate_paragraphs({"paragraphs": paragraphs}, catalog, 1, ceiling)
+            valid = validate_draft({"paragraphs": paragraphs}, catalog, 1, ceiling)
         except ValueError as exc:
             data["修改提示"] = str(exc)
             continue
@@ -712,7 +726,7 @@ Eurostat按欧洲进口申报方统计来自中国的给定商品，使用欧元
             payload["修订要求"] = "控制每段长度，使用完整的 JSON 对象。"
             continue
         try:
-            return validate_paragraphs(raw, catalog, lo, hi)
+            return validate_draft(raw, catalog, lo, hi)
         except ValueError as exc:
             payload["修订要求"] = "只修改有问题的段落，严格维持其他段落。" + str(exc)
             payload["上一稿"] = raw
@@ -1564,7 +1578,7 @@ def generate(config, library, root, row, spec, progress, save):
         stage.rename(root / row["id"])
 
 
-def editorial_revision(original, edited):
+def editorial_revision(original, edited, evidence=None):
     """Allow prose edits while preserving all sections, measurements and citations."""
     before, after = original.strip().split("\n\n"), edited.strip().split("\n\n")
     if len(before) != len(after):
@@ -1591,5 +1605,8 @@ def editorial_revision(original, edited):
             or length_of(new) < 15
         ):
             raise AppError("润色改动了数字、单位、引用或段落结构，请核对后重试")
+        if evidence and prior != new:
+            from .report_review import check_edited_paragraph
+            check_edited_paragraph(prior, new, evidence)
         prose.append(new)
     return length_of("\n".join(prose))

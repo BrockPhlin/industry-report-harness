@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from .errors import AppError
 from .research import Research
+from .report_review import export_markdown, review_report
 
 WEB = Path(__file__).resolve().parents[1] / "web"
 
@@ -30,11 +31,6 @@ def observations_csv(rows):
             fields.append(value)
         writer.writerow(fields)
     return stream.getvalue().encode("utf-8-sig")
-
-
-def export_markdown(markdown):
-    # Older local drafts stored blank lines between table rows.
-    return re.sub(r"(?m)^(\|[^\n]*\|)\n\n(?=\|)",r"\1\n",markdown).encode()
 
 
 def make_server(service, host="127.0.0.1", port=8000):
@@ -74,7 +70,7 @@ def make_server(service, host="127.0.0.1", port=8000):
                 if method == "POST" and origin and origin != expected:
                     raise AppError("请求来源与本地服务不一致", 403, "origin_mismatch")
                 path = urlsplit(self.path).path
-                task = re.fullmatch(r"/api/research/([a-f0-9]{32})(?:/(approve|pdf|ask|retry|plan|write|edit|scope|markdown|evidence\.json))?", path)
+                task = re.fullmatch(r"/api/research/([a-f0-9]{32})(?:/(approve|pdf|ask|retry|plan|write|edit|scope|markdown|evidence\.json|review(?:\.json)?))?", path)
                 if method == "GET":
                     if path in {"/api/research/observations", "/api/research/observations.csv"}:
                         params = parse_qs(urlsplit(self.path).query)
@@ -94,8 +90,15 @@ def make_server(service, host="127.0.0.1", port=8000):
                         return self.respond(200, research.settings())
                     if path == "/api/research":
                         return self.respond(200, research.rows())
-                    if task and task[2] in (None, "pdf", "markdown", "evidence.json"):
+                    if task and task[2] in (None, "pdf", "markdown", "evidence.json", "review", "review.json"):
                         row = research.task(task[1])
+                        if task[2] in {"review", "review.json"}:
+                            if row["status"] != "ready" or "evidence" not in row:
+                                raise AppError("生成带证据的研究报告后即可核查", 409)
+                            result = review_report(row["markdown"], row["evidence"], research.store)
+                            result.update(id=row["id"], revision=row["revision"])
+                            filename = "report-review.json" if task[2] == "review.json" else None
+                            return self.respond(200, result, filename=filename)
                         if task[2] == "evidence.json":
                             if row["status"] != "ready" or "evidence" not in row:
                                 raise AppError("联网报告草稿完成后可以导出证据",409)
@@ -117,6 +120,7 @@ def make_server(service, host="127.0.0.1", port=8000):
                     if path == "/api/health":
                         return self.respond(200, {"status": "ok", "stage": "research", "harness": True})
                     static = {"/": ("research.html", "text/html"), "/research.js": ("research.js", "text/javascript"),
+                              "/report-review.js": ("report-review.js", "text/javascript"),
                               "/research.css": ("research.css", "text/css")}
                     if path in static:
                         name, kind = static[path]

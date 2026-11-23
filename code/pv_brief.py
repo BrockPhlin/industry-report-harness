@@ -140,7 +140,7 @@ def approve_run(args, *, confirmation="explicit_cli_confirmation"):
         raise AppError("审阅稿超过导出长度上限")
     if is_long and args.markdown:
         from report_app.long_report import editorial_revision
-        editorial_revision((args.output / "draft.md").read_text(encoding="utf-8"),draft)
+        editorial_revision((args.output / "draft.md").read_text(encoding="utf-8"),draft,trace.get("evidence"))
     elif review_contract(draft, trace["protected_lines"]) != trace["review_contract"]:
         raise AppError("审阅稿更改了指标、待核实项或对应来源，请重新生成后核对")
     pending = trace["missing"] or trace.get("conflicts")
@@ -230,6 +230,21 @@ def seconds(raw):
     return value
 
 
+def audit_export(args):
+    from report_app.report_review import review_report
+
+    raw = args.markdown.read_bytes()
+    bundle = json.loads(args.evidence.read_text(encoding="utf-8"))
+    if not isinstance(bundle, dict) or bundle.get("markdown_sha256") != sha256(raw).hexdigest():
+        raise AppError("正文指纹不匹配，请选择同一次导出的 Markdown 和证据 JSON")
+    rows = bundle.get("evidence")
+    if not isinstance(rows, list) or not all(isinstance(r, dict) and isinstance(r.get("ref"), str) for r in rows):
+        raise AppError("证据 JSON 缺少可识别的证据记录")
+    result = review_report(raw.decode("utf-8"), rows)
+    result["markdown_sha256"] = bundle["markdown_sha256"]
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
 def input_options(command):
     command.add_argument("--template", type=Path, help="章节模板 JSON，默认使用光伏模板")
     command.add_argument("--corpus", type=Path, help="来源及指标 JSON，默认使用光伏样例")
@@ -259,6 +274,10 @@ def main():
     inspect.add_argument("output", type=Path)
     inspect.add_argument("--json", action="store_true", help="输出机器可读记录")
     inspect.set_defaults(handler=inspect_run)
+    audit = commands.add_parser("audit", help="离线核对已导出的报告正文与引用")
+    audit.add_argument("markdown", type=Path)
+    audit.add_argument("evidence", type=Path)
+    audit.set_defaults(handler=audit_export)
     args = parser.parse_args()
     try:
         args.handler(args)

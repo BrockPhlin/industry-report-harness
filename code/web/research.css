@@ -718,3 +718,31 @@ textarea.draft-editor {
   width: 100%;
   accent-color: var(--accent);
 }
+
+.report-review {
+  margin: 16px 0;
+  border-block: 1px solid var(--rule);
+}
+.report-review > summary {
+  padding: 13px 0;
+  color: var(--accent);
+  font-weight: 650;
+}
+.review-body { padding: 0 0 16px; }
+.review-tabs { display: flex; gap: 16px; border-bottom: 1px solid var(--rule); }
+.review-tabs button { padding: 6px 0; border-bottom: 2px solid transparent; }
+.review-tabs button[aria-pressed="true"] { color: var(--accent); border-bottom-color: currentColor; }
+.review-controls select {
+  max-width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  background: white;
+}
+.review-results { max-height: 55vh; overflow: auto; margin-block: 12px; }
+.review-item { padding: 12px 6px 12px 0; border-bottom: 1px solid var(--rule); overflow-wrap: anywhere; }
+.review-item small, .review-reason { color: var(--muted); }
+.review-item p { margin: 5px 0; }
+.review-item > a { display: block; width: fit-content; }
+.review-source { margin-top: 6px; font-size: .9em; }
+.review-value { font-variant-numeric: tabular-nums; }
