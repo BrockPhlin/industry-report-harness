@@ -13,7 +13,8 @@
 
 ## 实测和素材
 
-- [E7 完整资料 PDF](evidence/光伏简报_GLM完整资料.pdf) · [E7 缺装机资料 PDF](evidence/光伏简报_GLM缺装机资料.pdf)。用两份已导出的样张核对同一栏。
+- [E7 完整资料 PDF](evidence/光伏简报_GLM完整资料.pdf) · [E7 缺装机资料 PDF](evidence/光伏简报_GLM缺装机资料.pdf)。用两份已导出的真实 GLM 样张核对同一栏。
+- [E9 同栏对照图](evidence/发电新增装机_同栏对照_郭润航fixture.png) · [E9 完整资料 fixture](evidence/光伏简报_郭润航fixture完整资料.pdf) · [E9 缺装机 fixture](evidence/光伏简报_郭润航fixture缺装机资料.pdf)。郭润航独立离线复跑，同栏与 E7 一致。
 - [E4 DeepSeek Harness 收据](evidence/deepseek-harness.json) · [E5 Pi CLI 收据](evidence/pi-cli.json) · [E8 GLM 恢复记录](evidence/glm-resume.json)。准备框架、工具回传和按章恢复的问答。
 - [中期验证索引和复跑命令](evidence/README.md) · [封版后补充验证](../03-final/evidence/README.md)。冲突、超时和风电使用补充验证，保留原有试验口径。
 - [参考报告检索设想](../../docs/参考报告检索工具设计.md) · [外部成品报告的排版参考](../../materials/references/output-report-targets.md)。用于讲下一步动机。
