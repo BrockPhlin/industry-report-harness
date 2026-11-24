@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the opening PPTX from presentations/01-opening/ppt/slides.json.
+"""Build a deck PPTX from a presentations/*/ppt/slides.json source.
 
 A portable alternative to build_slides.mjs (which needs Codex's private
 @oai/artifact-tool runtime). This script uses only python-pptx and renders
@@ -7,14 +7,15 @@ the same layout: 1280x720 canvas, Microsoft YaHei typography,
 blue accent #003F88, pale table header #ECF3FA.
 
 Usage:
-    py -3.11 tools/build_deck.py
+    py -3.11 tools/build_deck.py              # opening deck
+    py -3.11 tools/build_deck.py --midterm    # midterm deck
 Writes:
-    presentations/01-opening/ppt/<title>_v<version>.pptx
+    presentations/<stage>/ppt/第11组_<label>_<version>.pptx
 """
 from __future__ import annotations
 
+import argparse
 import json
-import sys
 from pathlib import Path
 
 from pptx import Presentation
@@ -24,7 +25,6 @@ from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.util import Emu, Pt
 
 ROOT = Path(__file__).resolve().parent.parent
-SPEC_PATH = ROOT / "presentations" / "01-opening" / "ppt" / "slides.json"
 
 BLUE = RGBColor(0x00, 0x3F, 0x88)
 INK = RGBColor(0x23, 0x30, 0x42)
@@ -47,6 +47,10 @@ def px(v: float) -> Emu:
 
 def scaled(size: float) -> float:
     return round(size * SIZE_SCALE, 1)
+
+
+def hex_color(value: str) -> RGBColor:
+    return RGBColor.from_string(value.lstrip("#"))
 
 
 def set_run(run, *, size, bold, color, font):
@@ -93,6 +97,19 @@ def add_rect(slide, x, y, w, h, fill, line=None, line_w=0):
     return shp
 
 
+def add_box(slide, item):
+    return add_rect(
+        slide,
+        item["x"],
+        item["y"],
+        item["w"],
+        item["h"],
+        hex_color(item["fill"]) if item.get("fill") else None,
+        hex_color(item["line"]) if item.get("line") else None,
+        item.get("line_w", 1),
+    )
+
+
 def add_image(slide, item):
     p = ROOT / item["path"]
     slide.shapes.add_picture(str(p), px(item["x"]), px(item["y"]), px(item["w"]), px(item["h"]))
@@ -108,12 +125,13 @@ def add_table(slide, item):
         for i, w in enumerate(widths):
             tbl.columns[i].width = Emu(int(item["w"] * PX * w / total))
     row_h = item["h"] / rows
+    pad = item.get("pad", 6)
     for r in range(rows):
         tbl.rows[r].height = px(row_h)
         for c in range(cols):
             cell = tbl.cell(r, c)
             cell.margin_left = cell.margin_right = Emu(95250)
-            cell.margin_top = cell.margin_bottom = Emu(57150)
+            cell.margin_top = cell.margin_bottom = Emu(int(pad * PX))
             cell.vertical_anchor = MSO_ANCHOR.MIDDLE
             cell.fill.solid()
             cell.fill.fore_color.rgb = PALE if r == 0 else WHITE
@@ -141,26 +159,34 @@ def add_flow(slide, item):
         w = max(1.5, abs(x2 - x1))
         h = max(1.5, abs(y2 - y1))
         add_rect(slide, left, top, w, h, BLUE)
+    title_size = item.get("title_size", 30)
+    body_size = item.get("body_size", 23)
     for title, body, x, y, w, h in item["nodes"]:
         add_rect(slide, x, y, w, h, PALE, BLUE, 1)
-        tbox = slide.shapes.add_textbox(px(x + 15), px(y + 13), px(w - 30), px(40))
+        tbox = slide.shapes.add_textbox(px(x + 15), px(y + 12), px(w - 30), px(38))
         tf = tbox.text_frame
+        tf.word_wrap = True
         tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
         p = tf.paragraphs[0]
         run = p.add_run()
         run.text = title
-        set_run(run, size=30, bold=True, color=BLUE, font=BODY_FONT)
-        bbox = slide.shapes.add_textbox(px(x + 15), px(y + 63), px(w - 30), px(35))
+        set_run(run, size=title_size, bold=True, color=BLUE, font=BODY_FONT)
+        bbox = slide.shapes.add_textbox(px(x + 15), px(y + 58), px(w - 30), px(h - 64))
         tf = bbox.text_frame
+        tf.word_wrap = True
         tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
-        p = tf.paragraphs[0]
-        run = p.add_run()
-        run.text = body
-        set_run(run, size=23, bold=False, color=INK, font=BODY_FONT)
+        for i, line in enumerate(body.split("\n")):
+            p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+            run = p.add_run()
+            run.text = line
+            set_run(run, size=body_size, bold=False, color=INK, font=BODY_FONT)
 
 
-def build():
-    spec = json.loads(SPEC_PATH.read_text(encoding="utf-8"))
+def build(midterm: bool = False):
+    stage_dir = "02-midterm" if midterm else "01-opening"
+    label = "中期展示" if midterm else "开题展示"
+    deck_dir = ROOT / "presentations" / stage_dir / "ppt"
+    spec = json.loads((deck_dir / "slides.json").read_text(encoding="utf-8"))
     prs = Presentation()
     prs.slide_width = px(1280)
     prs.slide_height = px(720)
@@ -182,8 +208,16 @@ def build():
             run.text = s["title"]
             set_run(run, size=40, bold=True, color=BLUE, font=TITLE_FONT)
             add_rect(slide, 60, 89, 1160, 3, BLUE)
-            sub = slide.shapes.add_textbox(px(65), px(100), px(1100), px(40))
+            section = s.get("section")
+            sub_x = 65
+            if section:
+                add_rect(slide, 65, 98, 165, 36, PALE)
+                add_text(slide, {"text": section, "x": 78, "y": 104, "w": 140, "h": 26,
+                                 "size": 18, "bold": True, "color": "#003F88"})
+                sub_x = 247
+            sub = slide.shapes.add_textbox(px(sub_x), px(100), px(1260 - sub_x), px(40))
             tf = sub.text_frame
+            tf.word_wrap = True
             tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
             p = tf.paragraphs[0]
             run = p.add_run()
@@ -201,6 +235,8 @@ def build():
                 add_table(slide, it)
             elif t == "flow":
                 add_flow(slide, it)
+            elif t == "box":
+                add_box(slide, it)
             else:
                 raise ValueError(f"unknown item type {t}")
 
@@ -209,7 +245,10 @@ def build():
         tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
         p = tf.paragraphs[0]
         run = p.add_run()
-        run.text = f"开题初稿 {spec['version']} / 计划与实际分开记录"
+        if midterm:
+            run.text = f"第11组 · 中期展示 {spec['version']} / 数字有出处 · 缺项看得见"
+        else:
+            run.text = f"开题初稿 {spec['version']} / 计划与实际分开记录"
         set_run(run, size=17, bold=False, color=MUTED, font=BODY_FONT)
 
         pg = slide.shapes.add_textbox(px(1135), px(682), px(100), px(25))
@@ -224,10 +263,13 @@ def build():
         notes = slide.notes_slide.notes_text_frame
         notes.text = s.get("notes", "")
 
-    out = ROOT / "presentations" / "01-opening" / "ppt" / f"第11组_开题展示_{spec['version']}.pptx"
+    out = deck_dir / f"第11组_{label}_{spec['version']}.pptx"
     prs.save(out)
     print(f"wrote {out}  ({total} slides)")
 
 
 if __name__ == "__main__":
-    build()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--midterm", action="store_true", help="build the midterm deck")
+    args = parser.parse_args()
+    build(midterm=args.midterm)

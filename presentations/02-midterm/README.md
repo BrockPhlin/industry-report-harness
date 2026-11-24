@@ -7,12 +7,14 @@
 | [组员准备手册 PDF](briefing/第11组_中期组员准备手册.pdf) · [LaTeX 源文件](briefing/第11组_中期组员准备手册.tex) | 了解范围、进展、技术选型、创新动机和各自待办。 |
 | [系统设计报告框架](report/中期系统设计报告框架.md) · [当前设计报告源码](report/report.md) | 对照课程要求填充、复核报告内容。 |
 | [中期 PPT 框架](ppt/中期PPT框架.md) | 确认内容顺序与证据，组内后续决定页数和样式。 |
+| [中期 PPT v0.5 可编辑稿](ppt/第11组_中期展示_v0.5.pptx) · [PDF](ppt/第11组_中期展示_v0.5.pdf) · [讲稿](ppt/讲稿.md) | 当前 9 页正式稿，按产品规划四步组织；另附逐页讲稿与 T2 交接说明。 |
 | [中期完整讲稿](briefing/中期汇报完整讲稿.md) | 程文博主讲的组内彩排稿，按内容主题组织。 |
 | [中期执行计划](../../team/中期执行计划.md) | 对照分工、拟定日期、交接节点。 |
 
 ## 实测和素材
 
-- [E7 完整资料 PDF](evidence/光伏简报_GLM完整资料.pdf) · [E7 缺装机资料 PDF](evidence/光伏简报_GLM缺装机资料.pdf)。用两份已导出的样张核对同一栏。
+- [E7 完整资料 PDF](evidence/光伏简报_GLM完整资料.pdf) · [E7 缺装机资料 PDF](evidence/光伏简报_GLM缺装机资料.pdf)。用两份已导出的真实 GLM 样张核对同一栏。
+- [E9 同栏对照图](evidence/发电新增装机_同栏对照_郭润航fixture.png) · [E9 完整资料 fixture](evidence/光伏简报_郭润航fixture完整资料.pdf) · [E9 缺装机 fixture](evidence/光伏简报_郭润航fixture缺装机资料.pdf)。郭润航独立离线复跑，同栏与 E7 一致。
 - [E4 DeepSeek Harness 收据](evidence/deepseek-harness.json) · [E5 Pi CLI 收据](evidence/pi-cli.json) · [E8 GLM 恢复记录](evidence/glm-resume.json)。准备框架、工具回传和按章恢复的问答。
 - [中期验证索引和复跑命令](evidence/README.md) · [封版后补充验证](../03-final/evidence/README.md)。冲突、超时和风电使用补充验证，保留原有试验口径。
 - [参考报告检索设想](../../docs/参考报告检索工具设计.md) · [外部成品报告的排版参考](../../materials/references/output-report-targets.md)。用于讲下一步动机。
