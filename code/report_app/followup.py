@@ -3,10 +3,11 @@
 import re
 
 from .errors import AppError
+from .comparison_input import reconcile_comparison
 from .long_report import answer, choose_evidence, public_evidence, validate_draft
 
 
-def grounded_followup(config, row, question):
+def grounded_followup(config, row, question, comparison=None):
     evidence = row["evidence"]
     requested = set(re.findall(r"\bE\d+\b", question, re.ASCII))
     if requested:
@@ -36,7 +37,13 @@ def grounded_followup(config, row, question):
         if result.get("insufficient") is True:
             return "这份报告留存的资料不足以回答这个问题。可以在新研究中补查。"
         try:
-            return "\n\n".join(validate_draft(result, catalog, 1, 900))
+            paragraphs = validate_draft(result, catalog, 1, 900)
+            if comparison:
+                paragraphs, _ = reconcile_comparison(paragraphs, evidence, comparison)
+                used = set(re.findall(r"\[(E\d+)\]", " ".join(paragraphs)))
+                if requested and not used.issubset(requested):
+                    return "核对这项比较还需要所选范围内其他地区的数据。请查看所附分省对比报告。"
+            return "\n\n".join(paragraphs)
         except ValueError as exc:
             payload["上次答复需要复核"] = str(exc)
     raise AppError("追问答复经两次核对仍与所引资料有出入，请缩小问题后重试", 502, "followup_evidence_mismatch")

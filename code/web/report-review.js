@@ -63,8 +63,9 @@ function displayReview(content, row, result) {
       const source = sources.get(ref);
       if (source) {
         const details = element("details", undefined, "review-source");
-        details.append(element("summary", ref + " · " + source.locator),
-          element("blockquote", source.text), link("核对发布原文 ↗", source.url));
+        details.append(element("summary", ref + " · " + source.locator), element("blockquote", source.text));
+        if (source.comparison_id) details.append(...evidenceSourceLinks(source));
+        else details.append(link("核对发布原文 ↗", source.url));
         card.append(details);
       }
     }

@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 from time import monotonic
 
 from .errors import AppError
+from .comparison_input import calculation_evidence, comparison_appendix, comparison_scope, comparison_summary, reconcile_comparison
 from .eurostat import ALIASES as EUROSTAT_ALIASES
 from .generator import chat_completion, model_connection
 from .nbs import (
@@ -278,7 +279,8 @@ def choose_evidence(evidence, section):
     """Keep a chapter's time window, named regions, and contrasting observations in view."""
     agencies = [name for name in ("国家能源局", "国家统计局") if name in section]
     if len(agencies) == 1:
-        from_agency = [r for r in evidence if r.get("publisher") == agencies[0]]
+        from_agency = [r for r in evidence if r.get("publisher") == agencies[0]
+                       or (agencies[0] == "国家能源局" and r.get("comparison_id"))]
         if from_agency:
             evidence = from_agency
     terms = set(re.findall(r"(?=([\u3400-\u9fff]{2}))|[A-Za-z]+", section))
@@ -368,6 +370,12 @@ def choose_evidence(evidence, section):
             if not (PROVINCE_Q3.search(row["metric"]) or PROVINCE_H1.search(row["metric"]))
         ]
     passages = [row for row in ranked if not row.get("series")]
+    if named:
+        passages = [r for r in passages if not r.get("comparison_id") or r["region"] in named]
+    if not policy_topic:
+        # Keep the relevant computed changes in reach even when the library
+        # contains dozens of higher-ranked official prose passages.
+        passages.sort(key=lambda r: not (r.get("comparison_id") and (not named or r["region"] in named)))
     if policy_topic:
         tagged = [r for r in passages if re.match(r"^(China|浙江|江苏) · (正文第|PDF 第|附件第)", r["locator"])]
         taxes = [topic for topic in TAX_TOPICS if topic in section]
@@ -1351,7 +1359,7 @@ def chart_data(table):
     )
 
 
-def assemble(plan, evidence, notices, chapters, summary, limits, target, style):
+def assemble(plan, evidence, notices, chapters, summary, limits, target, style, comparison=None):
     from pv_brief import review_contract
 
     body = [f"# {plan['title']}", "运行方式：联网研究。状态：待人工核对。", "## 摘要", *summary]
@@ -1373,6 +1381,9 @@ def assemble(plan, evidence, notices, chapters, summary, limits, target, style):
         for _, caption, *lines in tables:
             body.extend([caption, "\n".join(lines)])
             used.update(re.findall(r"\[(E\d+)\]", caption))
+    if comparison:
+        body.extend(comparison_appendix(comparison, evidence))
+        used.update(r["ref"] for r in evidence if r.get("comparison_id"))
     body.extend(
         [
             "## 数据口径与覆盖范围",
@@ -1411,6 +1422,9 @@ def assemble(plan, evidence, notices, chapters, summary, limits, target, style):
         source = group[0]
         labels = "、".join(row["ref"] for row in group)
         body.append(f"[{labels}｜{source['title']}]({url}) ｜{source['publisher']}｜快照 {digest[:10]}")
+        if source.get("comparison_id"):
+            for original in source["sources"]:
+                body.append(f"[{original['title']}]({original['url']}) ｜国家能源局｜归档数据 {original['csv_sha256'][:12]}")
     md = "\n\n".join(body) + "\n"
     protected = [line for block in body for line in block.splitlines()]
     size = length_of("\n".join(p for paras in [summary, *chapters] for p in paras))
@@ -1480,13 +1494,18 @@ def generate(config, library, root, row, spec, progress, save):
     checkpoint = spec["checkpoint"]
     record_worker_restart(checkpoint)
     task = dict(需求=row["question"], 范围=spec["scope"], 商定事项=spec["turns"])
+    scope = spec["scope"]
+    if spec.get("comparison"):
+        description = comparison_scope(spec["comparison"])
+        task["用户附上的计算报告"] = description
+        scope += "\n用户附上的计算报告：" + description
     if "plan" not in checkpoint:
         progress("正在拟定提纲与检索范围")
         with record_stage(config, checkpoint, save, "plan", "拟定提纲与检索范围") as stage_config:
             checkpoint["plan"] = make_plan(
                 stage_config,
                 row["question"],
-                spec["scope"],
+                scope,
                 spec["turns"],
                 spec["target"],
                 spec.get("outline", []),
@@ -1497,6 +1516,12 @@ def generate(config, library, root, row, spec, progress, save):
         progress("正在联网查阅统计发布与数据集")
         with record_stage(config, checkpoint, save, "retrieve", "联网取数与核对快照"):
             evidence, notices = library.collect(plan)
+            if spec.get("comparison"):
+                next_number = max((int(r["ref"][1:]) for r in evidence), default=0) + 1
+                calculations = calculation_evidence(spec["comparison"], spec["comparison_id"],
+                                                   spec["comparison_created"], next_number)
+                evidence.extend(calculations)
+                notices.append(dict(source="已附分省对比报告", result=f"从已保存的计算稿读取 {len(calculations)} 条地区记录"))
             if not evidence:
                 raise AppError("当前地区和时期没有检索到可核对的数据，请调整范围后再写。")
             checkpoint.update(evidence=evidence, notices=notices, chapters=[])
@@ -1541,12 +1566,29 @@ def generate(config, library, root, row, spec, progress, save):
             approved = ensure_nbs_measurements(title, approved, checkpoint["evidence"])
             chapters[index] = ensure_pv_excise_schedule(title, approved, checkpoint["evidence"])
             checkpoint["scope_reviewed"] = index + 1
+    if spec.get("comparison") and "comparison_reviewed" not in checkpoint:
+        progress("正在按两期原表复核正文的名次与变化")
+        with record_stage(config, checkpoint, save, "compare_claims", "按所选地区复核名次和变化"):
+            revisions = 0
+            for index, paragraphs in enumerate(chapters):
+                chapters[index], count = reconcile_comparison(paragraphs, checkpoint["evidence"], spec["comparison"])
+                revisions += count
+            if revisions:
+                checkpoint.pop("summary", None)
+            checkpoint["comparison_reviewed"] = revisions
     if "summary" not in checkpoint:
         progress("正在编写摘要并核查全文引用")
         with record_stage(config, checkpoint, save, "summary", "从核过的正文选择摘要") as stage_config:
-            checkpoint["summary"] = summarize_report(
-                stage_config, task, plan["sections"], chapters, summary_target
-            )
+            calculated = []
+            if spec.get("comparison"):
+                from .comparison_intent import infer_comparison
+                instructions = "\n".join([spec["scope"], *(t["question"] for t in spec["turns"])])
+                selection = infer_comparison(row["question"], instructions, spec.get("outline", []))
+                frozen = spec["comparison"]["plan"]
+                if (selection and selection["period"] == frozen["period"] and selection["metric"] == frozen["metric"]
+                        and set(selection["regions"]) == set(frozen["regions"])):
+                    calculated = comparison_summary(spec["comparison"], checkpoint["evidence"], row["question"])
+            checkpoint["summary"] = calculated or summarize_report(stage_config, task, plan["sections"], chapters, summary_target)
             checkpoint["summary_reviewed"] = True
     elif not checkpoint.get("summary_reviewed"):
         with record_stage(config, checkpoint, save, "summary", "复核已保存的摘要") as stage_config:
@@ -1568,8 +1610,11 @@ def generate(config, library, root, row, spec, progress, save):
         checkpoint["limits"],
         spec["target"],
         spec["style"],
+        spec.get("comparison"),
     )
     trace["operations"] = checkpoint.get("operations", [])
+    if spec.get("comparison"):
+        trace["comparison_reviewed"] = checkpoint["comparison_reviewed"]
     with TemporaryDirectory(dir=root) as tmp:
         stage = Path(tmp) / "complete"
         stage.mkdir()

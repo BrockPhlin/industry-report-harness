@@ -1,7 +1,7 @@
 "use strict";
 
 const $ = id => document.getElementById(id);
-const state = {settings: null, row: null, version: 0, timer: null, busy: false, scope: "", target: null, style: "research", outline: [], source_groups: []};
+const state = {settings: null, row: null, version: 0, timer: null, busy: false, scope: "", target: null, style: "research", outline: [], source_groups: [], comparisonId: null};
 function element(tag, text, style) {
   const el = document.createElement(tag);
   if (text !== undefined) el.textContent = text;
@@ -21,13 +21,14 @@ function link(text, url) {
   el.rel = "noopener noreferrer";
   return el;
 }
-async function api(path, data) {
-  const response = await fetch("/api/research" + path, data === undefined ? {} :
+async function requestJSON(path, data) {
+  const response = await fetch(path, data === undefined ? {} :
     {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(data)});
   const result = await response.json();
   if (!response.ok) throw new Error(result.error?.message || "请求失败，请重试。");
   return result;
 }
+function api(path, data) { return requestJSON("/api/research" + path, data); }
 function notice(text) { $("notice").textContent = text; }
 function dialog(title, ...children) {
   $("dialog-title").textContent = title;
@@ -194,7 +195,11 @@ $("model-info").onclick = () => {
 function controls() {
   const row = state.row;
   const planning = row?.status === "planning";
-  const readyToAsk = row && row.status === "ready" && row.mode === "live";
+  const readyToAsk = row && row.kind !== "comparison" && row.status === "ready" && row.mode === "live";
+  const attached = !row && Boolean(state.comparisonId);
+  $("attached-comparison").hidden = !attached;
+  $("workflow").querySelector('[value="fixture"]').disabled = attached;
+  if (attached) $("attached-link").href = "#" + state.comparisonId;
   $("composer").hidden = Boolean(row && !readyToAsk && !planning);
   $("workflow").hidden = Boolean(row);
   $("focus-btn").hidden = Boolean(row && !planning);
@@ -221,6 +226,7 @@ function fresh() {
   state.busy = false;
   state.scope = ""; state.target = null; state.style = "research"; state.outline = [];
   state.source_groups = [];
+  state.comparisonId = null;
   window.history.replaceState(null, "", location.pathname);
   focusLabel();
   nav(false);
@@ -234,6 +240,8 @@ function fresh() {
   historyList().catch(e => notice(e.message));
 }
 $("new").onclick = fresh;
+$("detach").onclick = () => { state.comparisonId = null; controls(); $("prompt").focus(); };
+$("compare").onclick = () => openComparison();
 document.querySelectorAll("#suggestions button").forEach(b => b.onclick = () => {
   $("prompt").value = b.textContent.replace("↗", "").trim();
   $("prompt").focus();
@@ -247,7 +255,7 @@ function citedText(text, style) {
       p.append(button(part,() => dialog(source.ref+" · 数据出处",element("p",source.title),
         element("p",source.locator),element("blockquote",source.text),
         element("p",source.publisher+" · 采集于 "+source.fetched.slice(0,10)+" · 快照 "+source.digest.slice(0,10)),
-        link("打开发布页 ↗",source.url),element("span","　"),link("查看原始数据 ↗",source.data_url)),"cite"));
+        ...evidenceSourceLinks(source)),"cite"));
     } else if (source) p.append(link(part, source.url));
     else if (part.startsWith("**") && part.endsWith("**")) p.append(element("strong", part.slice(2, -2)));
     else p.append(part);
@@ -338,12 +346,20 @@ function operationsView(operations) {
 }
 function render(row) {
   state.row = row;
+  state.comparisonId = null;
   $("canvas").classList.add("thread");
   $("breadcrumb").textContent = row.question;
   const article = $("conversation");
   article.hidden = false;
+  document.querySelectorAll("#history button").forEach(b => b.classList.toggle("current", b.dataset.key === row.id));
+  if (row.kind === "comparison") {
+    article.replaceChildren(comparisonReport(row));
+    controls();
+    return;
+  }
   article.replaceChildren(element("div", row.question, "user"),
     element("div", row.mode === "live" ? "光伏研究室 / " + row.model : "光伏研究室 / 离线演练", "byline"));
+  if (row.spec?.comparison_id) article.append(comparisonLink(row.spec.comparison_id, "查看本次研究所用的对比报告"));
   if (row.spec?.turns?.length) {
     const thread = element("details",undefined,"details");
     thread.open = row.status === "planning";
@@ -386,6 +402,7 @@ function render(row) {
       state.style = row.spec.style;
       state.outline = [...(row.spec.outline || [])];
       state.source_groups = [...(row.spec.source_groups || [])];
+      state.comparisonId = row.spec.comparison_id || null;
       focusLabel();
       controls();
     },"link"));
@@ -436,7 +453,6 @@ function render(row) {
     for (const turn of row.answers) article.append(element("div", turn.question, "user"),
       element("div", "模型答复 · 据本次草稿", "byline"), citedText(turn.answer, "answer"));
   }
-  document.querySelectorAll("#history button").forEach(b => b.classList.toggle("current", b.dataset.key === row.id));
   controls();
 }
 function watch(row, version) {
@@ -497,7 +513,8 @@ $("composer").onsubmit = e => {
   else if (state.row) action("/ask", {question});
   else if ($("workflow").value === "fixture") action("",{question,mode:"fixture",focus:state.settings.sections});
   else action("",{question, workflow:$("workflow").value, scope:state.scope, target:state.target,
-    style:state.style,outline:state.outline,source_groups:state.source_groups});
+    style:state.style,outline:state.outline,source_groups:state.source_groups,
+    ...(state.comparisonId ? {comparison_id:state.comparisonId} : {})});
 };
 $("prompt").onkeydown = e => {
   if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
@@ -509,6 +526,7 @@ async function init() {
   const model = state.settings.model;
   $("model-label").textContent = model || "模型未配置";
   $("model-info").classList.toggle("live", Boolean(model));
+  $("compare").disabled = false;
   for (const option of $("workflow").options) option.disabled = !model && option.value !== "fixture";
   $("workflow").value = model ? "discuss" : "fixture";
   $("workflow").onchange = controls;

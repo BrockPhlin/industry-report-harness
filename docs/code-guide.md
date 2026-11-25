@@ -22,6 +22,8 @@
 | 复核与排版 | `long_report.review_scope`、`assemble` | 按证据检查年份、地域、指标、因果和适用范围，从核过的正文选摘要。附表读取观测值，图按附表生成。 |
 | 下载与确认 | `Research.task`、`Research.approve`、`pv_brief.py` | 网页展示正文、引用和生成过程。Markdown 与证据 JSON 可直接下载。用户核对后确认并导出 PDF。 |
 
+分省计算工具有两条入口。网页传入用户选择的期间、指标和地区；普通研究由 `infer_comparison` 检查用户原话是否明确给出同一组参数。参数含糊时继续原有研究流程。`build_comparison` 从已核对指纹的 CSV 取两期数值，用十进制计算差额与名次。`Research.create_comparison` 在同一笔 SQLite 事务中保存正文、计算记录和历史条目。`calculation_evidence` 把这份冻结结果交给后续写作，`reconcile_comparison` 用两期排位复核模型写出的比较句。正文中的计算引用可回到两期原表。[演示及离线复算](分省数据对比.md)
+
 对一条数字，可以从报告正文点开证据编号，核对证据的地区、时间、单位、原发布地址和内容指纹。资料库按地区、年份、指标和机构筛选，可下载原始精度的 CSV。证据 JSON 包含本次 Markdown 下载内容的 SHA-256，用于核对两个文件是否来自同一稿。
 
 ## 资料怎样入库

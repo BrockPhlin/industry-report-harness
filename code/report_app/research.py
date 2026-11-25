@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 from .errors import AppError
+from .comparison_input import comparison_scope
 from .generator import chat_completion, model_connection
 from .pv_evidence import load_inputs
 from .service import text_field
@@ -39,11 +40,60 @@ class Research:
                 phase TEXT, turns TEXT DEFAULT '[]', progress TEXT DEFAULT '', checkpoint TEXT DEFAULT '{}')""")
 
             db.execute("BEGIN IMMEDIATE")
+            db.execute("""CREATE TABLE IF NOT EXISTS comparison_reports (
+                id TEXT PRIMARY KEY, signature TEXT NOT NULL UNIQUE,
+                calculation TEXT NOT NULL, markdown TEXT NOT NULL)""")
             columns = {r["name"] for r in db.execute("PRAGMA table_info(long_jobs)")}
             if "outline" not in columns:
                 db.execute("ALTER TABLE long_jobs ADD COLUMN outline TEXT DEFAULT '[]'")
             if "source_groups" not in columns:
                 db.execute("ALTER TABLE long_jobs ADD COLUMN source_groups TEXT DEFAULT '[]'")
+            if "comparison_id" not in columns:
+                db.execute("ALTER TABLE long_jobs ADD COLUMN comparison_id TEXT")
+
+    def create_comparison(self, selection):
+        from .comparison_report import render_comparison
+        from .province_comparison import build_comparison
+
+        result = build_comparison(selection)
+        markdown = render_comparison(result, "markdown").decode("utf-8")
+        bundle = render_comparison(result, "json", markdown=markdown)
+        signature = sha256(bundle).hexdigest()
+        with closing(self.store.connect()) as db, db:
+            db.execute("BEGIN IMMEDIATE")
+            existing = db.execute("SELECT id FROM comparison_reports WHERE signature=?", (signature,)).fetchone()
+            if existing:
+                key = existing["id"]
+            else:
+                key = uuid4().hex
+                plan = result["plan"]
+                regions = "、".join(plan["regions"][:3])
+                if len(plan["regions"]) > 3:
+                    regions += f"等{len(plan['regions'])}地"
+                title = f"{regions} · {plan['period_label']} · {plan['metric_label']}"
+                db.execute("INSERT INTO research(id,question,focus,mode,model,created) VALUES(?,?,?,?,?,?)",
+                           (key, title, "[]", "comparison", "", now()))
+                db.execute("INSERT INTO comparison_reports(id,signature,calculation,markdown) VALUES(?,?,?,?)",
+                           (key, signature, bundle.decode("utf-8"), markdown))
+        return self.task(key)
+
+    def saved_comparison(self, key):
+        if not isinstance(key, str):
+            raise AppError("请选择一份已保存的分省对比报告")
+        with closing(self.store.connect()) as db:
+            row = db.execute("SELECT calculation,markdown FROM comparison_reports WHERE id=?", (key,)).fetchone()
+        if row is None:
+            raise AppError("找不到这份分省对比报告", 404)
+        return dict(row)
+
+    def comparison_download(self, key, filename):
+        saved = self.saved_comparison(key)
+        if filename == "calculation.json":
+            return saved["calculation"].encode()
+        if filename == "report.md":
+            return saved["markdown"].encode()
+        from .comparison_report import render_comparison
+        return render_comparison(json.loads(saved["calculation"]), "pdf", markdown=saved["markdown"])
 
     @staticmethod
     def source_groups(data):
@@ -69,7 +119,7 @@ class Research:
         return titles
 
     def spec(self, key, *, checkpoint=False):
-        fields = "workflow,scope,target,style,phase,turns,progress,outline,source_groups" + (
+        fields = "workflow,scope,target,style,phase,turns,progress,outline,source_groups,comparison_id" + (
             ",checkpoint" if checkpoint else ""
         )
         with closing(self.store.connect()) as db:
@@ -89,6 +139,11 @@ class Research:
         scope = text_field(data, "scope", 1800)
         outline = self.outline(data)
         groups = self.source_groups(data)
+        comparison_id = data.get("comparison_id")
+        if comparison_id is not None:
+            saved = self.saved_comparison(comparison_id)
+            if groups and "grid" not in groups:
+                raise AppError("引用分省比较时，请在资料来源中包含国家能源局分省并网原表")
         workflow = data.get("workflow")
         style = data.get("style", "research")
         target = data.get("target")
@@ -107,7 +162,10 @@ class Research:
         self.root.mkdir(exist_ok=True)
         turns = []
         if workflow == "discuss":
-            reply = long_report.discuss(self.config, question, [], scope or question)
+            context = scope or question
+            if comparison_id:
+                context += "\n已附计算资料：" + comparison_scope(json.loads(saved["calculation"]))
+            reply = long_report.discuss(self.config, question, [], context)
             turns.append(dict(question=question, answer=reply))
         phase = "planning" if workflow == "discuss" else "writing"
         with closing(self.store.connect()) as db, db:
@@ -116,8 +174,8 @@ class Research:
                 (key, question, "[]", "live", model, now()),
             )
             db.execute(
-                """INSERT INTO long_jobs(id,workflow,scope,target,style,phase,turns,outline,source_groups)
-                   VALUES(?,?,?,?,?,?,?,?,?)""",
+                """INSERT INTO long_jobs(id,workflow,scope,target,style,phase,turns,outline,source_groups,comparison_id)
+                   VALUES(?,?,?,?,?,?,?,?,?,?)""",
                 (
                     key,
                     workflow,
@@ -128,6 +186,7 @@ class Research:
                     json.dumps(turns, ensure_ascii=False),
                     json.dumps(outline, ensure_ascii=False),
                     json.dumps(groups),
+                    comparison_id,
                 ),
             )
         if phase == "writing":
@@ -168,6 +227,9 @@ class Research:
         style = data.get("style")
         outline = self.outline(data)
         groups = json.dumps(self.source_groups(data)) if "source_groups" in data else None
+        if groups is not None and data["source_groups"] and "grid" not in data["source_groups"]:
+            if (self.spec(key) or {}).get("comparison_id"):
+                raise AppError("已附分省比较，请在资料来源中包含国家能源局分省并网原表")
         if (
             type(target) is not int
             or not long_report.MIN_LENGTH <= target <= long_report.MAX_LENGTH
@@ -230,6 +292,12 @@ class Research:
         out = self.root / key
         row["focus"] = json.loads(row["focus"])
         row["answers"] = json.loads(row["answers"])
+        if row["mode"] == "comparison":
+            saved = self.saved_comparison(key)
+            bundle = json.loads(saved["calculation"])
+            row.update(kind="comparison", status="ready", markdown=saved["markdown"],
+                       comparison=bundle, revision=bundle["markdown_sha256"])
+            return row
         with self.lock:
             active = key in self.active
         spec = self.spec(key)
@@ -325,6 +393,8 @@ class Research:
 
     def launch(self, key):
         row = self.rows(key)
+        if row["mode"] == "comparison":
+            raise AppError("这份分省对比已完成，调整选项可生成新的对比报告", 409)
         spec = self.spec(key)
         if spec and spec["phase"] != "writing":
             raise AppError("请先确认范围并开始写作", 409)
@@ -351,7 +421,6 @@ class Research:
         try:
             spec = self.spec(key, checkpoint=True)
             if spec:
-
                 def progress(message):
                     with closing(self.store.connect()) as db, db:
                         db.execute("UPDATE long_jobs SET progress=? WHERE id=?", (message, key))
@@ -363,6 +432,22 @@ class Research:
                             (json.dumps(checkpoint, ensure_ascii=False), key),
                         )
 
+                if not spec["comparison_id"] and "evidence" not in spec["checkpoint"]:
+                    from .comparison_intent import infer_comparison
+                    if not spec["source_groups"] or "grid" in spec["source_groups"]:
+                        instructions = "\n".join([spec["scope"], *(t["question"] for t in spec["turns"])])
+                        selection = infer_comparison(row["question"], instructions, spec["outline"])
+                        if selection:
+                            progress("正在按两期原表计算分省变化和排名")
+                            with long_report.record_stage(self.config, spec["checkpoint"], save,
+                                                          "comparison", "从两期原表计算分省差额和排名"):
+                                parent = self.create_comparison(selection)
+                                with closing(self.store.connect()) as db, db:
+                                    db.execute("UPDATE long_jobs SET comparison_id=? WHERE id=?", (parent["id"], key))
+                                spec["comparison_id"] = parent["id"]
+                if spec["comparison_id"]:
+                    parent = self.task(spec["comparison_id"])
+                    spec.update(comparison=parent["comparison"], comparison_created=parent["created"])
                 long_report.generate(self.config, self.library, self.root, row, spec, progress, save)
                 return
             from pv_brief import create_run
@@ -415,6 +500,8 @@ class Research:
         from pv_brief import approve_run
 
         row = self.task(key)
+        if row["mode"] == "comparison":
+            raise AppError("计算报告可从分省对比页面直接下载", 409)
         if row["status"] != "ready":
             raise AppError("请等待草稿生成", 409)
         with self.lock:
@@ -439,7 +526,9 @@ class Research:
                 raise AppError("请先用真实模型生成草稿，再就这份报告追问", 409)
             if row.get("spec"):
                 from .followup import grounded_followup
-                answer = grounded_followup(self.config, row, question)
+                parent_id = row["spec"].get("comparison_id")
+                calculation = json.loads(self.saved_comparison(parent_id)["calculation"]) if parent_id else None
+                answer = grounded_followup(self.config, row, question, calculation)
             else:
                 answer = self.brief_followup(row, question)
             with closing(self.store.connect()) as db, db:

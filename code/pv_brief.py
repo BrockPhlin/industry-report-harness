@@ -242,9 +242,50 @@ def input_options(command):
     command.add_argument("--omit-source", action="append", default=[], help="临时排除指定来源")
 
 
+def compare_provinces(args):
+    from report_app.comparison_report import render_comparison
+    from report_app.province_comparison import build_comparison, comparison_catalog
+
+    selection = comparison_catalog()["default"].copy()
+    for name in ("period", "metric", "regions"):
+        if getattr(args, name) is not None:
+            selection[name] = getattr(args, name)
+    if args.output.exists():
+        raise AppError("输出目录已存在，请为分省对比选择新目录")
+    result = build_comparison(selection)
+    with tempfile.TemporaryDirectory(dir=args.output.parent) as tmp:
+        stage = Path(tmp) / "comparison"
+        stage.mkdir()
+        (stage / "report.md").write_bytes(render_comparison(result, "markdown"))
+        (stage / "calculation.json").write_bytes(render_comparison(result, "json"))
+        if args.pdf:
+            (stage / "report.pdf").write_bytes(render_comparison(result, "pdf"))
+        stage.rename(args.output)
+    print(f"分省对比及复算记录已写入 {args.output}")
+
+
+def verify_exported_comparison(args):
+    from report_app.comparison_report import verify_comparison
+
+    bundle = json.loads(args.calculation.read_text(encoding="utf-8"))
+    result = verify_comparison(bundle, args.markdown.read_bytes() if args.markdown else None)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
+    compare = commands.add_parser("compare", help="离线生成分省光伏对比报告及复算记录")
+    compare.add_argument("output", type=Path, help="保存报告的新目录")
+    compare.add_argument("--period", choices=("half_year", "annual", "three_quarters"))
+    compare.add_argument("--metric", help="指标编号，例如 central_new 或 distributed_stock")
+    compare.add_argument("--regions", nargs="+", help="参与比较的省级地区简称，用空格隔开")
+    compare.add_argument("--pdf", action="store_true", help="同时导出 PDF，需要 Typst")
+    compare.set_defaults(handler=compare_provinces)
+    verify = commands.add_parser("verify-comparison", help="用仓库原表复算已下载的计算记录")
+    verify.add_argument("calculation", type=Path)
+    verify.add_argument("--markdown", type=Path, help="一并核对 Markdown 原始文件的指纹")
+    verify.set_defaults(handler=verify_exported_comparison)
     run = commands.add_parser("run", help="生成草稿和可审计运行记录")
     run.add_argument("output", type=Path, help="新建任务目录，其上级必须存在")
     run.add_argument("--mode", choices=("fixture", "live"), required=True)

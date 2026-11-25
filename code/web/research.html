@@ -6,6 +6,7 @@
   <title>光伏研究室 · 产业研究工作台</title>
   <link rel="stylesheet" href="/research.css">
   <script src="/report-review.js" defer></script>
+  <script src="/province-comparison.js" defer></script>
   <script src="/research.js" defer></script>
 </head>
 <body>
@@ -28,7 +29,10 @@
         <button id="menu" class="mobile icon" aria-label="打开历史研究">☰</button>
         <span>研究空间</span><i>/</i><b id="breadcrumb">新建研究</b>
       </div>
-      <button id="model-info" class="connection"><i></i><span id="model-label">读取模型配置…</span></button>
+      <div class="header-tools">
+        <button id="compare" class="compare-entry" type="button" aria-haspopup="dialog" disabled>分省数据对比</button>
+        <button id="model-info" class="connection"><i></i><span id="model-label">读取模型配置…</span></button>
+      </div>
     </header>
     <div id="canvas">
       <article id="conversation" hidden></article>
@@ -39,6 +43,10 @@
       </section>
       <section id="input-area">
         <form id="composer">
+          <div id="attached-comparison" hidden>
+            <a id="attached-link">已附上这份对比报告</a>
+            <button type="button" id="detach" class="link">移除</button>
+          </div>
           <label class="sr" for="prompt">研究问题</label>
           <textarea id="prompt" rows="2" maxlength="2400" placeholder="输入研究问题，或选下方的示例…" required></textarea>
           <div class="tools">

@@ -72,6 +72,15 @@ def make_server(service, host="127.0.0.1", port=8000):
                 path = urlsplit(self.path).path
                 task = re.fullmatch(r"/api/research/([a-f0-9]{32})(?:/(approve|pdf|ask|retry|plan|write|edit|scope|markdown|evidence\.json|review(?:\.json)?))?", path)
                 if method == "GET":
+                    if path == "/api/comparisons/catalog":
+                        from .province_comparison import comparison_catalog
+                        return self.respond(200, comparison_catalog())
+                    export = re.fullmatch(r"/api/comparisons/([a-f0-9]{32})/(report\.md|report\.pdf|calculation\.json)", path)
+                    if export:
+                        kinds = {"report.md": "text/markdown; charset=utf-8", "report.pdf": "application/pdf",
+                                 "calculation.json": "application/json; charset=utf-8"}
+                        return self.respond(200, research.comparison_download(*export.groups()), kinds[export[2]],
+                                            "province-" + export[2])
                     if path in {"/api/research/observations", "/api/research/observations.csv"}:
                         params = parse_qs(urlsplit(self.path).query)
                         try:
@@ -120,13 +129,14 @@ def make_server(service, host="127.0.0.1", port=8000):
                     if path == "/api/health":
                         return self.respond(200, {"status": "ok", "stage": "research", "harness": True})
                     static = {"/": ("research.html", "text/html"), "/research.js": ("research.js", "text/javascript"),
+                              "/province-comparison.js": ("province-comparison.js", "text/javascript"),
                               "/report-review.js": ("report-review.js", "text/javascript"),
                               "/research.css": ("research.css", "text/css")}
                     if path in static:
                         name, kind = static[path]
                         return self.respond(200, (WEB / name).read_bytes(), kind + "; charset=utf-8")
                     raise AppError("页面或接口不存在", 404, "not_found")
-                if path != "/api/research" and not (task and task[2] in ("approve", "ask", "retry", "plan", "write", "edit", "scope")):
+                if path not in {"/api/research", "/api/comparisons"} and not (task and task[2] in ("approve", "ask", "retry", "plan", "write", "edit", "scope")):
                     raise AppError("接口不存在", 404, "not_found")
                 if self.headers.get_content_type() != "application/json":
                     raise AppError("请求须为application/json", 415)
@@ -143,6 +153,8 @@ def make_server(service, host="127.0.0.1", port=8000):
                     raise AppError("请求不是完整有效的UTF-8 JSON") from None
                 if not isinstance(data, dict):
                     raise AppError("请求JSON必须为对象")
+                if path == "/api/comparisons":
+                    return self.respond(200, research.create_comparison(data))
                 if path == "/api/research":
                     return self.respond(202, research.start(data))
                 if task[2] == "scope":
