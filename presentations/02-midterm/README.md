@@ -12,7 +12,7 @@
 
 ## 实测和素材
 
-- [中期来源表](evidence/中期来源表.md)。组件产量 588 GW、组件价格同比下降 29.7%、新增装机 2.78 亿千瓦三项指标的数值、单位、统计期、原文链接与所在段落，崔大元核对。
+- [中期来源表](evidence/中期来源表.md) · [PDF](evidence/中期来源表.pdf)。组件产量 588 GW、组件价格同比下降 29.7%、新增装机 2.78 亿千瓦三项指标的数值、单位、统计期、原文链接与所在段落，崔大元核对。
 - [E7 完整资料 PDF](evidence/光伏简报_GLM完整资料.pdf) · [E7 缺装机资料 PDF](evidence/光伏简报_GLM缺装机资料.pdf)。用两份已导出的样张核对同一栏。
 - [E4 DeepSeek Harness 收据](evidence/deepseek-harness.json) · [E5 Pi CLI 收据](evidence/pi-cli.json) · [E8 GLM 恢复记录](evidence/glm-resume.json)。准备框架、工具回传和按章恢复的问答。
 - [中期验证索引和复跑命令](evidence/README.md) · [封版后补充验证](../03-final/evidence/README.md)。冲突、超时和风电使用补充验证，保留原有试验口径。

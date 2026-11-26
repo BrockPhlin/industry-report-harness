@@ -1,0 +1,78 @@
+\documentclass[UTF8,11pt]{ctexart}
+\usepackage[a4paper,margin=1.6cm]{geometry}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{ragged2e}
+\usepackage{hyperref}
+\usepackage{xurl}
+
+\hypersetup{colorlinks=true,urlcolor=blue!55!black,linkcolor=blue!55!black}
+\renewcommand{\UrlBreaks}{\do\/\do\.\do\-\do\_\do\@\do\&\do\=}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.55em}
+\newcolumntype{Y}{>{\RaggedRight\arraybackslash}X}
+
+\begin{document}
+
+\begin{center}
+  {\Large\bfseries 中期光伏简报来源表}\\[0.35em]
+  整理：崔大元\quad 核验日期：2026-11-26
+\end{center}
+
+本表用于中期光伏简报的关键指标核对。三个数值均于 2026-11-26 直接打开官方原文页面逐字核对，与原文一致。每条给出数值、单位、统计期、发布机构、原文链接与所在段落，供系统设计报告（田亦洁）与中期 PPT（李佳雨）取用。
+
+\section*{指标与出处}
+
+{\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{@{}p{1.75cm}p{1.2cm}p{2.1cm}p{1.55cm}YYY@{}}
+\toprule
+指标 & 数值 & 单位 & 统计期 & 发布机构 & 原文链接 & 所在段落（原文）\\
+\midrule
+全国光伏组件产量 & 588 & GW & 2024年1—12月 & 工业和信息化部电子信息司 &
+\href{https://wap.miit.gov.cn/gyhxxhb/jgsj/dzxxsnew/xyyx/art/2025/art_1717bf6fa0a34311a2c347fb9623e607.html}{2024年全国光伏制造行业运行情况} &
+“组件环节，1—12月全国产量达到588GW，同比增长13.5\%，出口量约238.8GW。”\\
+\addlinespace[2pt]
+全国光伏组件价格同比变化 & −29.7 & \%（同比下降） & 2024年1—12月 & 工业和信息化部电子信息司 &
+\href{https://wap.miit.gov.cn/gyhxxhb/jgsj/dzxxsnew/xyyx/art/2025/art_1717bf6fa0a34311a2c347fb9623e607.html}{同上} &
+“全年主要光伏产品持续‘量增价减’态势，1—12月，多晶硅、组件价格分别同比下降39.5\%、29.7\%。”\\
+\addlinespace[2pt]
+全国光伏发电新增装机 & 2.78 & 亿千瓦 & 2024年（全年） & 国家能源局 &
+\href{https://www.nea.gov.cn/20250221/e10f363cabe3458aaf78ba4558970054/c.html}{2024年可再生能源并网运行情况} &
+“（三）光伏发电建设和运行情况。2024年，全国光伏新增装机2.78亿千瓦，同比增长28\%，其中集中式光伏1.59亿千瓦，分布式光伏1.18亿千瓦。”\\
+\bottomrule
+\end{tabularx}
+}
+
+\section*{来源文件}
+
+{\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{@{}p{1.4cm}p{4.8cm}p{3.2cm}p{1.8cm}Y@{}}
+\toprule
+来源ID & 标题 & 发布机构 & 发布日期 & 链接\\
+\midrule
+MIIT & 2024年全国光伏制造行业运行情况 & 工业和信息化部电子信息司 & 2025-02-27 &
+\url{https://wap.miit.gov.cn/gyhxxhb/jgsj/dzxxsnew/xyyx/art/2025/art_1717bf6fa0a34311a2c347fb9623e607.html}\\
+\addlinespace[2pt]
+NEA & 2024年可再生能源并网运行情况 & 国家能源局 & 2025-01-27 &
+\url{https://www.nea.gov.cn/20250221/e10f363cabe3458aaf78ba4558970054/c.html}\\
+\bottomrule
+\end{tabularx}
+}
+
+\section*{核验说明}
+
+\begin{itemize}
+  \setlength{\itemsep}{0.3em}
+  \item 组件产量 588 GW 与组件价格同比下降 29.7\% 同出自工信部《2024年全国光伏制造行业运行情况》，分别为正文第 5、6 段；统计期均为“1—12月”。
+  \item 光伏新增装机 2.78 亿千瓦出自国家能源局《2024年可再生能源并网运行情况》“（三）光伏发电建设和运行情况”一节；开头综述另有一处“太阳能发电新增2.78亿千瓦”，为同一数值。
+  \item 2.78 亿千瓦按容量换算为 278 GW，换算仅用于说明单位口径，不改动原文数值。
+  \item 链接口径以本表为准：工信部采用 wap.miit.gov.cn 官方页面，国家能源局采用 www.nea.gov.cn 官网页面。仓库早期材料（materials/references/research-notes.md、code/examples/public-sources.json、docs/T5代码交接与核验.md）中出现的 miit.gov.cn/dzxxs/dzjc 链接与 obor.nea.gov.cn 链接为旧链接或镜像转载，内容一致但地址不同，引用时建议统一为本表链接。
+  \item 代码侧证据数据见 code/examples/pv-2024.json，其来源与数值与本表一致。
+\end{itemize}
+
+\end{document}
