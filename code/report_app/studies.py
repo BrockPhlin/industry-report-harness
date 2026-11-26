@@ -86,6 +86,7 @@ def rows(raw, *, study):
 
 def jobs(plan, *, force=False):
     sections = " ".join([plan["title"], *plan["keywords"], *plan.get("sections", [])])
+    selected = set(plan.get("industry_reference_ids", []))
     capacity = any(word in sections for word in ("装机", "并网", "直流", "交流", "PVPS"))
     cost = any(word in sections for word in ("成本", "平准化", "LCOE"))
     return [
@@ -93,5 +94,5 @@ def jobs(plan, *, force=False):
         for study in STUDIES
         if study.start <= plan["end"] and study.end >= plan["start"]
         and study.countries.intersection(plan["regions"])
-        and (force or (cost if study.publisher == "IRENA" else capacity))
+        and (force or study.key in selected or (cost if study.publisher == "IRENA" else capacity))
     ]

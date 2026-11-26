@@ -5,6 +5,7 @@ import re
 import unicodedata
 
 from .provinces import REGIONS
+from .series_growth import growth_issues
 from .trade import COUNTRIES
 
 
@@ -225,17 +226,22 @@ def audit_claims(markdown, evidence):
     units = UNITS | {normalized(r["unit"]) for r in rows if r.get("unit")}
     pattern = re.compile(NUMBER + "(" + "|".join(map(re.escape, sorted(units, key=len, reverse=True))) + r")(?![A-Za-z/])")
     catalog = {r["ref"]: prepare(r, pattern) for r in rows}
+    by_ref = {r["ref"]: r for r in rows}
     counts = dict(total=0, matched=0, mismatch=0, review=0)
     claims = []
     for section, text, refs in sentences(markdown or ""):
         known = {r: catalog[r] for r in refs if r in catalog}
         missing = [r for r in refs if r not in catalog]
         clean = normalized(text)
+        growth = {item.value_start: item for item in growth_issues(clean, [by_ref[r] for r in known])}
         checks = []
         start = 0
         for match in pattern.finditer(clean):
             context = clean[start:match.start()].rsplit(";", 1)[-1]
-            checks.append(check_measurement(match, context, clean, known))
+            check = check_measurement(match, context, clean, known)
+            if issue := growth.get(match.start(1)):
+                check.update(status="mismatch", refs=list(issue.refs), reason=issue.reason)
+            checks.append(check)
             start = match.end()
         reasons = []
         if missing:

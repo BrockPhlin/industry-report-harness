@@ -14,6 +14,7 @@ from .errors import AppError
 from .comparison_input import comparison_scope
 from .generator import chat_completion, model_connection
 from .pv_evidence import load_inputs
+from .reference_catalog import selected_reports
 from .service import text_field
 from .store import now
 from .solar_data import SOURCE_GROUPS, SolarLibrary
@@ -50,6 +51,8 @@ class Research:
                 db.execute("ALTER TABLE long_jobs ADD COLUMN source_groups TEXT DEFAULT '[]'")
             if "comparison_id" not in columns:
                 db.execute("ALTER TABLE long_jobs ADD COLUMN comparison_id TEXT")
+            if "reference_ids" not in columns:
+                db.execute("ALTER TABLE long_jobs ADD COLUMN reference_ids TEXT NOT NULL DEFAULT '[]'")
 
     def create_comparison(self, selection):
         from .comparison_report import render_comparison
@@ -105,6 +108,13 @@ class Research:
         return [group for group in SOURCE_GROUPS if group in groups]
 
     @staticmethod
+    def writing_references(data):
+        try:
+            return selected_reports(data.get("reference_ids", []))
+        except ValueError as exc:
+            raise AppError(str(exc)) from exc
+
+    @staticmethod
     def outline(data):
         value = data.get("outline", [])
         if (
@@ -119,7 +129,7 @@ class Research:
         return titles
 
     def spec(self, key, *, checkpoint=False):
-        fields = "workflow,scope,target,style,phase,turns,progress,outline,source_groups,comparison_id" + (
+        fields = "workflow,scope,target,style,phase,turns,progress,outline,source_groups,comparison_id,reference_ids" + (
             ",checkpoint" if checkpoint else ""
         )
         with closing(self.store.connect()) as db:
@@ -130,6 +140,7 @@ class Research:
         result["turns"] = json.loads(result["turns"])
         result["outline"] = json.loads(result["outline"])
         result["source_groups"] = json.loads(result["source_groups"])
+        result["reference_ids"] = json.loads(result["reference_ids"])
         if checkpoint:
             result["checkpoint"] = json.loads(result["checkpoint"])
         return result
@@ -139,6 +150,7 @@ class Research:
         scope = text_field(data, "scope", 1800)
         outline = self.outline(data)
         groups = self.source_groups(data)
+        references = self.writing_references(data)
         comparison_id = data.get("comparison_id")
         if comparison_id is not None:
             saved = self.saved_comparison(comparison_id)
@@ -165,7 +177,7 @@ class Research:
             context = scope or question
             if comparison_id:
                 context += "\n已附计算资料：" + comparison_scope(json.loads(saved["calculation"]))
-            reply = long_report.discuss(self.config, question, [], context)
+            reply = long_report.discuss(self.config, question, [], context, references=references)
             turns.append(dict(question=question, answer=reply))
         phase = "planning" if workflow == "discuss" else "writing"
         with closing(self.store.connect()) as db, db:
@@ -174,8 +186,8 @@ class Research:
                 (key, question, "[]", "live", model, now()),
             )
             db.execute(
-                """INSERT INTO long_jobs(id,workflow,scope,target,style,phase,turns,outline,source_groups,comparison_id)
-                   VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                """INSERT INTO long_jobs(id,workflow,scope,target,style,phase,turns,outline,source_groups,comparison_id,reference_ids)
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     key,
                     workflow,
@@ -187,6 +199,7 @@ class Research:
                     json.dumps(outline, ensure_ascii=False),
                     json.dumps(groups),
                     comparison_id,
+                    json.dumps([r["id"] for r in references]),
                 ),
             )
         if phase == "writing":
@@ -204,7 +217,8 @@ class Research:
             if not spec or spec["phase"] != "planning":
                 raise AppError("研究已开始写作", 409)
             turns = spec["turns"]
-            reply = long_report.discuss(self.config, self.rows(key)["question"], turns, question)
+            reply = long_report.discuss(self.config, self.rows(key)["question"], turns, question,
+                                        references=self.writing_references(spec))
             turns.append(dict(question=question, answer=reply))
             target = data.get("target")
             if target is None:
@@ -222,15 +236,19 @@ class Research:
         return self.task(key)
 
     def revise_scope(self, key, data):
-        scope = text_field(data, "scope", 1800)
+        references_only = data.keys() == {"reference_ids"}
+        scope = None if references_only else text_field(data, "scope", 1800)
         target = data.get("target")
         style = data.get("style")
-        outline = self.outline(data)
+        outline = None if references_only else json.dumps(self.outline(data), ensure_ascii=False)
         groups = json.dumps(self.source_groups(data)) if "source_groups" in data else None
+        reference_ids = None
+        if "reference_ids" in data:
+            reference_ids = json.dumps([r["id"] for r in self.writing_references(data)])
         if groups is not None and data["source_groups"] and "grid" not in data["source_groups"]:
             if (self.spec(key) or {}).get("comparison_id"):
                 raise AppError("已附分省比较，请在资料来源中包含国家能源局分省并网原表")
-        if (
+        if not references_only and (
             type(target) is not int
             or not long_report.MIN_LENGTH <= target <= long_report.MAX_LENGTH
             or not isinstance(style, str)
@@ -242,9 +260,11 @@ class Research:
                 raise AppError("请等待当前讨论回复后修改", 409)
             with closing(self.store.connect()) as db, db:
                 changed = db.execute(
-                    """UPDATE long_jobs SET scope=?,target=?,style=?,outline=?,source_groups=COALESCE(?,source_groups)
+                    """UPDATE long_jobs SET scope=COALESCE(?,scope),target=COALESCE(?,target),
+                               style=COALESCE(?,style),outline=COALESCE(?,outline),source_groups=COALESCE(?,source_groups),
+                               reference_ids=COALESCE(?,reference_ids)
                                WHERE id=? AND phase='planning'""",
-                    (scope, target, style, json.dumps(outline, ensure_ascii=False), groups, key),
+                    (scope, target, style, outline, groups, reference_ids, key),
                 ).rowcount
                 if not changed:
                     raise AppError("只有确认写作前可以调整范围", 409)
@@ -324,6 +344,8 @@ class Research:
                     charts=trace.get("charts", [trace["chart"]] if trace.get("chart") else []),
                     operations=trace.get("operations", []),
                     evidence=trace["evidence"],
+                    writing_references=trace.get("writing_references", []),
+                    writing_notes_offered=trace.get("writing_notes_offered", {}),
                     retrieval=trace["retrieval"],
                     length=trace["body_length"],
                     outline=trace["plan"]["sections"],

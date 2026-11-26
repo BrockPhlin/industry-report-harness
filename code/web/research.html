@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="/research.css">
   <script src="/report-review.js" defer></script>
   <script src="/province-comparison.js" defer></script>
+  <script src="/research-library.js" defer></script>
   <script src="/research.js" defer></script>
 </head>
 <body>
@@ -19,7 +20,7 @@
     <h2 class="navtitle">历史研究</h2>
     <nav id="history" aria-label="历史研究"></nav>
     <div class="rail-foot">
-      <button id="sources" class="plain">资料库 <span aria-hidden="true">↗</span></button>
+      <button id="sources" class="plain" aria-haspopup="dialog">资料库 <span aria-hidden="true">↗</span></button>
     </div>
   </aside>
   <button id="shade" aria-label="关闭侧栏" hidden></button>
@@ -56,6 +57,7 @@
               <option value="fixture">离线样例</option>
             </select>
             <button type="button" id="focus-btn" class="pill" aria-haspopup="dialog">范围与篇幅</button>
+            <button type="button" id="references-btn" class="pill" aria-haspopup="dialog">参考报告</button>
             <button id="send" class="send" aria-label="发送问题">↑</button>
           </div>
         </form>
@@ -67,7 +69,7 @@
       </section>
     </div>
   </main>
-  <dialog id="dialog">
+  <dialog id="dialog" aria-labelledby="dialog-title">
     <div class="dialog-head">
       <h2 id="dialog-title"></h2>
       <button id="dismiss" class="icon" aria-label="关闭">×</button>

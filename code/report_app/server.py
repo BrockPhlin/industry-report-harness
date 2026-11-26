@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from .errors import AppError
 from .research import Research
+from .reference_catalog import catalog
 from .report_review import export_markdown, review_report
 
 WEB = Path(__file__).resolve().parents[1] / "web"
@@ -95,6 +96,11 @@ def make_server(service, host="127.0.0.1", port=8000):
                         return self.respond(200,rows)
                     if path == "/api/research/library":
                         return self.respond(200, research.library.summary())
+                    passages = re.fullmatch(r"/api/research/library/([1-9][0-9]{0,17})/passages", path)
+                    if passages:
+                        return self.respond(200, {"passages": research.library.passages(int(passages[1]))})
+                    if path == "/api/research/references":
+                        return self.respond(200, {"reports": catalog()})
                     if path == "/api/research/settings":
                         return self.respond(200, research.settings())
                     if path == "/api/research":
@@ -111,7 +117,8 @@ def make_server(service, host="127.0.0.1", port=8000):
                         if task[2] == "evidence.json":
                             if row["status"] != "ready" or "evidence" not in row:
                                 raise AppError("联网报告草稿完成后可以导出证据",409)
-                            fields = ("id","question","revision","length","outline","approved","evidence","retrieval","operations")
+                            fields = ("id","question","revision","length","outline","approved","evidence","retrieval",
+                                      "operations","writing_references","writing_notes_offered")
                             bundle = {field:row[field] for field in fields if field in row}
                             bundle["markdown_sha256"] = sha256(export_markdown(row["markdown"])).hexdigest()
                             body = json.dumps(bundle,ensure_ascii=False,indent=2)+"\n"
@@ -129,6 +136,7 @@ def make_server(service, host="127.0.0.1", port=8000):
                     if path == "/api/health":
                         return self.respond(200, {"status": "ok", "stage": "research", "harness": True})
                     static = {"/": ("research.html", "text/html"), "/research.js": ("research.js", "text/javascript"),
+                              "/research-library.js": ("research-library.js", "text/javascript"),
                               "/province-comparison.js": ("province-comparison.js", "text/javascript"),
                               "/report-review.js": ("report-review.js", "text/javascript"),
                               "/research.css": ("research.css", "text/css")}

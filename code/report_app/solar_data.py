@@ -770,6 +770,15 @@ class SolarLibrary:
                 )
             ]
 
+    def passages(self, source_id):
+        with closing(self.store.connect()) as db:
+            if not db.execute("SELECT 1 FROM solar_sources WHERE id=?", (source_id,)).fetchone():
+                raise AppError("找不到这份资料快照", 404)
+            return [dict(row) for row in db.execute(
+                "SELECT locator,body AS text FROM solar_passages WHERE source=? ORDER BY rowid",
+                (source_id,),
+            )]
+
     def summary(self):
         with closing(self.store.connect()) as db:
             sources = [
@@ -788,6 +797,19 @@ class SolarLibrary:
             regions = [
                 r[0] for r in db.execute("SELECT DISTINCT region FROM solar_observations ORDER BY region")
             ]
+        policy_urls = {policy.url for policy in POLICIES}
+        study_urls = {study.landing for study in studies.STUDIES}
+        release_urls = set(NATIONAL_OPERATIONS.values()) | set(RELEASES.values())
+        for source in sources:
+            origin = source["url"]
+            if origin in policy_urls:
+                source["kind"] = "policy"
+            elif origin in study_urls:
+                source["kind"] = "study"
+            elif origin in release_urls or not source["observations"]:
+                source["kind"] = "release"
+            else:
+                source["kind"] = "data"
         return dict(
             sources=sources,
             regions=regions,

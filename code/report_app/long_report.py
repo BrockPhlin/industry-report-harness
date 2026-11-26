@@ -22,8 +22,10 @@ from .nbs import (
 )
 from .policy import TAX_TOPICS
 from .solar_data import SOURCE_GROUPS, match_score
+from .series_growth import repair_growth
 from .provinces import region_name
 from .trade import COUNTRIES, PRODUCTS, trade_country
+from .writing_references import REFERENCE_RULE, attach_notes, chapter_notes, notes_for_section, outline_choices
 
 STYLES = json.loads(
     (Path(__file__).resolve().parents[1] / "templates/report-styles.json").read_text(encoding="utf-8")
@@ -108,13 +110,15 @@ def answer(config, instruction, data, *, structured=True):
     raise AppError("模型返回的结构不完整，可重试本步。", 502, "draft_reply_invalid")
 
 
-def discuss(config, question, turns, message):
+def discuss(config, question, turns, message, *, references=()):
+    notes = chapter_notes(references)
     return answer(
         config,
         "你和用户一起确定光伏研究的任务书。结合之前的讨论，回应新消息，给可以调整的具体范围或章节建议。"
         "每轮只问一两个最关键的问题。若已清楚，用几句话复述约定并提示点击「按这个范围写」。"
-        "现在尚未取数，请勿给任何未经验证的市场数字。回答控制在180字。",
-        {"初始需求": question, "此前对话": turns, "本轮": message},
+        "现在尚未取数，请勿给任何未经验证的市场数字。回答控制在180字。"
+        + ("\n" + REFERENCE_RULE if notes else ""),
+        attach_notes({"初始需求": question, "此前对话": turns, "本轮": message}, notes),
         structured=False,
     )
 
@@ -140,7 +144,7 @@ def strings(values, limit):
     return list(dict.fromkeys(short_text(v) for v in values))
 
 
-def make_plan(config, question, scope, turns, target, outline=(), source_groups=()):
+def make_plan(config, question, scope, turns, target, outline=(), source_groups=(), *, references=()):
     count = min(9, max(3, round(target / 850)))
     today = date.today()
     if not source_groups:
@@ -160,6 +164,13 @@ def make_plan(config, question, scope, turns, target, outline=(), source_groups=
         for year in re.findall(r"(20\d{2})\s*年\s*(?:前[三3]季度|第[一二三四1-4]季度|上半年|下半年)", title)
         if int(year) <= today.year
     )
+    notes = chapter_notes(references)
+    reference_instruction = (
+        "\n" + REFERENCE_RULE
+        + "另在 reference_sections 对象中，将适用的最终章名映射到所选摘记的 key 数组。"
+        "例如用行业报告的分类方式比较地区，或用方法报告的统计边界写法解释缺数。只分配相关摘记。"
+        if notes else ""
+    )
     raw = answer(
         config,
         f"""你是光伏行业研究编辑。按任务和用户最后一次修订设计提纲。默认中国，国际对标时尊重指定地区。
@@ -170,8 +181,8 @@ def make_plan(config, question, scope, turns, target, outline=(), source_groups=
 trade_regions（商品贸易的报告方英文名，无交易任务时空数组）、trade_partners（仅用户明确要求分析的目的地或进口原产地的国家英文名，至多6个；全球合计无需填，目的地不自动作为报告方）、
 trade_products（商品代码列表，854143 为组件，854142 为未组装电池片；按要求选择，只有“光伏贸易”时可填组件）、keywords（3至8个中文检索词）、sections（通常{count}个中文章名，若用户已经确认章名、顺序或数量则以其原话为准，最多12章，互不重复）。
 摘要和数据局限由系统另行处理，不放入章名。今天是{today}，未指定时期可选最近几个有数据的完整年度。
-若另设一章讨论前几季度、半年或某个月，start/end 同样要包含该时段的年份。将研究时段和各项指标的统计期分别写清。""",
-        dict(
+若另设一章讨论前几季度、半年或某个月，start/end 同样要包含该时段的年份。将研究时段和各项指标的统计期分别写清。""" + reference_instruction,
+        attach_notes(dict(
             question=question,
             scope=scope,
             conversation=turns,
@@ -179,7 +190,7 @@ trade_products（商品代码列表，854143 为组件，854142 为未组装电�
             用户指定章名=outline,
             用户选定资料来源=[SOURCE_GROUPS[group] for group in source_groups],
             章名明确指定的年份=named_periods,
-        ),
+        ), notes),
     )
     title = short_text(raw.get("title"), 140)
     regions, words, sections = (
@@ -223,7 +234,7 @@ trade_products（商品代码列表，854143 为组件，854142 为未组装电�
     nbs_focus = " ".join(outline)
     if not re.search(r"发电|光伏电池|太阳能电池|电池片", nbs_focus):
         nbs_focus = re.sub(r"(?:不要|别把|不讨论|不纳入)[^。！？；\n]*", "", text_to_scope)
-    return dict(
+    plan = dict(
         title=title,
         regions=list(dict.fromkeys(normalized_regions))[:6],
         start=min(start, *named_periods) if named_periods else start,
@@ -247,6 +258,9 @@ trade_products（商品代码列表，854143 为组件，854142 为未组装电�
         and not re.search(r"全年|第四季度|[Qq]4", trade_scope),
         monthly_requested=bool(re.search(r"逐月|月度|单月", text_to_scope)),
     )
+    if notes and "reference_sections" in raw:
+        plan["reference_sections"] = outline_choices(raw.get("reference_sections"), plan["sections"], notes)
+    return plan
 
 
 def public_evidence(rows):
@@ -531,6 +545,7 @@ def validate_paragraphs(raw, catalog, lo, hi):
         texts = " ".join(catalog[k]["text"] + " " + catalog[k]["title"] for k in refs)
         text = re.sub(r"[（(]E\d+(?:\s*[,，、]\s*E\d+)*[）)]", "", text)
         text = restore_rounded_values(text, texts)
+        text = repair_growth(text, [catalog[k] for k in refs])
         unknown = numbers(text) - numbers(texts)
         if unknown:
             wrong = "、".join(map(str, sorted(unknown)))
@@ -628,6 +643,8 @@ def anchored_part(config, task, plan, evidence, heading, target, previous, style
 analysis 写成可直接纳入研究报告的文字，讲清可核对的比较或读者下一步怎样核实。不要用“本段说明”“这是给读者”等写作说明。
 证据须和本章直接相关，每条最多用一次。分析不复述证据句中的量化结果，只在需要时交代时期。
 目标字数包含完整证据句和现场分析。"""
+    if task.get("参考报告章节摘记"):
+        instruction += "\n" + REFERENCE_RULE
     best, best_size = [], 0
     minimum, ceiling = round(0.8 * target), round(1.24 * target)
     for _ in range(3):
@@ -716,6 +733,8 @@ Eurostat按欧洲进口申报方统计来自中国的给定商品，使用欧元
 光伏利用率反映特定统计口径内的消纳情况，区分发电量占比、利用小时数和组件转换效率。蒙东、蒙西分别发布，无可用发电量时不得用算术平均代替全区。
 不要重复前章。不写标题、编号、表格、Markdown或来源名称堆砌。仅输出 JSON：{"paragraphs":[{"text":"一整段正文","refs":["E1"]}]}。
 每段1至3个已有证据编号。每一段的阿拉伯数字必须能在所引证据中逐个找到。用完整自然段。"""
+    if task.get("参考报告章节摘记"):
+        instructions += "\n" + REFERENCE_RULE
     payload = dict(
         任务=task,
         提纲=plan,
@@ -1361,7 +1380,21 @@ def chart_data(table):
 
 def assemble(plan, evidence, notices, chapters, summary, limits, target, style, comparison=None):
     from pv_brief import review_contract
+    from .claim_audit import sentences
 
+    # Recheck completed chapters and summaries as well, including resumed older checkpoints.
+    by_ref = {r["ref"]: r for r in evidence}
+    def verified(text):
+        cursor, parts = 0, []
+        for _, sentence, refs in sentences(text):
+            start = text.find(sentence, cursor)
+            if start >= 0:
+                parts.extend((text[cursor:start], repair_growth(sentence, [by_ref[r] for r in refs if r in by_ref])))
+                cursor = start + len(sentence)
+        return "".join(parts) + text[cursor:]
+
+    chapters = [[verified(p) for p in chapter] for chapter in chapters]
+    summary = [verified(p) for p in summary]
     body = [f"# {plan['title']}", "运行方式：联网研究。状态：待人工核对。", "## 摘要", *summary]
     for name, paras in zip(plan["sections"], chapters):
         body.extend(["## " + name, *paras])
@@ -1493,6 +1526,14 @@ def generate(config, library, root, row, spec, progress, save):
 
     checkpoint = spec["checkpoint"]
     record_worker_restart(checkpoint)
+    references = checkpoint.get("writing_references", [])
+    if spec.get("reference_ids") and "writing_references" not in checkpoint:
+        from .reference_catalog import selected_reports
+
+        references = selected_reports(spec["reference_ids"])
+        checkpoint["writing_references"] = references
+        save(checkpoint)
+    notes = chapter_notes(references)
     task = dict(需求=row["question"], 范围=spec["scope"], 商定事项=spec["turns"])
     scope = spec["scope"]
     if spec.get("comparison"):
@@ -1510,8 +1551,12 @@ def generate(config, library, root, row, spec, progress, save):
                 spec["target"],
                 spec.get("outline", []),
                 spec.get("source_groups", []),
+                **({"references": references} if references else {}),
             )
     plan = checkpoint["plan"]
+    industry_ids = [report["id"] for report in references if report["role"] == "industry"]
+    if industry_ids:
+        plan["industry_reference_ids"] = industry_ids
     if "evidence" not in checkpoint:
         progress("正在联网查阅统计发布与数据集")
         with record_stage(config, checkpoint, save, "retrieve", "联网取数与核对快照"):
@@ -1550,7 +1595,8 @@ def generate(config, library, root, row, spec, progress, save):
                 allocation = min(allocation, 1000)
             chapters.append(
                 draft_section(
-                    stage_config, task, plan, evidence, title, allocation, previous, spec["style"]
+                    stage_config, attach_notes(task, notes_for_section(plan, title, notes)),
+                    plan, evidence, title, allocation, previous, spec["style"]
                 )
             )
     # Older checkpoints used just the citations in the paragraph to judge gaps.
@@ -1613,6 +1659,12 @@ def generate(config, library, root, row, spec, progress, save):
         spec.get("comparison"),
     )
     trace["operations"] = checkpoint.get("operations", [])
+    if references:
+        trace["writing_references"] = references
+        trace["writing_notes_offered"] = {
+            title: [note["key"] for note in notes_for_section(plan, title, notes)]
+            for title in plan["sections"]
+        }
     if spec.get("comparison"):
         trace["comparison_reviewed"] = checkpoint["comparison_reviewed"]
     with TemporaryDirectory(dir=root) as tmp:
