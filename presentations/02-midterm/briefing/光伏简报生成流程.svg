@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="728" viewBox="0 0 1600 728" role="img" aria-labelledby="title desc">
+  <title id="title">2024 年中国光伏简报生成流程</title>
+  <desc id="desc">章节模板和公开资料进入 LangGraph。逐章查资料，必查指标缺失时在同一资料库补查一次。程序根据证据填写数字，为缺项保留待核实标记，并生成草稿供人工核对。显式确认后用 Typst 导出 PDF。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0 0 L11 5.5 L0 11 Z" fill="#436487"/>
+    </marker>
+    <style>
+      text {font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif; fill: #192e46}
+      .title {font-size: 43px; font-weight: 700; letter-spacing: 1px}
+      .subtitle {font-size: 22px; fill: #4d627a}
+      .lane {font-size: 20px; font-weight: 700; fill: #214e7d}
+      .step {font-size: 26px; font-weight: 700}
+      .detail {font-size: 19px; fill: #41566e}
+      .decision {font-size: 21px; font-weight: 700; text-anchor: middle}
+      .branch {font-size: 17px; font-weight: 700; fill: #75460d}
+      .route {fill: none; stroke: #436487; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow)}
+      .note {font-size: 18px; fill: #4d627a}
+      .result {font-size: 21px; font-weight: 700}
+    </style>
+  </defs>
+
+  <rect width="1600" height="728" fill="#fff"/>
+  <text x="46" y="69" class="title">2024 年中国光伏简报生成流程</text>
+  <text x="48" y="112" class="subtitle">两章：制造与价格、发电新增装机。每章先查证据，再据此生成草稿。</text>
+
+  <rect x="48" y="149" width="224" height="46" rx="9" fill="#eaf3fc"/>
+  <text x="66" y="179" class="lane">输入</text>
+  <rect x="304" y="149" width="733" height="46" rx="9" fill="#eaf3fc"/>
+  <text x="322" y="179" class="lane">LangGraph 逐章编排</text>
+  <rect x="1080" y="149" width="472" height="46" rx="9" fill="#eaf3fc"/>
+  <text x="1098" y="179" class="lane">人工审阅与交付</text>
+
+  <path class="route" d="M272 285 H298"/>
+  <path class="route" d="M526 285 H554"/>
+  <path class="route" d="M732 285 H770"/>
+  <path class="route" d="M1037 285 H1074"/>
+  <path class="route" d="M1320 285 H1357"/>
+  <path class="route" d="M646 355 V421"/>
+  <path class="route" d="M742 476 H899 V361"/>
+
+  <rect x="48" y="213" width="224" height="142" rx="13" fill="#f5f9fe" stroke="#b5cce4" stroke-width="2"/>
+  <text x="66" y="251" class="step">读取模板</text>
+  <text x="66" y="288" class="detail">确定章节与必查指标</text>
+  <text x="66" y="319" class="detail">加载公开统计资料</text>
+
+  <rect x="304" y="213" width="222" height="142" rx="13" fill="#f5f9fe" stroke="#b5cce4" stroke-width="2"/>
+  <text x="322" y="251" class="step">查找资料</text>
+  <text x="322" y="288" class="detail">按指标编号检索</text>
+  <text x="322" y="319" class="detail">返回数值、单位及出处</text>
+
+  <path d="M646 215 L732 285 L646 355 L560 285 Z" fill="#fff4da" stroke="#bd822d" stroke-width="2"/>
+  <text x="646" y="281" class="decision">缺少必查</text>
+  <text x="646" y="308" class="decision">指标？</text>
+  <text x="747" y="274" class="branch">否</text>
+  <text x="656" y="391" class="branch">是</text>
+
+  <rect x="776" y="213" width="261" height="142" rx="13" fill="#f5f9fe" stroke="#b5cce4" stroke-width="2"/>
+  <text x="794" y="251" class="step">生成章节草稿</text>
+  <text x="794" y="282" class="detail">程序按证据填入指标</text>
+  <text x="794" y="307" class="detail">GLM 辅助写观察</text>
+  <text x="794" y="332" class="detail">缺项标“待核实”</text>
+
+  <rect x="1080" y="213" width="240" height="142" rx="13" fill="#eaf6f3" stroke="#91c5bb" stroke-width="2"/>
+  <text x="1098" y="251" class="step">人工核对并确认</text>
+  <text x="1098" y="288" class="detail">核对证据和缺项</text>
+  <text x="1098" y="319" class="detail">显式确认后才导出</text>
+
+  <rect x="1363" y="213" width="189" height="142" rx="13" fill="#f5f9fe" stroke="#b5cce4" stroke-width="2"/>
+  <text x="1381" y="251" class="step">导出 PDF</text>
+  <text x="1381" y="288" class="detail">Typst 排版</text>
+  <text x="1381" y="319" class="detail">保留待核实项</text>
+
+  <rect x="549" y="427" width="193" height="98" rx="13" fill="#fff4da" stroke="#bd822d" stroke-width="2"/>
+  <text x="567" y="463" class="step">补查一次</text>
+  <text x="567" y="499" class="detail">仍使用同一资料库</text>
+  <text x="766" y="465" class="note">带回补查结果</text>
+
+  <path d="M48 561 H1552" stroke="#cbd9e9" stroke-width="2"/>
+  <rect x="48" y="582" width="736" height="76" rx="11" fill="#f0f7fc"/>
+  <text x="69" y="613" class="result">完整资料</text>
+  <text x="69" y="640" class="detail">两章共 3 项指标，均可定位来源。</text>
+  <rect x="806" y="582" width="746" height="76" rx="11" fill="#fff7e7"/>
+  <text x="827" y="613" class="result">缺装机资料</text>
+  <text x="827" y="640" class="detail">制造指标仍可使用，新增装机在 PDF 中标为“待核实”。</text>
+  <text x="48" y="701" class="note">结果依据：中期 E7 两组固定输入（GLM-5.3-Flash）。</text>
+</svg>
