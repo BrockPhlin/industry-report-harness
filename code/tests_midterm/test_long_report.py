@@ -301,6 +301,13 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(
             manufacturing[-1], ("China", 2023, "光伏组件产量（工信部，晶硅，发布下限）", "GW", "499")
         )
+        series = [
+            dict(ref=f"E{i}", region=region, metric=metric, unit=unit, series=[(year, value)])
+            for i, (region, year, metric, unit, value) in enumerate(manufacturing, 1)
+        ]
+        table = report.study_table(dict(title="国内组件产量与价格", regions=["China"], keywords=["工信部"]),
+                                   series, {row["ref"] for row in series})
+        self.assertEqual(table[1], "表 1　光伏组件产量（工信部，晶硅，发布下限）（GW） [E4]")
         with self.assertRaisesRegex(ValueError, "组件产量段"):
             manufacturing_observations(data[:-1], 2023)
 

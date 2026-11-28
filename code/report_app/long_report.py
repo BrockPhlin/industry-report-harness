@@ -1097,10 +1097,11 @@ def summarize_report(config, task, outline, chapters, target):
 
 
 def study_table(plan, evidence, used):
-    series = [r for r in evidence if r["ref"] in used and r.get("series")]
+    series = [r for r in evidence if r["ref"] in used and r.get("series") and r["region"] in plan["regions"]]
     if not series:
         return []
-    intent = plan["title"] + " " + " ".join(plan["keywords"])
+    intent = " ".join([plan["title"], *plan["keywords"], *plan.get("sections", [])])
+    topic_pairs = set(re.findall(r"(?=([\u3400-\u9fff]{2}))", intent))
 
     def score(r):
         words = [
@@ -1120,7 +1121,11 @@ def study_table(plan, evidence, used):
             )
             if t in r["metric"]
         ]
-        return (match_score(intent, words), r["region"] == plan["regions"][0], len(r["series"]))
+        # Source names and qualifications such as “工信部，发布下限” are shared by unrelated series.
+        name = re.sub(r"（[^）]*）", "", r["metric"]).strip()
+        named_length = len(name) if name and name.casefold() in intent.casefold() else 0
+        return (named_length, match_score(intent, words), match_score(name, topic_pairs),
+                r["region"] == plan["regions"][0], len(r["series"]))
 
     primary = max(series, key=score)
     metric, unit = primary["metric"], primary["unit"]
