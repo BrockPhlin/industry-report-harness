@@ -161,6 +161,7 @@ assert list(map(int,contents_targets))==list(range(1,11))
 midterm = ROOT / "presentations/02-midterm"
 midterm_deck = json.loads((midterm / "ppt/slides.json").read_text(encoding="utf-8"))
 version = midterm_deck["version"]
+report_version = midterm_deck.get("report_version", version)
 slides = midterm_deck["slides"]
 speech = (midterm / "ppt/讲稿.md").read_text(encoding="utf-8")
 deck_pptx = midterm / f"ppt/第11组_中期展示_{version}.pptx"
