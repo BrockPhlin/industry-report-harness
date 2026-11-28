@@ -27,11 +27,19 @@ async function verify(browser, name, width, height) {
     await run.waitFor();
     await page.locator(".cover-number").first().waitFor();
     assert.deepEqual(await page.locator(".cover-number b").allTextContents(),["588","2.78"]);
+    const samples = page.getByRole("region", {name:"真实 GLM 样张"});
     for (const loc of ["/samples/2024-full.pdf","/samples/2024-missing.pdf"]) {
-      assert.equal(await page.locator('a[href="' + loc + '"]').count(),1);
+      const sampleLink = samples.locator('a[href="' + loc + '"]');
+      assert.ok((await sampleLink.boundingBox()).height >= 44);
       const sample = await context.request.get(loc);
       assert.equal((await sample.body()).subarray(0,5).toString(),"%PDF-");
     }
+    const menu = page.getByRole("button",{name:"打开研究菜单"});
+    if (width <= 560) await menu.click();
+    await page.getByRole("button",{name:"离线示例可用"}).click();
+    await page.getByRole("dialog",{name:"模型连接"}).waitFor();
+    await page.getByRole("button",{name:"关闭",exact:true}).click();
+    if (width <= 560) await page.getByRole("button",{name:"关闭历史研究"}).click();
     assert.ok(await page.locator("#offline-info").isVisible());
     assert.ok(await page.locator("#composer").isHidden());
     await noOverflow();
@@ -47,16 +55,25 @@ async function verify(browser, name, width, height) {
     const row = async ()=>(await (await context.request.get("/api/research/" + key)).json());
     assert.match((await row()).markdown,/588 GW/);
     assert.equal(await report.locator(".fact-line").count(),3);
+    assert.ok(await page.locator("#breadcrumb").evaluate(el=>el.scrollWidth <= el.clientWidth + 1));
+    for (const line of await report.locator(".fact-line").all()) {
+      const value = await line.locator("strong").boundingBox();
+      const control = await line.getByRole("button",{name:/来源/}).boundingBox();
+      assert.ok(control.height >= (width <= 560 ? 44 : 32));
+      assert.ok(control.y >= value.y + value.height - 1);
+    }
     await noOverflow();
     await screenshot("brief");
-    await report.getByRole("button",{name:"[NEA]",exact:true}).click();
+    await report.getByRole("button",{name:"来源 [NEA]",exact:true}).click();
     const card = page.getByRole("dialog",{name:"NEA · 核对来源"});
     await card.waitFor();
     assert.match(await card.innerText(),/2.78 亿千瓦/);
     assert.match(await card.innerText(),/（三）光伏发电建设和运行情况/);
     assert.match(await card.getByRole("link").getAttribute("href"),/^https:\/\/www\.nea\.gov\.cn\//);
+    assert.match(await report.locator(".fact-line.checking").textContent(), /2.78 亿千瓦/);
     await screenshot("source");
     await page.getByRole("button",{name:"关闭",exact:true}).click();
+    await report.locator(".fact-line.checking").waitFor({state:"detached"});
     await report.getByRole("button",{name:"核对并导出 PDF"}).click();
     await page.getByRole("button",{name:"确认并生成 PDF"}).click();
     const file = report.getByRole("link",{name:"下载已核对的 PDF"});

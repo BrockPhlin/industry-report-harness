@@ -30,6 +30,7 @@ async function runPage(browser, width, height) {
   page.on("pageerror", err => errors.push(err.message));
   try {
     await page.goto("/");
+    if (width <= 560) await page.getByRole("button",{name:"打开研究菜单"}).click();
     await page.getByRole("button", {name:"分省数据对比"}).click();
     const submit = page.getByRole("button", {name:"生成对比报告"});
     await submit.waitFor();
@@ -87,7 +88,7 @@ async function runPage(browser, width, height) {
     await result.getByRole("rowheader",{name:"河南"}).waitFor();
     assert.deepEqual(await tr.locator('th[scope="row"]').allTextContents(), ["河南","浙江","山东"]);
     assert.deepEqual(await tr.locator("td:first-child").allTextContents(), ["3 → 1","2 → 2","1 → 3"]);
-    if (width < 760) await page.getByRole("button",{name:"打开历史研究"}).click();
+    if (width < 760) await page.getByRole("button",{name:"打开研究菜单"}).click();
     await page.locator('#history button[data-key="' + key + '"]').click();
     await result.getByRole("heading",{name:json.plan.metric_label,exact:true}).waitFor();
     assert.equal(new URL(page.url()).hash, "#" + key);

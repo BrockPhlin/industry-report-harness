@@ -44,8 +44,16 @@ $("dismiss").onclick = () => $("dialog").close();
 $("dialog").onclick = e => { if (e.target === $("dialog")) $("dialog").close(); };
 function nav(show) {
   document.body.classList.toggle("nav-open", show);
+  $("menu").setAttribute("aria-expanded", String(show));
   $("shade").hidden = !show;
 }
+const compactHeader = matchMedia("(max-width: 560px)");
+const headerTools = document.querySelector(".header-tools");
+function placeHeaderTools() {
+  (compactHeader.matches ? $("mobile-tools") : document.querySelector("main > header")).append(headerTools);
+}
+compactHeader.addEventListener("change", placeHeaderTools);
+placeHeaderTools();
 $("menu").onclick = () => nav(true);
 $("shade").onclick = $("close-nav").onclick = () => nav(false);
 document.addEventListener("keydown", e => { if (e.key === "Escape") nav(false); });
@@ -216,7 +224,7 @@ function exampleFacts(facts) {
   }
   $("example-facts").replaceChildren(...cards);
 }
-function showFixtureSource(source) {
+function showFixtureSource(source, metricLine) {
   const section = element("div", undefined, "source-sheet");
   section.append(element("p", source.title, "source-title"), element("p", source.publisher, "caption"));
   const rows = (state.row?.markdown || "").split("\n").filter(line =>
@@ -226,6 +234,10 @@ function showFixtureSource(source) {
     for (const line of rows) section.append(element("p",line.slice(2).replace("[" + source.id + "]","").trim(),"cited-value"));
   }
   section.append(element("h3","原文位置"), element("p", source.locator), link("打开发布方原文 ↗", source.url));
+  if (metricLine) {
+    metricLine.classList.add("checking");
+    $("dialog").addEventListener("close", () => metricLine.classList.remove("checking"), {once:true});
+  }
   dialog(source.id + " · 核对来源", section);
 }
 function citedText(text, style) {
@@ -269,7 +281,11 @@ function briefMetric(text) {
   label.append(element("small",period));
   line.append(label,element("strong",value));
   const source = state.settings.sources.find(item => item.id === ref);
-  if (source) line.append(button("[" + ref + "]", () => showFixtureSource(source), "cite"));
+  if (source) {
+    const cite = button("来源 [" + ref + "]", () => showFixtureSource(source, line), "fact-source");
+    cite.setAttribute("aria-haspopup","dialog");
+    line.append(cite);
+  }
   return line;
 }
 function documentView(markdown) {
@@ -437,7 +453,7 @@ function render(row) {
       const paper = documentView(row.markdown);
       article.append(paper,traceView(row.events));
       if (brief) {
-        const reading = element("p", "点指标旁的 [MIIT] 或 [NEA]，可核对发布机构和原文位置。", "brief-reading");
+        const reading = element("p", "点数字下方的「来源」，可核对发布机构和原文位置。", "brief-reading");
         const firstSection = paper.querySelector("h3");
         if (firstSection) paper.insertBefore(reading, firstSection);
       }
@@ -559,7 +575,7 @@ $("prompt").onkeydown = e => {
 async function init() {
   state.settings = await api("/settings");
   const model = state.settings.model;
-  $("model-label").textContent = model || "模型未配置";
+  $("model-label").textContent = model || "离线示例可用";
   $("model-info").classList.toggle("live", Boolean(model));
   $("compare").disabled = false;
   exampleFacts(state.settings.fixture_facts || []);
