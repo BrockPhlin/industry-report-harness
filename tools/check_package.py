@@ -9,6 +9,11 @@ import zipfile
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
+ns = {
+    "p": "http://schemas.openxmlformats.org/presentationml/2006/main",
+    "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
+    "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+}
 deck = json.loads((ROOT/"presentations/01-opening/ppt/slides.json").read_text(encoding="utf-8"))
 report_source = (ROOT/"presentations/01-opening/report/report.md").read_text(encoding="utf-8")
 required = [
@@ -47,13 +52,17 @@ assert claims[0]["owner"] == "程文博"
 with (ROOT/"team/members.csv").open(encoding="utf-8") as f:
     names={r["name"] for r in csv.DictReader(f)}
 assert all(not r["owner"] or r["owner"] in names for r in claims)
-for source in ROOT.rglob("*.md"):
-    if ".build" in source.parts:
-        continue
-    for target in re.findall(r"\[[^\]]+\]\(([^)]+)\)",source.read_text(encoding="utf-8")):
-        if target.startswith(("http:","https:","#")):
+for directory, children, filenames in os.walk(ROOT):
+    children[:] = [name for name in children if name not in {".git", ".build", ".venv", "node_modules", "__pycache__"}
+                   and Path(directory, name) != ROOT / "code/runtime"]
+    for name in filenames:
+        if not name.endswith(".md"):
             continue
-        assert (source.parent/target.split("#")[0]).exists(), f"Broken link in {source}: {target}"
+        source = Path(directory, name)
+        for target in re.findall(r"\[[^\]]+\]\(([^)]+)\)", source.read_text(encoding="utf-8")):
+            if target.startswith(("http:", "https:", "#")):
+                continue
+            assert (source.parent / target.split("#")[0]).exists(), f"Broken link in {source}: {target}"
 assert len(deck["slides"]) == 12 and sum(s["seconds"] for s in deck["slides"]) == 400
 assert deck["formal_slides"] == len(deck['slides']) and all(s['seconds']>0 for s in deck['slides'])
 assert all(s.get('speech') and s['speech'] in s['notes'] for s in deck['slides'])
@@ -108,9 +117,6 @@ assert '逐步形成自己的创新' in json.dumps(deck,ensure_ascii=False)
 assert '目录' in report_source and '参考报告检索试验' in report_source
 # Display-only export: exactly one full-slide raster, no editable foreground.
 with zipfile.ZipFile(ROOT/image_deck) as z:
-    ns={'p':'http://schemas.openxmlformats.org/presentationml/2006/main',
-        'a':'http://schemas.openxmlformats.org/drawingml/2006/main',
-        'r':'http://schemas.openxmlformats.org/officeDocument/2006/relationships'}
     from posixpath import normpath,join,dirname
     for i,s in enumerate(deck['slides'],1):
         part=f'ppt/slides/slide{i}.xml';node=ET.fromstring(z.read(part))
@@ -164,8 +170,18 @@ version = midterm_deck["version"]
 slides = midterm_deck["slides"]
 speech = (midterm / "ppt/讲稿.md").read_text(encoding="utf-8")
 deck_pptx = midterm / f"ppt/第11组_中期展示_{version}.pptx"
+midterm_report = (midterm / "report/report.md").read_text(encoding="utf-8")
+report_version = re.search(r"\*\*版本\*\*\s*[：:]\s*(v\d+(?:\.\d+)+)", midterm_report)[1]
+assert midterm_deck["report_version"] == report_version, "Deck references a different design report"
+assert (midterm / f"report/第11组_系统设计报告_{report_version}.tex").is_file()
+for folder, stem, expected_version, extensions in [
+    ("report", "第11组_系统设计报告_", report_version, ("pdf", "tex")),
+    ("ppt", "第11组_中期展示_", version, ("pdf", "pptx")),
+]:
+    for ext in extensions:
+        assert {p.name for p in (midterm / folder).glob(f"{stem}*.{ext}")} == {f"{stem}{expected_version}.{ext}"}
 for pdf in [midterm / f"ppt/第11组_中期展示_{version}.pdf",
-            midterm / f"report/第11组_系统设计报告_{version}.pdf"]:
+            midterm / f"report/第11组_系统设计报告_{report_version}.pdf"]:
     with pdf.open("rb") as file:
         assert file.read(5) == b"%PDF-", f"Invalid PDF: {pdf}"
 assert len(slides) == midterm_deck["formal_slides"]
@@ -175,6 +191,24 @@ with zipfile.ZipFile(deck_pptx) as file:
     assert sum(bool(re.fullmatch(r"ppt/slides/slide\d+\.xml", name))
                for name in file.namelist()) == len(slides)
     for index, slide in enumerate(slides, 1):
+        page = ET.fromstring(file.read(f"ppt/slides/slide{index}.xml"))
+        assert page.findall(".//{http://schemas.openxmlformats.org/drawingml/2006/main}t"), "Editable text required"
+        for diagram in (item for item in slide["items"] if item["type"] == "diagram"):
+            svg_path = midterm / "ppt/media" / (diagram["name"] + ".svg")
+            svg = ET.parse(svg_path).getroot()
+            svg_ns = {"s": "http://www.w3.org/2000/svg"}
+            groups = page.findall(".//p:grpSp", ns)
+            group = next((g for g in groups
+                          if g.find("p:nvGrpSpPr/p:cNvPr", ns).get("name") == diagram["caption"]), None)
+            assert group is not None, f"Missing editable diagram on slide {index}"
+            assert not group.findall(".//p:pic", ns) and not svg.findall(".//s:image", svg_ns)
+            arrows = sum(part["type"] == "arrow" for part in diagram["parts"])
+            assert len(group.findall(".//p:cxnSp/p:spPr/a:ln/a:tailEnd[@type='triangle']", ns)) == arrows
+            assert len(svg.findall(".//s:polyline[@marker-end]", svg_ns)) == arrows
+            headings = {part["heading"] for part in diagram["parts"] if part["type"] == "node"}
+            ppt_labels = {node.text for node in group.findall(".//a:t", ns)}
+            svg_labels = {node.text for node in svg.findall(".//s:tspan", svg_ns)}
+            assert headings and headings <= ppt_labels & svg_labels, f"Missing node label in {svg_path.name}"
         notes = ET.fromstring(file.read(f"ppt/notesSlides/notesSlide{index}.xml"))
         assert slide["speech"] in speech and slide["speech"] in "".join(notes.itertext())
 

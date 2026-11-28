@@ -1,0 +1,101 @@
+region,year,metric,unit,value
+Australia,2021,IEA PVPS光伏年末累计装机（直流侧）,GWdc,26.1
+Australia,2022,IEA PVPS光伏年末累计装机（直流侧）,GWdc,30.4
+Australia,2023,IEA PVPS光伏年末累计装机（直流侧）,GWdc,34.5
+Australia,2024,IEA PVPS光伏年末累计装机（直流侧）,GWdc,39.8
+Australia,2025,IEA PVPS光伏年末累计装机（直流侧）,GWdc,44.3
+China,2021,IEA PVPS光伏年末累计装机（直流侧）,GWdc,309
+China,2022,IEA PVPS光伏年末累计装机（直流侧）,GWdc,414
+China,2023,IEA PVPS光伏年末累计装机（直流侧）,GWdc,691
+China,2024,IEA PVPS光伏年末累计装机（直流侧）,GWdc,1049
+China,2025,IEA PVPS光伏年末累计装机（直流侧）,GWdc,1464
+France,2021,IEA PVPS光伏年末累计装机（直流侧）,GWdc,16.7
+France,2022,IEA PVPS光伏年末累计装机（直流侧）,GWdc,19.7
+France,2023,IEA PVPS光伏年末累计装机（直流侧）,GWdc,23.7
+France,2024,IEA PVPS光伏年末累计装机（直流侧）,GWdc,29.7
+France,2025,IEA PVPS光伏年末累计装机（直流侧）,GWdc,37.0
+Germany,2021,IEA PVPS光伏年末累计装机（直流侧）,GWdc,60.3
+Germany,2022,IEA PVPS光伏年末累计装机（直流侧）,GWdc,67.9
+Germany,2023,IEA PVPS光伏年末累计装机（直流侧）,GWdc,83.2
+Germany,2024,IEA PVPS光伏年末累计装机（直流侧）,GWdc,100
+Germany,2025,IEA PVPS光伏年末累计装机（直流侧）,GWdc,118
+India,2021,IEA PVPS光伏年末累计装机（直流侧）,GWdc,61.5
+India,2022,IEA PVPS光伏年末累计装机（直流侧）,GWdc,79.6
+India,2023,IEA PVPS光伏年末累计装机（直流侧）,GWdc,92.6
+India,2024,IEA PVPS光伏年末累计装机（直流侧）,GWdc,125
+India,2025,IEA PVPS光伏年末累计装机（直流侧）,GWdc,179
+Netherlands,2021,IEA PVPS光伏年末累计装机（直流侧）,GWdc,14.3
+Netherlands,2022,IEA PVPS光伏年末累计装机（直流侧）,GWdc,18.5
+Netherlands,2023,IEA PVPS光伏年末累计装机（直流侧）,GWdc,23.3
+Netherlands,2024,IEA PVPS光伏年末累计装机（直流侧）,GWdc,26.7
+Netherlands,2025,IEA PVPS光伏年末累计装机（直流侧）,GWdc,28.6
+United States,2021,IEA PVPS光伏年末累计装机（直流侧）,GWdc,119
+United States,2022,IEA PVPS光伏年末累计装机（直流侧）,GWdc,141
+United States,2023,IEA PVPS光伏年末累计装机（直流侧）,GWdc,176
+United States,2024,IEA PVPS光伏年末累计装机（直流侧）,GWdc,223
+United States,2025,IEA PVPS光伏年末累计装机（直流侧）,GWdc,266
+Brazil,2021,IEA PVPS光伏年末累计装机（直流侧）,GWdc,14.5
+Brazil,2022,IEA PVPS光伏年末累计装机（直流侧）,GWdc,25.4
+Brazil,2023,IEA PVPS光伏年末累计装机（直流侧）,GWdc,37.8
+Brazil,2024,IEA PVPS光伏年末累计装机（直流侧）,GWdc,52.1
+Brazil,2025,IEA PVPS光伏年末累计装机（直流侧）,GWdc,64.6
+Pakistan,2021,IEA PVPS光伏年末累计装机（直流侧）,GWdc,2.6
+Pakistan,2022,IEA PVPS光伏年末累计装机（直流侧）,GWdc,3.2
+Pakistan,2023,IEA PVPS光伏年末累计装机（直流侧）,GWdc,4.5
+Pakistan,2024,IEA PVPS光伏年末累计装机（直流侧）,GWdc,22.4
+Pakistan,2025,IEA PVPS光伏年末累计装机（直流侧）,GWdc,36.3
+World,2021,IEA PVPS光伏年末累计装机（直流侧）,GWdc,955
+World,2022,IEA PVPS光伏年末累计装机（直流侧）,GWdc,1197
+World,2023,IEA PVPS光伏年末累计装机（直流侧）,GWdc,1660
+World,2024,IEA PVPS光伏年末累计装机（直流侧）,GWdc,2264
+World,2025,IEA PVPS光伏年末累计装机（直流侧）,GWdc,2958
+Australia,2021,IEA PVPS光伏年度新增装机（直流侧）,GWdc,5.0
+Australia,2022,IEA PVPS光伏年度新增装机（直流侧）,GWdc,4.2
+Australia,2023,IEA PVPS光伏年度新增装机（直流侧）,GWdc,4.2
+Australia,2024,IEA PVPS光伏年度新增装机（直流侧）,GWdc,5.3
+Australia,2025,IEA PVPS光伏年度新增装机（直流侧）,GWdc,4.5
+China,2021,IEA PVPS光伏年度新增装机（直流侧）,GWdc,54.9
+China,2022,IEA PVPS光伏年度新增装机（直流侧）,GWdc,106
+China,2023,IEA PVPS光伏年度新增装机（直流侧）,GWdc,277
+China,2024,IEA PVPS光伏年度新增装机（直流侧）,GWdc,357
+China,2025,IEA PVPS光伏年度新增装机（直流侧）,GWdc,415
+France,2021,IEA PVPS光伏年度新增装机（直流侧）,GWdc,3.6
+France,2022,IEA PVPS光伏年度新增装机（直流侧）,GWdc,3.0
+France,2023,IEA PVPS光伏年度新增装机（直流侧）,GWdc,4.0
+France,2024,IEA PVPS光伏年度新增装机（直流侧）,GWdc,6.0
+France,2025,IEA PVPS光伏年度新增装机（直流侧）,GWdc,7.4
+Germany,2021,IEA PVPS光伏年度新增装机（直流侧）,GWdc,5.7
+Germany,2022,IEA PVPS光伏年度新增装机（直流侧）,GWdc,7.6
+Germany,2023,IEA PVPS光伏年度新增装机（直流侧）,GWdc,15.3
+Germany,2024,IEA PVPS光伏年度新增装机（直流侧）,GWdc,17.2
+Germany,2025,IEA PVPS光伏年度新增装机（直流侧）,GWdc,17.6
+India,2021,IEA PVPS光伏年度新增装机（直流侧）,GWdc,13.7
+India,2022,IEA PVPS光伏年度新增装机（直流侧）,GWdc,18.1
+India,2023,IEA PVPS光伏年度新增装机（直流侧）,GWdc,13.0
+India,2024,IEA PVPS光伏年度新增装机（直流侧）,GWdc,31.9
+India,2025,IEA PVPS光伏年度新增装机（直流侧）,GWdc,54.2
+Netherlands,2021,IEA PVPS光伏年度新增装机（直流侧）,GWdc,3.6
+Netherlands,2022,IEA PVPS光伏年度新增装机（直流侧）,GWdc,4.2
+Netherlands,2023,IEA PVPS光伏年度新增装机（直流侧）,GWdc,4.8
+Netherlands,2024,IEA PVPS光伏年度新增装机（直流侧）,GWdc,3.4
+Netherlands,2025,IEA PVPS光伏年度新增装机（直流侧）,GWdc,1.9
+United States,2021,IEA PVPS光伏年度新增装机（直流侧）,GWdc,23.6
+United States,2022,IEA PVPS光伏年度新增装机（直流侧）,GWdc,22.7
+United States,2023,IEA PVPS光伏年度新增装机（直流侧）,GWdc,34.9
+United States,2024,IEA PVPS光伏年度新增装机（直流侧）,GWdc,47.1
+United States,2025,IEA PVPS光伏年度新增装机（直流侧）,GWdc,42.5
+Brazil,2021,IEA PVPS光伏年度新增装机（直流侧）,GWdc,6.0
+Brazil,2022,IEA PVPS光伏年度新增装机（直流侧）,GWdc,10.9
+Brazil,2023,IEA PVPS光伏年度新增装机（直流侧）,GWdc,12.4
+Brazil,2024,IEA PVPS光伏年度新增装机（直流侧）,GWdc,14.3
+Brazil,2025,IEA PVPS光伏年度新增装机（直流侧）,GWdc,12.5
+Pakistan,2021,IEA PVPS光伏年度新增装机（直流侧）,GWdc,0.7
+Pakistan,2022,IEA PVPS光伏年度新增装机（直流侧）,GWdc,0.7
+Pakistan,2023,IEA PVPS光伏年度新增装机（直流侧）,GWdc,1.3
+Pakistan,2024,IEA PVPS光伏年度新增装机（直流侧）,GWdc,18.0
+Pakistan,2025,IEA PVPS光伏年度新增装机（直流侧）,GWdc,13.8
+World,2021,IEA PVPS光伏年度新增装机（直流侧）,GWdc,173
+World,2022,IEA PVPS光伏年度新增装机（直流侧）,GWdc,242
+World,2023,IEA PVPS光伏年度新增装机（直流侧）,GWdc,464
+World,2024,IEA PVPS光伏年度新增装机（直流侧）,GWdc,604
+World,2025,IEA PVPS光伏年度新增装机（直流侧）,GWdc,692

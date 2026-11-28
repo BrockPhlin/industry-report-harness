@@ -1,0 +1,17 @@
+\documentclass[border=2pt]{standalone}
+\input{figure-style}
+\begin{document}
+\begin{tikzpicture}[x=1cm,y=1cm,font=\fontsize{10}{13}\selectfont,text=ink]
+  \node[flowbox] (chapter) at (1.8,0) {读取章节模板\\取得必查编号};
+  \node[flowbox] (initial) at (6.3,0) {模型请求查资料\\程序执行只读查询};
+  \node[flowbox] (check) at (11.6,0) {逐项核对编号\\本章是否有缺项};
+  \draw[link] (chapter)--(initial); \draw[link] (initial)--(check);
+  \node[flowbox,fixed] (again) at (11.6,-1.95) {只补查缺失项\\沿用同一资料包};
+  \node[flowbox] (gather) at (6.3,-3.65) {核对已取得的证据\\缺项与冲突分列};
+  \node[flowbox] (save) at (1.8,-3.65) {按证据填入数值\\保存章节和记录};
+  \draw[link] (check)--node[right,legendtext,pos=.48]{有缺项}(again);
+  \draw[link] (check.south west)--(8.35,-1.30)--node[left,pos=.55,legendtext,anchor=east]{已查齐}(gather.north);
+  \draw[link] (again.south) |- (gather.east);
+  \draw[link] (gather)--(save);
+\end{tikzpicture}
+\end{document}

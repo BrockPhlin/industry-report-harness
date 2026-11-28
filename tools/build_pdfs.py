@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import html
 import io
+import math
 import json
 import re
 from pathlib import Path
@@ -110,7 +111,8 @@ def make_table(lines, width, source_dir=PROPOSAL / "report", toc_pages=10):
     return result
 
 
-def report_blocks(section, width, cover=False, source_dir=PROPOSAL / "report", toc_pages=10):
+def report_blocks(section, width, cover=False, source_dir=PROPOSAL / "report", toc_pages=10,
+                  framed_figures=False):
     styles = {
         "body": ParagraphStyle("body", fontName="Body", fontSize=12, leading=18.5,
                                textColor=colors.HexColor(INK), wordWrap="CJK", spaceAfter=8),
@@ -147,6 +149,31 @@ def report_blocks(section, width, cover=False, source_dir=PROPOSAL / "report", t
             factor = int(image.group(3) or '100') / 100
             if not .25 <= factor <= 1:
                 raise ValueError('Report image width must be 25 to 100 percent')
+            if framed_figures and factor < 1:
+                figure_width = width * factor
+                picture_width = figure_width - 28
+                picture = Image(str(file), width=picture_width,
+                                height=picture_width*ih/iw, hAlign='CENTER')
+                caption = Paragraph(inline(image.group(1)), ParagraphStyle(
+                    'figure-caption', fontName='Body', fontSize=10, leading=15,
+                    textColor=colors.HexColor(MUTED), alignment=1, wordWrap='CJK'))
+                figure = Table([[picture], [caption]], colWidths=[figure_width], hAlign='CENTER')
+                figure.setStyle(TableStyle([
+                    ('BOX', (0, 0), (-1, -1), .5, colors.HexColor('#D9E1EB')),
+                    ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#F4F7FA')),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 14),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 14),
+                    ('TOPPADDING', (0, 0), (-1, 0), 12),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+                    ('TOPPADDING', (0, 1), (-1, 1), 7),
+                    ('BOTTOMPADDING', (0, 1), (-1, 1), 7),
+                ]))
+                yield Spacer(1, 5)
+                yield figure
+                yield Spacer(1, 14)
+                i += 1
+                continue
             yield Image(str(file), width=width*factor, height=width*factor*ih/iw, hAlign='CENTER')
             yield Paragraph(inline(image.group(1)), ParagraphStyle('caption', fontName='Body', fontSize=9, leading=13, textColor=colors.HexColor(MUTED), spaceAfter=9, wordWrap='CJK'))
             i += 1
@@ -178,7 +205,8 @@ def build_report():
                   "项目计划书", 10, 6000, "### 9.1 可定位来源")
 
 
-def render_report(source_path, output, label, page_limit, character_limit, references_heading):
+def render_report(source_path, output, label, page_limit, character_limit, references_heading,
+                  *, framed_figures=False, show_character_count=True):
     source = source_path.read_text(encoding="utf-8")
     sections = re.split(r"<!--\s*pagebreak\s*-->", source)
     # Title and contents share one unnumbered front page.
@@ -200,7 +228,7 @@ def render_report(source_path, output, label, page_limit, character_limit, refer
     margin = 56
     width = w - 2 * margin
     pdf = canvas.Canvas(buf, pagesize=A4, pageCompression=1)
-    document_title = f"第11组产业智能报告生成系统{label}"
+    document_title = f"第11组产业智能报告生成系统 · {label}"
     pdf.setTitle(document_title)
     pdf.setAuthor("Team 11")
     remaining = []
@@ -215,8 +243,8 @@ def render_report(source_path, output, label, page_limit, character_limit, refer
         pdf.line(margin, h-43, w-margin, h-43)
         y = h-65
         blocks = list(report_blocks(section, width, cover=i == 1, source_dir=source_path.parent,
-                                    toc_pages=len(body_sections)))
-        if i == len(sections):
+                                    toc_pages=len(body_sections), framed_figures=framed_figures))
+        if i == len(sections) and show_character_count:
             note = f"正文可见非空白字符：{count}（含表格图注，不含封面、目录、参考文献；非编辑器字数）。"
             blocks.append(Paragraph(note, ParagraphStyle("count", fontName="Body", fontSize=8.5,
                                                         leading=12, wordWrap="CJK", textColor=colors.HexColor(MUTED))))
@@ -225,7 +253,8 @@ def render_report(source_path, output, label, page_limit, character_limit, refer
             fw, fh = flowable.wrap(width, h)
             if y-fh < 51:
                 raise ValueError(f"Report page {i} overflows by {51-(y-fh):.1f}pt")
-            left = margin + (width-fw)/2 if isinstance(flowable, Image) else margin
+            centered = isinstance(flowable, Image) or getattr(flowable, "hAlign", None) == "CENTER"
+            left = margin + (width-fw)/2 if centered else margin
             flowable.drawOn(pdf, left, y-fh)
             y -= fh + getattr(flowable, "spaceAfter", 0)
         remaining.append(round(y-51, 1))
@@ -257,6 +286,8 @@ def slide_text(pdf, item):
     if ph > item["h"] + 2:
         raise ValueError(f"Slide text overflows: {item['text'][:30]} ({ph}>{item['h']})")
     p.drawOn(pdf, item["x"], 720-item["y"]-ph)
+    if item.get("href"):
+        pdf.linkURL(item["href"], (item["x"], 720-item["y"]-ph, item["x"]+item["w"], 720-item["y"]))
 
 
 def slide_table(pdf, item):
@@ -329,6 +360,29 @@ def draw_chart(pdf, item):
         slide_text(pdf,dict(text=label,x=cx-110,y=bottom+17,w=220,h=34,size=23,color=INK))
 
 
+def diagram_arrow(pdf, points):
+    """Draw a vector path and triangular tip using the common diagram coordinates."""
+    pdf.setStrokeColor(colors.HexColor(BLUE))
+    pdf.setFillColor(colors.HexColor(BLUE))
+    pdf.setLineWidth(2.5)
+    path = pdf.beginPath()
+    x, y = points[0]
+    path.moveTo(x, 720-y)
+    for x, y in points[1:]:
+        path.lineTo(x, 720-y)
+    pdf.drawPath(path, stroke=1)
+    prev_x, prev_y = points[-2]
+    dx, dy = x-prev_x, y-prev_y
+    length = math.hypot(dx, dy)
+    ux, uy = dx/length, dy/length
+    tip = pdf.beginPath()
+    tip.moveTo(x,720-y)
+    tip.lineTo(x-12*ux+5*uy,720-(y-12*uy-5*ux))
+    tip.lineTo(x-12*ux-5*uy,720-(y-12*uy+5*ux))
+    tip.close()
+    pdf.drawPath(tip, stroke=0, fill=1)
+
+
 def draw_items(pdf, items):
     for item in items:
         if item["type"] == "text":
@@ -346,9 +400,19 @@ def draw_items(pdf, items):
                 pdf.setFillColor(colors.HexColor(PALE));pdf.rect(x,720-y-h,w,h,stroke=1,fill=1)
                 slide_text(pdf,dict(text=title,x=x+15,y=y+13,w=w-30,h=40,size=30,bold=True,color=BLUE))
                 slide_text(pdf,dict(text=body,x=x+15,y=y+63,w=w-30,h=35,size=23,color=INK))
+        elif item["type"] == "diagram":
+            draw_items(pdf, item["parts"])
+        elif item["type"] == "node":
+            from slide_diagrams import node_shapes
+            draw_items(pdf, node_shapes(item))
+        elif item["type"] == "arrow":
+            diagram_arrow(pdf, item["points"])
         elif item['type'] == 'box':
             pdf.setFillColor(colors.HexColor(item['fill']))
-            pdf.rect(item['x'],720-item['y']-item['h'],item['w'],item['h'],fill=1,stroke=0)
+            if item.get('line'):
+                pdf.setStrokeColor(colors.HexColor(item['line']))
+                pdf.setLineWidth(item.get('line_w', 1))
+            pdf.rect(item['x'],720-item['y']-item['h'],item['w'],item['h'],fill=1,stroke=int(bool(item.get('line'))))
         elif item['type'] == 'chart':
             draw_chart(pdf,item)
         else:

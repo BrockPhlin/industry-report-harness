@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="60 155 1160 494" width="1160" height="494" role="img">
+  <title>Pi CLI 工具扩展与执行记录</title>
+  <defs>
+    <marker id="tip" viewBox="0 0 10 10" refX="9.4" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#003F88" />
+    </marker>
+  </defs>
+  <rect x="60" y="155" width="1160" height="494" fill="#FFFFFF" />
+  <text x="66" y="183" font-size="28" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+    <tspan x="66" dy="0">同一份资料查询，换一种接法</tspan>
+  </text>
+  <g>
+    <title>Pi CLI</title>
+    <rect x="70" y="208" width="318" height="110" fill="#ECF3FA" stroke="#B5C8DB" stroke-width="1" />
+    <text x="82" y="243" font-size="27" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+      <tspan x="82" dy="0">Pi CLI</tspan>
+    </text>
+    <text x="82" y="275" font-size="22" font-family="LXGW WenKai, KaiTi, serif" fill="#233042" font-weight="normal">
+      <tspan x="82" dy="0">以 JSON 模式运行，</tspan>
+      <tspan x="82" dy="27.28">在宿主内加载工具扩展</tspan>
+    </text>
+  </g>
+  <g>
+    <title>Pi 工具扩展</title>
+    <rect x="477" y="208" width="325" height="110" fill="#ECF3FA" stroke="#B5C8DB" stroke-width="1" />
+    <text x="489" y="241" font-size="25" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+      <tspan x="489" dy="0">Pi 工具扩展</tspan>
+    </text>
+    <text x="489" y="272" font-size="22" font-family="LXGW WenKai, KaiTi, serif" fill="#233042" font-weight="normal">
+      <tspan x="489" dy="0">注册 search_evidence，</tspan>
+      <tspan x="489" dy="27.28">参数限三个有效指标编号</tspan>
+    </text>
+  </g>
+  <g>
+    <title>现有 Python 查询</title>
+    <rect x="887" y="208" width="318" height="110" fill="#ECF3FA" stroke="#B5C8DB" stroke-width="1" />
+    <text x="899" y="241" font-size="25" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+      <tspan x="899" dy="0">现有 Python 查询</tspan>
+    </text>
+    <text x="899" y="271" font-size="21" font-family="LXGW WenKai, KaiTi, serif" fill="#233042" font-weight="normal">
+      <tspan x="899" dy="0">子进程执行现有 CLI，</tspan>
+      <tspan x="899" dy="26.04">返回数值和来源编号</tspan>
+    </text>
+  </g>
+  <polyline points="388,265 474,265" fill="none" stroke="#003F88" stroke-width="2.5" marker-end="url(#tip)" />
+  <polyline points="802,265 884,265" fill="none" stroke="#003F88" stroke-width="2.5" marker-end="url(#tip)" />
+  <text x="402" y="247" font-size="20" font-family="LXGW WenKai, KaiTi, serif" fill="#60728C" font-weight="normal">
+    <tspan x="402" dy="0">载入</tspan>
+  </text>
+  <text x="819" y="247" font-size="20" font-family="LXGW WenKai, KaiTi, serif" fill="#60728C" font-weight="normal">
+    <tspan x="819" dy="0">执行</tspan>
+  </text>
+  <text x="66" y="378" font-size="28" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+    <tspan x="66" dy="0">一次真实工具执行，在事件记录里留下了什么？</tspan>
+  </text>
+  <g>
+    <title>工具开始</title>
+    <rect x="70" y="410" width="253" height="93" fill="#FFFFFF" stroke="#B5C8DB" stroke-width="1" />
+    <text x="82" y="443" font-size="25" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+      <tspan x="82" dy="0">工具开始</tspan>
+    </text>
+    <text x="82" y="470" font-size="18" font-family="LXGW WenKai, KaiTi, serif" fill="#233042" font-weight="normal">
+      <tspan x="82" dy="0">tool_execution_start</tspan>
+    </text>
+  </g>
+  <g>
+    <title>工具结束</title>
+    <rect x="369" y="410" width="246" height="93" fill="#FFFFFF" stroke="#B5C8DB" stroke-width="1" />
+    <text x="381" y="443" font-size="25" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+      <tspan x="381" dy="0">工具结束</tspan>
+    </text>
+    <text x="381" y="470" font-size="18" font-family="LXGW WenKai, KaiTi, serif" fill="#233042" font-weight="normal">
+      <tspan x="381" dy="0">tool_execution_end</tspan>
+    </text>
+  </g>
+  <g>
+    <title>下一轮模型请求</title>
+    <rect x="661" y="410" width="251" height="93" fill="#FFFFFF" stroke="#B5C8DB" stroke-width="1" />
+    <text x="673" y="443" font-size="25" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+      <tspan x="673" dy="0">下一轮模型请求</tspan>
+    </text>
+    <text x="673" y="474" font-size="22" font-family="LXGW WenKai, KaiTi, serif" fill="#233042" font-weight="normal">
+      <tspan x="673" dy="0">已带回 NEA 指标</tspan>
+    </text>
+  </g>
+  <g>
+    <title>任务结束</title>
+    <rect x="958" y="410" width="247" height="93" fill="#FFFFFF" stroke="#B5C8DB" stroke-width="1" />
+    <text x="970" y="443" font-size="25" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+      <tspan x="970" dy="0">任务结束</tspan>
+    </text>
+    <text x="970" y="474" font-size="22" font-family="LXGW WenKai, KaiTi, serif" fill="#233042" font-weight="normal">
+      <tspan x="970" dy="0">agent_end</tspan>
+    </text>
+  </g>
+  <polyline points="323,458 366,458" fill="none" stroke="#003F88" stroke-width="2.5" marker-end="url(#tip)" />
+  <polyline points="615,458 658,458" fill="none" stroke="#003F88" stroke-width="2.5" marker-end="url(#tip)" />
+  <polyline points="912,458 955,458" fill="none" stroke="#003F88" stroke-width="2.5" marker-end="url(#tip)" />
+  <text x="66" y="549" font-size="23" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+    <tspan x="66" dy="0">E5 回执：2 次模型请求；工具执行成功，第二次请求含 NEA 和 2.78 亿千瓦。</tspan>
+  </text>
+  <rect x="65" y="574" width="1150" height="63" fill="#ECF3FA" stroke="none" stroke-width="0" />
+  <text x="80" y="610" font-size="23" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+    <tspan x="80" dy="0">本组按初查、补查、写稿分别记事。装机栏为空时，能查清走到哪一步、补查有没有命中。</tspan>
+  </text>
+</svg>

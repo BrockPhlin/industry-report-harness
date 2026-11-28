@@ -1,0 +1,611 @@
+"use strict";
+
+const $ = id => document.getElementById(id);
+const state = {settings: null, row: null, version: 0, timer: null, busy: false, scope: "", target: null, style: "research", outline: [], source_groups: [], reference_ids: [], comparisonId: null};
+function element(tag, text, style) {
+  const el = document.createElement(tag);
+  if (text !== undefined) el.textContent = text;
+  if (style) el.className = style;
+  return el;
+}
+function button(text, fn, style) {
+  const el = element("button", text, style);
+  el.type = "button";
+  el.onclick = fn;
+  return el;
+}
+function link(text, url) {
+  const el = element("a", text);
+  el.href = url;
+  el.target = "_blank";
+  el.rel = "noopener noreferrer";
+  return el;
+}
+async function requestJSON(path, data) {
+  let response;
+  try {
+    response = await fetch(path, data === undefined ? {} :
+      {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(data)});
+  } catch {
+    throw new Error("暂时连不上工作台，请检查本机服务是否仍在运行。");
+  }
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error?.message || "请求失败，请重试。");
+  return result;
+}
+function api(path, data) { return requestJSON("/api/research" + path, data); }
+function notice(text) { $("notice").textContent = text; }
+function dialog(title, ...children) {
+  $("dialog-title").textContent = title;
+  $("dialog-body").replaceChildren(...children);
+  $("dialog").showModal();
+}
+$("dismiss").onclick = () => $("dialog").close();
+$("dialog").onclick = e => { if (e.target === $("dialog")) $("dialog").close(); };
+function nav(show) {
+  document.body.classList.toggle("nav-open", show);
+  $("menu").setAttribute("aria-expanded", String(show));
+  $("shade").hidden = !show;
+}
+const compactHeader = matchMedia("(max-width: 560px)");
+const headerTools = document.querySelector(".header-tools");
+function placeHeaderTools() {
+  (compactHeader.matches ? $("mobile-tools") : document.querySelector("main > header")).append(headerTools);
+}
+compactHeader.addEventListener("change", placeHeaderTools);
+placeHeaderTools();
+$("menu").onclick = () => nav(true);
+$("shade").onclick = $("close-nav").onclick = () => nav(false);
+document.addEventListener("keydown", e => { if (e.key === "Escape") nav(false); });
+function focusLabel() {
+  $("focus-btn").textContent = state.target ? "约 " + state.target + " 字" : "范围与篇幅";
+}
+$("focus-btn").onclick = () => {
+  const scope = element("textarea");
+  scope.rows = 3;
+  scope.maxLength = 1800;
+  scope.placeholder = "例如：写给省级能源部门，关注分布式和集中式的差异";
+  scope.value = state.scope;
+  const outline = element("textarea");
+  outline.rows = 3;
+  outline.placeholder = "每行一章；留空则由模型拟定";
+  outline.value = state.outline.join("\n");
+  const count = element("input");
+  Object.assign(count, {type:"number", min:800, max:10000, step:1, placeholder:"默认 3600，亦可在指令中指定", value:state.target || ""});
+  const style = element("select");
+  for (const [v,profile] of Object.entries(state.settings.styles)) {
+    const option = element("option",profile.name);
+    option.value = v;
+    style.append(option);
+  }
+  style.value = state.style;
+  const sources = element("details",undefined,"source-options");
+  sources.append(element("summary","限定资料来源"));
+  const sourceChoices = new Map();
+  for (const [code,label] of Object.entries(state.settings.source_groups || {})) {
+    const option = element("label",undefined,"source-option");
+    const checkbox = element("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = state.source_groups.includes(code);
+    sourceChoices.set(code,checkbox);
+    option.append(checkbox,label);
+    sources.append(option);
+  }
+  sources.open = state.source_groups.length > 0;
+  sources.append(element("p","留空时按问题自动选取。勾选后仅从所选来源取数。","caption"));
+  function field(label, input) {
+    const l = element("label",label,"scope-field");
+    l.append(input);
+    return l;
+  }
+  const message = element("p","正文支持 800 至 10000 字。参考报告提供篇章结构，统计数字来自本次检索。");
+  const reference = element("p");
+  const showReference = () => {
+    const profile = state.settings.styles[style.value];
+    reference.replaceChildren("版式参考 · ", profile.url ? link(profile.source,profile.url) : profile.source, " · "+profile.locator);
+  };
+  style.onchange = showReference;
+  showReference();
+  const apply = button("保存", async () => {
+    if (!count.checkValidity()) { count.reportValidity(); return; }
+    const titles = outline.value.split("\n").map(t => t.trim()).filter(Boolean);
+    if (titles.length > 12 || new Set(titles).size !== titles.length || titles.some(t=>t.length>100)) {
+      message.textContent = "请填写不超过12个不同的简短章名。"; return;
+    }
+    const changes = {scope:scope.value.trim(), target:count.value ? Number(count.value) : null,
+      style:style.value, outline:titles,
+      source_groups:[...sourceChoices].filter(([,checkbox]) => checkbox.checked).map(([code]) => code)};
+    if (state.row?.status === "planning") {
+      apply.disabled = true;
+      try {
+        const row = await api("/"+state.row.id+"/scope",{...changes,target:changes.target || state.row.spec.target});
+        render(row);
+      } catch(err) { message.textContent = err.message; return; }
+      finally { apply.disabled = false; }
+    } else Object.assign(state, changes);
+    focusLabel();
+    $("dialog").close();
+  },"action");
+  dialog("范围与篇幅",field("读者、地区、年份及研究重点",scope),field("目标正文字数",count),field("自定提纲（可选）",outline),
+    field("写作结构",style),reference,sources,message,apply);
+};
+$("sources").onclick = () => openLibrary();
+$("open-library").onclick = () => openLibrary();
+$("setup-model").onclick = () => $("model-info").click();
+$("run-example").onclick = () => {
+  if (!state.settings || state.row || state.busy) return;
+  action("", {question:"2024 年中国光伏产业简报",mode:"fixture",focus:state.settings.sections});
+};
+$("references-btn").onclick = () => openLibrary();
+$("model-info").onclick = () => {
+  const model = state.settings.model;
+  dialog("模型连接", element("p", model ? "服务端已配置 " + model + "。可以先讨论范围，也可以直接联网写报告。" :
+    "服务端尚未配置模型。请在 code/.env 设置 MODEL_ENDPOINT、MODEL_NAME 和 MODEL_API_KEY 后重启服务。"),
+    element("p", "离线样例使用两份固定资料。"));
+};
+function controls() {
+  const row = state.row;
+  const model = Boolean(state.settings?.model);
+  $("model-info").disabled = !state.settings;
+  const planning = row?.status === "planning";
+  const readyToAsk = row && row.kind !== "comparison" && row.status === "ready" && row.mode === "live" && model;
+  const attached = !row && Boolean(state.comparisonId);
+  $("attached-comparison").hidden = !attached;
+  if (attached) $("attached-link").href = "#" + state.comparisonId;
+  $("run-example").disabled = !state.settings || state.busy;
+  $("composer").hidden = !model || Boolean(row && !readyToAsk && !planning);
+  $("custom-heading").hidden = Boolean(row);
+  $("offline-info").hidden = model || !state.settings || Boolean(row && !planning);
+  $("input-area").hidden = Boolean(row && $("composer").hidden && $("offline-info").hidden);
+  $("suggestions").hidden = !model || Boolean(row);
+  $("workflow").hidden = Boolean(row);
+  $("focus-btn").hidden = Boolean(row && !planning);
+  $("focus-btn").disabled = !model || state.busy;
+  $("references-btn").hidden = Boolean(row && !planning);
+  $("references-btn").disabled = !state.settings || state.busy;
+  const referenceCount = state.reference_ids.length;
+  $("references-btn").textContent = referenceCount ? "参考报告 · " + referenceCount : "参考报告";
+  $("send").title = planning ? "补充要求" : row ? "发送追问" : "发送研究问题";
+  $("prompt").placeholder = planning ? "补充你想看的地区、时间或问题…" : row ? "就这份报告继续提问…" : "输入研究问题，也可以指定年份、读者和篇幅…";
+  $("send").disabled = state.busy || !model;
+  $("prompt").disabled = state.busy || !model;
+}
+async function historyList() {
+  const rows = await api("");
+  const items = rows.map(r => {
+    const item = button(r.question, () => select(r.id), r.id === state.row?.id ? "current" : "");
+    item.title = r.question;
+    item.dataset.key = r.id;
+    return item;
+  });
+  $("history").replaceChildren(...(items.length ? items : [element("p", "还没有研究记录")]));
+}
+function fresh() {
+  ++state.version;
+  clearTimeout(state.timer);
+  state.row = null;
+  state.busy = false;
+  state.scope = ""; state.target = null; state.style = "research"; state.outline = [];
+  state.source_groups = [];
+  state.reference_ids = [];
+  state.comparisonId = null;
+  window.history.replaceState(null, "", location.pathname);
+  focusLabel();
+  nav(false);
+  notice("");
+  $("breadcrumb").textContent = "新建研究";
+  $("canvas").classList.remove("thread");
+  $("conversation").hidden = true;
+  $("prompt").value = "";
+  controls();
+  window.scrollTo(0,0);
+  historyList().catch(e => notice(e.message));
+}
+$("new").onclick = fresh;
+$("detach").onclick = () => { state.comparisonId = null; controls(); $("prompt").focus(); };
+$("compare").onclick = () => openComparison();
+document.querySelectorAll("#suggestions button").forEach(b => b.onclick = () => {
+  $("prompt").value = b.textContent.replace("↗", "").trim();
+  $("prompt").focus();
+});
+function exampleFacts(facts) {
+  const cards = [];
+  for (const [key, label, issuer] of [
+    ["pv-module-output","全国光伏组件产量","工信部 · 制造"],
+    ["pv-new-capacity","全国光伏发电新增装机","国家能源局 · 建设"]
+  ]) {
+    const fact = facts.find(item => item.id === key);
+    if (!fact) continue;
+    const line = element("div", undefined, "cover-stat");
+    const value = element("div", undefined, "cover-number");
+    value.append(element("b", fact.value), element("span", fact.unit));
+    line.append(element("small",issuer), value, element("span", label));
+    cards.push(line);
+  }
+  $("example-facts").replaceChildren(...cards);
+}
+function showFixtureSource(source, metricLine) {
+  const section = element("div", undefined, "source-sheet");
+  section.append(element("p", source.title, "source-title"), element("p", source.publisher, "caption"));
+  const rows = (state.row?.markdown || "").split("\n").filter(line =>
+    line.startsWith("- ") && line.includes("[" + source.id + "]"));
+  if (rows.length) {
+    section.append(element("h3","本次简报引用的指标"));
+    for (const line of rows) section.append(element("p",line.slice(2).replace("[" + source.id + "]","").trim(),"cited-value"));
+  }
+  section.append(element("h3","原文位置"), element("p", source.locator), link("打开发布方原文 ↗", source.url));
+  if (metricLine) {
+    metricLine.classList.add("checking");
+    $("dialog").addEventListener("close", () => metricLine.classList.remove("checking"), {once:true});
+  }
+  dialog(source.id + " · 核对来源", section);
+}
+function citedText(text, style) {
+  const p = element("p", undefined, style);
+  const pieces = text.split(/(\*\*[^*\n]+\*\*|\[[\w-]+\])/g);
+  for (const part of pieces) {
+    const source = (state.row?.evidence || state.settings.sources).find(s => "[" + (s.ref || s.id) + "]" === part);
+    if (source?.ref) {
+      p.append(button(part,() => dialog(source.ref+" · 数据出处",element("p",source.title),
+        element("p",source.locator),element("blockquote",source.text),
+        element("p",source.publisher+" · 采集于 "+source.fetched.slice(0,10)+" · 快照 "+source.digest.slice(0,10)),
+        ...evidenceSourceLinks(source)),"cite"));
+    } else if (source) p.append(button(part, () => showFixtureSource(source), "cite"));
+    else if (part.startsWith("**") && part.endsWith("**")) p.append(element("strong", part.slice(2, -2)));
+    else p.append(part);
+  }
+  return p;
+}
+function dataFigure(chart) {
+  const figure = element("figure", undefined, "data-figure");
+  figure.append(element("figcaption",chart.title));
+  for (const point of chart.points) {
+    const bar = element("meter");
+    bar.min = 0;
+    bar.max = 1;
+    bar.value = point.fraction;
+    bar.setAttribute("aria-label",point.label+" "+point.value);
+    const line = element("div");
+    line.append(element("span",point.label),bar,element("span",point.value));
+    figure.append(line);
+  }
+  figure.append(citedText("资料来源 "+chart.refs.map(r=>"["+r+"]").join(" "),"caption"));
+  return figure;
+}
+function briefMetric(text) {
+  const match = /^([^，]+)，([^：]+)：(.+?)\s+\[([\w-]+)\]$/.exec(text);
+  if (!match) return citedText(text, "metric");
+  const [,period,metric,value,ref] = match;
+  const line = element("p", undefined, "metric fact-line");
+  const label = element("span",metric,"fact-label");
+  label.append(element("small",period));
+  line.append(label,element("strong",value));
+  const source = state.settings.sources.find(item => item.id === ref);
+  if (source) {
+    const cite = button("来源 [" + ref + "]", () => showFixtureSource(source, line), "fact-source");
+    cite.setAttribute("aria-haspopup","dialog");
+    line.append(cite);
+  }
+  return line;
+}
+function documentView(markdown) {
+  const paper = element("div", undefined, "paper");
+  const figures = new Map((state.row?.charts || (state.row?.chart ? [state.row.chart] : []))
+    .map(chart => [chart.table_number || 1, chart]));
+  let table = null;
+  let tableNumber = 0;
+  for (const line of markdown.split("\n").filter(Boolean)) {
+    if (line.startsWith("|")) {
+      if (/^\|[\s:|-]+$/.test(line)) continue;
+      const first = !table;
+      if (first) {
+        table = element("table");
+        const scroll = element("div", undefined, "paper-table");
+        scroll.append(table);
+        paper.append(scroll);
+        tableNumber++;
+      }
+      const tr = element("tr");
+      for (const cell of line.slice(1,-1).split("|")) tr.append(element(first ? "th" : "td",cell.trim()));
+      table.append(tr);
+      continue;
+    }
+    if (table && figures.has(tableNumber)) paper.append(dataFigure(figures.get(tableNumber)));
+    table = null;
+    const citation = /^\[([^\]]+)\]\((https:\/\/[^\s)]+)\)(.*)$/.exec(line);
+    if (citation) {
+      const p = element("p", undefined, "meta");
+      p.append(link(citation[1], citation[2]), citation[3]);
+      paper.append(p);
+    } else if (line.startsWith("## ")) paper.append(element("h3", line.slice(3)));
+    else if (line.startsWith("# ")) paper.append(element("h2", line.slice(2)));
+    else if (line.startsWith("- ")) paper.append(state.row?.mode === "fixture" ?
+      briefMetric(line.slice(2)) : citedText(line.slice(2), "metric"));
+    else paper.append(citedText(line, line.startsWith("运行方式") ? "meta" : ""));
+  }
+  if (table && figures.has(tableNumber)) paper.append(dataFigure(figures.get(tableNumber)));
+  return paper;
+}
+function traceView(events) {
+  const detail = element("details", undefined, "details");
+  detail.append(element("summary", "查看逐章检索记录"));
+  for (const e of events) {
+    if (!["initial", "supplement"].includes(e.stage)) continue;
+    const hits = e.returned.map(h => h.source + " · " + h.locator);
+    detail.append(element("p", e.section + (e.stage === "initial" ? "检索" : "补查") + " · " +
+      ([...new Set(hits)].join("、") || "没有命中资料")));
+  }
+  return detail;
+}
+function operationsView(operations) {
+  const detail = element("details", undefined, "details");
+  detail.append(element("summary","生成过程"));
+  for (const step of operations) {
+    const stage = step.stage === "draft" ? "写作" : step.stage === "review" ? "核查" : "";
+    const parts = [stage ? stage+" · "+step.label : step.label, step.status==="interrupted" ? "中断" : "完成"];
+    if (Number.isFinite(step.seconds)) {
+      const seconds = Math.round(step.seconds);
+      parts.push(seconds < 60 ? seconds+" 秒" : Math.floor(seconds/60)+" 分 "+seconds%60+" 秒");
+    } else if (step.error_code === "worker_restart") parts.push("服务重启，未记录耗时");
+    if (step.model_requests) parts.push(step.model_requests+" 次模型请求");
+    if (step.reported_tokens?.total_tokens !== undefined) {
+      parts.push(step.reported_tokens.total_tokens.toLocaleString()+" tokens（模型返回）");
+    }
+    detail.append(element("p",parts.join(" · ")));
+  }
+  return detail;
+}
+function render(row) {
+  state.row = row;
+  state.reference_ids = [...(row.spec?.reference_ids || [])];
+  state.comparisonId = null;
+  $("canvas").classList.add("thread");
+  $("breadcrumb").textContent = row.question;
+  const article = $("conversation");
+  article.hidden = false;
+  document.querySelectorAll("#history button").forEach(b => b.classList.toggle("current", b.dataset.key === row.id));
+  if (row.kind === "comparison") {
+    article.classList.remove("brief-sheet");
+    article.replaceChildren(comparisonReport(row));
+    controls();
+    return;
+  }
+  const brief = row.mode === "fixture" && row.status === "ready";
+  article.classList.toggle("brief-sheet", brief);
+  article.replaceChildren();
+  if (brief) {
+    article.append(element("div", row.approved ? "固定资料简报　/　已确认" : "固定资料简报　/　待人工核对", "byline"));
+  } else {
+    article.append(element("div", row.question, "user"),element("div",
+      row.mode === "live" ? "光伏研究室 / " + row.model : "光伏研究室 / 固定资料示例", "byline"));
+  }
+  if (row.spec?.comparison_id) article.append(comparisonLink(row.spec.comparison_id, "查看本次研究所用的对比报告"));
+  if (row.spec?.turns?.length) {
+    const thread = element("details",undefined,"details");
+    thread.open = row.status === "planning";
+    thread.append(element("summary","研究范围讨论"));
+    for (const [i,turn] of row.spec.turns.entries()) {
+      if (i) thread.append(element("p",turn.question,"user"));
+      thread.append(element("p",turn.answer,"answer"));
+    }
+    article.append(thread);
+  }
+  if (row.status === "planning") {
+    state.scope = row.spec.scope;
+    state.target = row.spec.target;
+    state.style = row.spec.style;
+    state.outline = row.spec.outline || [];
+    state.source_groups = row.spec.source_groups || [];
+    focusLabel();
+    if (state.scope) article.append(element("p",state.scope,"caption"));
+    if (state.source_groups.length) article.append(element("p","取数范围 · "+
+      state.source_groups.map(code=>state.settings.source_groups[code]).join("、"),"caption"));
+    if (state.outline.length) article.append(element("p","指定提纲 · "+state.outline.join(" / "),"caption"));
+    const write = button("按这个范围写",()=>action("/write",{}),"action");
+    write.disabled = !state.settings?.model;
+    article.append(element("p","目标约 "+row.spec.target+" 字。可以继续补充要求，也可以开始写作。","caption"),write);
+  } else if (row.status === "running" && row.spec) {
+    article.append(element("p",row.spec.progress || "已提交，正在准备研究任务…"));
+  } else if (row.status === "running") {
+    const done = row.completed || [];
+    const next = row.focus.find(name => !done.includes(name));
+    article.append(element("p", next ? "正在检索资料、编写「" + next + "」…" : "正在整理草稿…"),
+      element("p", "已完成 " + done.length + " / " + row.focus.length + " 章", "caption"));
+  } else if (row.status === "failed") {
+    const retry = button("继续生成", () => action("/retry", {}), "action");
+    retry.disabled = row.mode === "live" && !state.settings?.model;
+    article.append(element("h3", /中断|终止/.test(row.error || "") ? "生成已中断" : "生成失败"),
+      element("p", row.error || "可以从已保存的进度继续。"),retry);
+    if (retry.disabled) article.append(element("p","重新连接模型后可继续此任务。","caption"));
+    if (row.operations?.length) article.append(operationsView(row.operations));
+    if (row.spec && state.settings?.model) article.append(button("调整范围后重写",() => {
+      fresh();
+      $("workflow").value = "discuss";
+      $("prompt").value = row.question;
+      state.scope = row.spec.scope;
+      state.target = row.spec.target;
+      state.style = row.spec.style;
+      state.outline = [...(row.spec.outline || [])];
+      state.source_groups = [...(row.spec.source_groups || [])];
+      state.reference_ids = [...(row.spec.reference_ids || [])];
+      state.comparisonId = row.spec.comparison_id || null;
+      focusLabel();
+      controls();
+    },"link"));
+  } else {
+    if (row.spec) {
+      const info = element("details",undefined,"details");
+      info.append(element("summary","取数记录 · 正文 "+row.length+" 字 / 目标 "+row.spec.target+" 字"));
+      for (const n of row.retrieval) info.append(element("p",n.source+" · "+n.result));
+      article.append(info);
+      if (row.operations?.length) article.append(operationsView(row.operations));
+      if (row.writing_references?.length) article.append(usedReferences(row.writing_references));
+      article.append(reportReview(row));
+      article.append(documentView(row.markdown));
+      const download = element("a","下载 Markdown");
+      download.href = "/api/research/" + row.id + "/markdown";
+      const evidenceFile = element("a","下载证据记录");
+      evidenceFile.href = "/api/research/" + row.id + "/evidence.json";
+      const exports = element("div",undefined,"actions");
+      exports.append(download,evidenceFile);
+      article.append(exports);
+    } else {
+      const paper = documentView(row.markdown);
+      article.append(paper,traceView(row.events));
+      if (brief) {
+        const reading = element("p", "点数字下方的「来源」，可核对发布机构和原文位置。", "brief-reading");
+        const firstSection = paper.querySelector("h3");
+        if (firstSection) paper.insertBefore(reading, firstSection);
+      }
+    }
+    const actions = element("div", undefined, "actions");
+    if (brief) {
+      const md = element("a","下载 Markdown");
+      md.href = "/api/research/" + row.id + "/markdown";
+      actions.append(md);
+    }
+    if (row.spec && !row.approved) actions.append(button("润色草稿", () => {
+      const editor = element("textarea");
+      editor.className = "draft-editor";
+      editor.rows = 16;
+      editor.value = row.markdown;
+      editor.setAttribute("aria-label","Markdown 草稿");
+      const warning = element("p","可修改正文措辞。请保留段落、数字、单位和引用，原稿会保存在本机。");
+      const save = button("保存润色稿", async () => {
+        save.disabled = true;
+        try {
+          const latest = await api("/"+row.id+"/edit",{markdown:editor.value,revision:row.revision});
+          $("dialog").close();
+          render(latest);
+        } catch(err) { warning.textContent = err.message; }
+        finally { save.disabled = false; }
+      },"action");
+      dialog("润色 Markdown 草稿",warning,editor,save);
+    },"link"));
+    if (row.approved) {
+      const download = element("a", "下载已核对的 PDF", "action");
+      download.href = "/api/research/" + row.id + "/pdf";
+      actions.append(download);
+    } else actions.append(button("核对并导出 PDF", () => dialog("已核对这份草稿？",
+      element("p", "请检查报告中的指标、单位及出处。确认后将保存本次核对件。"),
+      button("确认并生成 PDF", () => { $("dialog").close(); action("/approve", {confirm: true}); }, "action")), "action"));
+    if (brief) article.querySelector(".paper h2").after(actions);
+    else article.append(actions);
+    for (const turn of row.answers) article.append(element("div", turn.question, "user"),
+      element("div", "模型答复 · 据本次草稿", "byline"), citedText(turn.answer, "answer"));
+  }
+  controls();
+}
+function watch(row, version) {
+  clearTimeout(state.timer);
+  if (row.status !== "running") return;
+  state.timer = setTimeout(async () => {
+    try {
+      const next = await api("/" + row.id);
+      if (version !== state.version) return;
+      notice("");
+      render(next);
+      watch(next, version);
+    } catch (err) {
+      if (version === state.version) { notice(err.message); watch(row, version); }
+    }
+  }, 1000);
+}
+async function select(key) {
+  const version = ++state.version;
+  clearTimeout(state.timer);
+  nav(false);
+  state.busy = false;
+  notice("");
+  try {
+    const row = await api("/" + key);
+    if (version !== state.version) return;
+    window.history.replaceState(null, "", "#" + key);
+    $("prompt").value = "";
+    render(row);
+    window.scrollTo(0, 0);
+    watch(row, version);
+  } catch (err) { if (version === state.version) notice(err.message); }
+}
+async function action(suffix, body) {
+  if (state.busy) return;
+  const version = state.version;
+  const key = state.row?.id;
+  state.busy = true;
+  controls();
+  if (body.mode === "fixture") $("run-example").textContent = "正在生成简报…";
+  notice(body.mode === "fixture" ? "正在读取固定资料，按章编写简报…" : suffix === "/approve" ?
+    "正在保存核对件并生成 PDF…" : suffix === "/ask" ? "模型正在阅读草稿并答复…" :
+    suffix === "/plan" || body.workflow === "discuss" ? "正在梳理你的研究需求…" : "正在提交…");
+  try {
+    const row = await api((key ? "/" + key : "") + suffix, body);
+    if (version !== state.version) { await historyList(); return; }
+    $("prompt").value = "";
+    notice("");
+    window.history.replaceState(null, "", "#" + row.id);
+    render(row);
+    watch(row, version);
+    await historyList();
+    if (suffix === "/ask") $("input-area").scrollIntoView({block:"end"});
+  } catch (err) { if (version === state.version) notice(err.message); }
+  finally {
+    if (body.mode === "fixture") {
+      const arrow = element("span","→");
+      arrow.setAttribute("aria-hidden","true");
+      $("run-example").replaceChildren("生成示例简报 ",arrow);
+    }
+    if (version === state.version) { state.busy = false; controls(); }
+  }
+}
+$("composer").onsubmit = e => {
+  e.preventDefault();
+  const question = $("prompt").value.trim();
+  if (!question) { notice("请写下研究问题。"); return; }
+  if (state.row?.status === "planning") action("/plan",{question,target:null});
+  else if (state.row) action("/ask", {question});
+  else action("",{question, workflow:$("workflow").value, scope:state.scope, target:state.target,
+    style:state.style,outline:state.outline,source_groups:state.source_groups,reference_ids:state.reference_ids,
+    ...(state.comparisonId ? {comparison_id:state.comparisonId} : {})});
+};
+$("prompt").onkeydown = e => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
+    e.preventDefault(); $("composer").requestSubmit();
+  }
+};
+async function init() {
+  state.settings = await api("/settings");
+  const model = state.settings.model;
+  $("model-label").textContent = model || "离线示例可用";
+  $("model-info").classList.toggle("live", Boolean(model));
+  $("compare").disabled = false;
+  exampleFacts(state.settings.fixture_facts || []);
+  $("workflow").value = "discuss";
+  $("workflow").onchange = controls;
+  const originalKey = location.hash.slice(1);
+  fresh();
+  if (/^[a-f0-9]{32}$/.test(originalKey)) await select(originalKey);
+  else if (originalKey === "library") {
+    window.history.replaceState(null, "", "#library");
+    openLibrary();
+  }
+  window.addEventListener("hashchange", () => {
+    const key = location.hash.slice(1);
+    if (key === "library") {
+      openLibrary();
+    } else if (/^[a-f0-9]{32}$/.test(key)) {
+      if ($("dialog").open) $("dialog").close();
+      select(key);
+    } else if (!key) {
+      if ($("dialog").open) $("dialog").close();
+      fresh();
+    }
+  });
+}
+controls();
+function connect() {
+  init().catch(err => {
+    $("model-label").textContent = "服务未连接";
+    $("notice").replaceChildren(err.message + " ", button("重新连接",connect,"link"));
+  });
+}
+connect();

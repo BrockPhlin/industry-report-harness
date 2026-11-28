@@ -1,0 +1,18 @@
+\usepackage[UTF8,fontset=none]{ctex}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta}
+\setCJKmainfont[Path=../../../../assets/fonts/,BoldFont=LXGWWenKai-Medium.ttf]{LXGWWenKai-Regular.ttf}
+\definecolor{navy}{HTML}{003F88}
+\definecolor{sky}{HTML}{EAF2F9}
+\definecolor{edge}{HTML}{6885A2}
+\definecolor{teal}{HTML}{23685F}
+\definecolor{mint}{HTML}{EAF4EF}
+\definecolor{ink}{HTML}{20374B}
+\tikzset{
+  frame/.style={draw=edge,fill=sky,rounded corners=2pt,line width=.55pt},
+  fixed/.style={draw=teal,fill=mint,rounded corners=2pt,line width=.55pt},
+  link/.style={-{Stealth[length=2mm]},draw=edge,line width=.9pt},
+  flowbox/.style={frame,align=center,minimum height=12mm,text width=31mm,inner sep=2pt},
+  legendtext/.style={text=ink,anchor=west,font=\fontsize{9.5}{12}\selectfont},
+  captionlabel/.style={text=navy,anchor=west,font=\bfseries\fontsize{11}{14}\selectfont}
+}

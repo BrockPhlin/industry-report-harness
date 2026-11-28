@@ -1,13 +1,16 @@
 {
   "title": "产业智能报告生成系统",
-  "version": "v0.4",
-  "date": "2026-11-21",
-  "formal_slides": 7,
+  "version": "v1.1",
+  "report_version": "v1.1",
+  "date": "2026-11-29",
+  "formal_slides": 10,
   "slides": [
     {
+      "id": "cover",
+      "section": "开场",
       "title": "产业智能报告生成系统",
-      "subtitle": null,
-      "seconds": 30,
+      "subtitle": "",
+      "seconds": 12,
       "items": [
         {
           "type": "image",
@@ -21,7 +24,7 @@
           "type": "text",
           "text": "产业智能报告生成系统",
           "x": 70,
-          "y": 202,
+          "y": 197,
           "w": 1140,
           "h": 90,
           "size": 58,
@@ -33,21 +36,32 @@
           "type": "text",
           "text": "《软件工程管理》第十一组小组中期展示",
           "x": 75,
-          "y": 340,
+          "y": 350,
           "w": 1100,
-          "h": 60,
+          "h": 56,
           "size": 35,
           "color": "#003F88",
           "bold": false
         },
         {
           "type": "text",
-          "text": "第11组　组长：程文博",
+          "text": "2024 年中国光伏产业简报 · 从公开统计到带出处的 PDF",
           "x": 75,
-          "y": 450,
+          "y": 447,
           "w": 1100,
-          "h": 45,
-          "size": 29,
+          "h": 55,
+          "size": 32,
+          "color": "#003F88",
+          "bold": true
+        },
+        {
+          "type": "text",
+          "text": "第 11 组组长：程文博",
+          "x": 75,
+          "y": 511,
+          "w": 1100,
+          "h": 41,
+          "size": 27,
           "color": "#233042",
           "bold": false
         },
@@ -55,505 +69,1466 @@
           "type": "text",
           "text": "组员：田亦洁、李佳雨、许子萌、崔大元、郭润航",
           "x": 75,
-          "y": 500,
+          "y": 557,
           "w": 1120,
-          "h": 45,
-          "size": 28,
+          "h": 41,
+          "size": 27,
           "color": "#233042",
           "bold": false
         },
         {
           "type": "text",
-          "text": "展示人：郭润航",
+          "text": "展示人：程文博",
           "x": 75,
-          "y": 551,
+          "y": 604,
           "w": 1100,
-          "h": 45,
+          "h": 42,
+          "size": 27,
+          "color": "#233042",
+          "bold": false
+        }
+      ],
+      "speech": "老师、同学们好，我是第十一组的程文博。今天看一份光伏简报怎样从公开统计写成 PDF。请留意，一个数字从哪里来，少一份资料时又会怎样。",
+      "cue": "翻到三个指标的对照。",
+      "sources": [],
+      "summary": "以一份有出处的光伏简报介绍中期交付。",
+      "notes": "老师、同学们好，我是第十一组的程文博。今天看一份光伏简报怎样从公开统计写成 PDF。请留意，一个数字从哪里来，少一份资料时又会怎样。\n\n操作提示　翻到三个指标的对照。\n\n核对材料\n"
+    },
+    {
+      "id": "scope",
+      "section": "需求与范围",
+      "title": "为什么从多种产业报告，收窄到一份光伏简报？",
+      "subtitle": "目标读者是需要整理年度产业数据、核对数字出处的研究员。",
+      "seconds": 31,
+      "items": [
+        {
+          "type": "text",
+          "text": "开题设想",
+          "x": 65,
+          "y": 151,
+          "w": 200,
+          "h": 40,
+          "size": 25,
+          "color": "#003F88",
+          "bold": true
+        },
+        {
+          "type": "text",
+          "text": "支持多产业、多类型报告",
+          "x": 65,
+          "y": 199,
+          "w": 438,
+          "h": 49,
+          "size": 31,
+          "color": "#233042",
+          "bold": false
+        },
+        {
+          "type": "text",
+          "text": "中期交付",
+          "x": 600,
+          "y": 151,
+          "w": 190,
+          "h": 40,
+          "size": 25,
+          "color": "#003F88",
+          "bold": true
+        },
+        {
+          "type": "text",
+          "text": "2024 年全国光伏 · 制造与价格、发电新增装机",
+          "x": 600,
+          "y": 199,
+          "w": 605,
+          "h": 75,
+          "size": 28,
+          "color": "#233042",
+          "bold": false
+        },
+        {
+          "type": "table",
+          "x": 65,
+          "y": 283,
+          "w": 1150,
+          "h": 263,
+          "size": 24,
+          "rows": [
+            [
+              "原文里的问题",
+              "官方统计",
+              "核对时看什么"
+            ],
+            [
+              "当年生产多少组件？",
+              "588 GW · 工信部",
+              "制造端产量，不能当作电站新增装机。"
+            ],
+            [
+              "组件价格怎样变化？",
+              "同比下降 29.7% · 工信部",
+              "变化幅度。原文未给组件的每瓦售价。"
+            ],
+            [
+              "国内电站新装多少？",
+              "2.78 亿千瓦 · 国家能源局",
+              "本年新增容量，和年末累计装机分开。"
+            ]
+          ],
+          "widths": [
+            0.3,
+            0.32,
+            0.38
+          ]
+        },
+        {
+          "type": "box",
+          "x": 65,
+          "y": 571,
+          "w": 1150,
+          "h": 63,
+          "fill": "#ECF3FA"
+        },
+        {
+          "type": "text",
+          "text": "为什么选它？两家部门都有公开原文，同一问题可以逐项核对，也方便故意删去一份资料。",
+          "x": 80,
+          "y": 584,
+          "w": 1124,
+          "h": 43,
+          "size": 23,
+          "color": "#003F88",
+          "bold": true
+        }
+      ],
+      "speech": "开题想同时做多类报告。中期我们先选光伏，因为两家部门的年度资料都能公开核对。工信部报的是组件产量和价格变化；能源局报的是电站新增装机。588 GW 和 2.78 亿千瓦即使换成同一单位，也不能相减说是库存。我们用这三项来检验找资料、按章写、最后核对的过程，小组也按这几步交接。",
+      "cue": "指向第一行与第三行，解释制造端和电站端各统计什么。",
+      "sources": [
+        "presentations/02-midterm/evidence/中期来源表.md"
+      ],
+      "summary": "从多产业收窄到一个年度、两章、三项有官方原文的指标。",
+      "notes": "开题想同时做多类报告。中期我们先选光伏，因为两家部门的年度资料都能公开核对。工信部报的是组件产量和价格变化；能源局报的是电站新增装机。588 GW 和 2.78 亿千瓦即使换成同一单位，也不能相减说是库存。我们用这三项来检验找资料、按章写、最后核对的过程，小组也按这几步交接。\n\n操作提示　指向第一行与第三行，解释制造端和电站端各统计什么。\n\n核对材料\npresentations/02-midterm/evidence/中期来源表.md"
+    },
+    {
+      "id": "demo",
+      "section": "现场操作",
+      "title": "现场做一份简报，从数字点进原文位置",
+      "subtitle": "左边是实际操作的本机画面。固定资料样例可以断网演示。",
+      "seconds": 90,
+      "items": [
+        {
+          "type": "text",
+          "text": "① 生成简报",
+          "x": 65,
+          "y": 150,
+          "w": 580,
+          "h": 44,
+          "size": 29,
+          "color": "#003F88",
+          "bold": true
+        },
+        {
+          "type": "text",
+          "text": "② 核对来源",
+          "x": 664,
+          "y": 150,
+          "w": 540,
+          "h": 44,
+          "size": 29,
+          "color": "#003F88",
+          "bold": true
+        },
+        {
+          "type": "image",
+          "path": "presentations/02-midterm/ppt/media/demo-home.png",
+          "x": 65,
+          "y": 202,
+          "w": 557,
+          "h": 286
+        },
+        {
+          "type": "image",
+          "path": "presentations/02-midterm/ppt/media/demo-source.png",
+          "x": 672,
+          "y": 199,
+          "w": 282,
+          "h": 281
+        },
+        {
+          "type": "text",
+          "text": "在新增装机栏点击\n「来源 [NEA]」。",
+          "x": 968,
+          "y": 216,
+          "w": 245,
+          "h": 92,
+          "size": 24,
+          "color": "#233042",
+          "bold": false
+        },
+        {
+          "type": "text",
+          "text": "③ 确认并下载",
+          "x": 968,
+          "y": 334,
+          "w": 244,
+          "h": 49,
+          "size": 25,
+          "color": "#003F88",
+          "bold": true
+        },
+        {
+          "type": "text",
+          "text": "核对后，下载带来源和缺项标记的 PDF。",
+          "x": 968,
+          "y": 391,
+          "w": 246,
+          "h": 94,
+          "size": 23,
+          "color": "#233042",
+          "bold": false
+        },
+        {
+          "type": "box",
+          "x": 65,
+          "y": 515,
+          "w": 1150,
+          "h": 134,
+          "fill": "#ECF3FA"
+        },
+        {
+          "type": "text",
+          "text": "研究员也能自己提问",
+          "x": 82,
+          "y": 530,
+          "w": 507,
+          "h": 42,
+          "size": 27,
+          "color": "#003F88",
+          "bold": true
+        },
+        {
+          "type": "text",
+          "text": "“2024 年组件产量和价格怎样变化？”",
+          "x": 82,
+          "y": 584,
+          "w": 513,
+          "h": 58,
+          "size": 25,
+          "color": "#233042",
+          "bold": false
+        },
+        {
+          "type": "text",
+          "text": "另一次联网研究实际取回工信部 1 份原文，\n整理出 10 条证据，写成 2 章、正文 859 字。",
+          "x": 608,
+          "y": 542,
+          "w": 585,
+          "h": 91,
+          "size": 25,
+          "color": "#233042",
+          "bold": false
+        }
+      ],
+      "speech": "我先在本机点“生成示例简报”。这份固定样例读工信部和国家能源局的两份资料。看新增装机，数字后面有个来源按钮。我点开，上面写的是哪份发布、哪一段，我们核对的是“全国光伏新增装机”，尤其要看清“新增”两个字。联网时可以继续打开官方原文。核对后我确认导出，再下载 PDF。这里现场跑的是离线样例。工作台还允许自己提问。我另外问过“2024 年组件产量和价格怎样变化”，那一次联网取得工信部的一份原文，整理出十条证据，写成两章。后面会看到，那份成稿也暴露了一个附表问题。",
+      "cue": "0–20 秒：切到本机工作台，点「生成示例简报」。20–55 秒：在「发电新增装机」点「来源 [NEA]」，指给听众看原文位置（三）。55–75 秒：关闭来源卡，点「核对并导出 PDF」→「确认并生成 PDF」→「下载已核对的 PDF」。75–90 秒：切回本页说明联网自定义题。仅本机服务或投屏故障时用实拍图讲解。",
+      "sources": [
+        "presentations/02-midterm/evidence/中期来源表.md",
+        "presentations/02-midterm/evidence/工作台联网研究_2024年制造与价格.md",
+        "presentations/02-midterm/evidence/README.md"
+      ],
+      "summary": "90 秒完成本机生成、核对、PDF 下载，同时展示有记录的联网自定义任务。",
+      "notes": "我先在本机点“生成示例简报”。这份固定样例读工信部和国家能源局的两份资料。看新增装机，数字后面有个来源按钮。我点开，上面写的是哪份发布、哪一段，我们核对的是“全国光伏新增装机”，尤其要看清“新增”两个字。联网时可以继续打开官方原文。核对后我确认导出，再下载 PDF。这里现场跑的是离线样例。工作台还允许自己提问。我另外问过“2024 年组件产量和价格怎样变化”，那一次联网取得工信部的一份原文，整理出十条证据，写成两章。后面会看到，那份成稿也暴露了一个附表问题。\n\n操作提示　0–20 秒：切到本机工作台，点「生成示例简报」。20–55 秒：在「发电新增装机」点「来源 [NEA]」，指给听众看原文位置（三）。55–75 秒：关闭来源卡，点「核对并导出 PDF」→「确认并生成 PDF」→「下载已核对的 PDF」。75–90 秒：切回本页说明联网自定义题。仅本机服务或投屏故障时用实拍图讲解。\n\n核对材料\npresentations/02-midterm/evidence/中期来源表.md\npresentations/02-midterm/evidence/工作台联网研究_2024年制造与价格.md\npresentations/02-midterm/evidence/README.md"
+    },
+    {
+      "id": "dsh-mcp",
+      "section": "框架借鉴",
+      "title": "DeepSeek Harness 用调用编号把证据送回模型",
+      "subtitle": "接入实验 E4　·　DeepSeek Harness 0.2.2-rc.5　·　真实 SDK 与 MCP 服务，本机模拟模型回复。",
+      "seconds": 39,
+      "items": [
+        {
+          "type": "diagram",
+          "name": "deepseek-harness-mcp",
+          "caption": "DeepSeek Harness 的 MCP 工具往返",
+          "view": [
+            60,
+            155,
+            1160,
+            494
+          ],
+          "parts": [
+            {
+              "type": "text",
+              "text": "模型提出工具请求",
+              "x": 68,
+              "y": 156,
+              "w": 720,
+              "h": 44,
+              "size": 28,
+              "color": "#003F88",
+              "bold": true
+            },
+            {
+              "type": "node",
+              "heading": "模拟模型 · 第一轮",
+              "body": "请求查询新增装机\n调用编号 toolu_pv",
+              "x": 70,
+              "y": 215,
+              "w": 326,
+              "h": 108,
+              "title_size": 25,
+              "body_size": 21,
+              "fill": "#ECF3FA"
+            },
+            {
+              "type": "node",
+              "heading": "Harness SDK",
+              "body": "按工具名转发请求，\n连接独立的 MCP 进程",
+              "x": 473,
+              "y": 215,
+              "w": 326,
+              "h": 108,
+              "title_size": 25,
+              "body_size": 21,
+              "fill": "#ECF3FA"
+            },
+            {
+              "type": "node",
+              "heading": "只读 MCP 服务",
+              "body": "tools/call 触发\nsearch_evidence",
+              "x": 875,
+              "y": 215,
+              "w": 330,
+              "h": 108,
+              "title_size": 25,
+              "body_size": 21,
+              "fill": "#ECF3FA"
+            },
+            {
+              "type": "arrow",
+              "points": [
+                [
+                  396,
+                  269
+                ],
+                [
+                  470,
+                  269
+                ]
+              ]
+            },
+            {
+              "type": "arrow",
+              "points": [
+                [
+                  799,
+                  269
+                ],
+                [
+                  872,
+                  269
+                ]
+              ]
+            },
+            {
+              "type": "arrow",
+              "points": [
+                [
+                  1040,
+                  324
+                ],
+                [
+                  1040,
+                  385
+                ]
+              ]
+            },
+            {
+              "type": "text",
+              "text": "请求",
+              "x": 409,
+              "y": 230,
+              "w": 60,
+              "h": 31,
+              "size": 20,
+              "color": "#60728C",
+              "bold": false
+            },
+            {
+              "type": "text",
+              "text": "stdio",
+              "x": 809,
+              "y": 230,
+              "w": 63,
+              "h": 31,
+              "size": 20,
+              "color": "#60728C",
+              "bold": false
+            },
+            {
+              "type": "text",
+              "text": "查询已录入指标",
+              "x": 1057,
+              "y": 338,
+              "w": 156,
+              "h": 32,
+              "size": 19,
+              "color": "#60728C",
+              "bold": false
+            },
+            {
+              "type": "node",
+              "heading": "模拟模型 · 第二轮",
+              "body": "同一对话收到数值、\n单位与原文位置",
+              "x": 70,
+              "y": 390,
+              "w": 326,
+              "h": 108,
+              "title_size": 25,
+              "body_size": 21,
+              "fill": "#FFFFFF"
+            },
+            {
+              "type": "node",
+              "heading": "SDK 包装返回值",
+              "body": "tool_result 带同一个\ntool_use_id",
+              "x": 473,
+              "y": 390,
+              "w": 326,
+              "h": 108,
+              "title_size": 25,
+              "body_size": 21,
+              "fill": "#FFFFFF"
+            },
+            {
+              "type": "node",
+              "heading": "检索命中",
+              "body": "NEA · 2024 年新增装机\n2.78 亿千瓦",
+              "x": 875,
+              "y": 390,
+              "w": 330,
+              "h": 108,
+              "title_size": 25,
+              "body_size": 21,
+              "fill": "#FFFFFF"
+            },
+            {
+              "type": "arrow",
+              "points": [
+                [
+                  473,
+                  445
+                ],
+                [
+                  399,
+                  445
+                ]
+              ]
+            },
+            {
+              "type": "arrow",
+              "points": [
+                [
+                  875,
+                  445
+                ],
+                [
+                  802,
+                  445
+                ]
+              ]
+            },
+            {
+              "type": "text",
+              "text": "回传",
+              "x": 409,
+              "y": 408,
+              "w": 60,
+              "h": 31,
+              "size": 20,
+              "color": "#60728C",
+              "bold": false
+            },
+            {
+              "type": "text",
+              "text": "证据",
+              "x": 810,
+              "y": 408,
+              "w": 61,
+              "h": 31,
+              "size": 20,
+              "color": "#60728C",
+              "bold": false
+            },
+            {
+              "type": "text",
+              "text": "E4 回执：两次模型请求；第二次带回同一调用的工具结果。",
+              "x": 65,
+              "y": 521,
+              "w": 1140,
+              "h": 44,
+              "size": 24,
+              "color": "#003F88",
+              "bold": true
+            },
+            {
+              "type": "box",
+              "x": 65,
+              "y": 574,
+              "w": 1150,
+              "h": 63,
+              "fill": "#ECF3FA"
+            },
+            {
+              "type": "text",
+              "text": "本组也用原调用号回传首轮命中，程序补查的证据另外列出。回看时能分清哪一轮找到了数字。",
+              "x": 80,
+              "y": 587,
+              "w": 1124,
+              "h": 43,
+              "size": 23,
+              "color": "#003F88",
+              "bold": true
+            }
+          ]
+        }
+      ],
+      "speech": "我们选这两个框架，一个用独立服务接工具，一个把工具注册到 CLI 里。同问新增装机，看证据怎样回来。左上模型提出查询，SDK 把请求交给右边的 MCP 服务。沿下排往左，2.78 亿千瓦带着原调用编号回到模型。本组固定简报也按原号回传首轮命中，补查的证据另列，所以能分清哪一轮找到了数字。这里的模型回复是本机模拟的。",
+      "cue": "手势从左上沿箭头向右，下到“检索命中”，再沿返回箭头向左。收据里 tool_use_id=toolu_pv、tool_result_reentered=true。",
+      "sources": [
+        "presentations/02-midterm/evidence/deepseek-harness.json",
+        "tools/midterm/dsh_probe.py",
+        "https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.2-rc.5/packages/mcp/mcp-client/src/tools.ts#L126-L177",
+        "code/report_app/pv_model.py"
+      ],
+      "summary": "以一条 NEA 指标说明 MCP 调用、同号返回、第二次模型请求和诊断收益。",
+      "notes": "我们选这两个框架，一个用独立服务接工具，一个把工具注册到 CLI 里。同问新增装机，看证据怎样回来。左上模型提出查询，SDK 把请求交给右边的 MCP 服务。沿下排往左，2.78 亿千瓦带着原调用编号回到模型。本组固定简报也按原号回传首轮命中，补查的证据另列，所以能分清哪一轮找到了数字。这里的模型回复是本机模拟的。\n\n操作提示　手势从左上沿箭头向右，下到“检索命中”，再沿返回箭头向左。收据里 tool_use_id=toolu_pv、tool_result_reentered=true。\n\n核对材料\npresentations/02-midterm/evidence/deepseek-harness.json\ntools/midterm/dsh_probe.py\nhttps://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.2-rc.5/packages/mcp/mcp-client/src/tools.ts#L126-L177\ncode/report_app/pv_model.py"
+    },
+    {
+      "id": "pi-cli",
+      "section": "框架借鉴",
+      "title": "Pi CLI 的事件记录能查清工具是否执行",
+      "subtitle": "接入实验 E5　·　Pi 1.6.0　·　真实 CLI、扩展及 Python 查询，本机模拟模型回复。",
+      "seconds": 38,
+      "items": [
+        {
+          "type": "diagram",
+          "name": "pi-cli-events",
+          "caption": "Pi CLI 工具扩展与执行记录",
+          "view": [
+            60,
+            155,
+            1160,
+            494
+          ],
+          "parts": [
+            {
+              "type": "text",
+              "text": "同一份资料查询，换一种接法",
+              "x": 66,
+              "y": 155,
+              "w": 930,
+              "h": 42,
+              "size": 28,
+              "color": "#003F88",
+              "bold": true
+            },
+            {
+              "type": "node",
+              "heading": "Pi CLI",
+              "body": "以 JSON 模式运行，\n在宿主内加载工具扩展",
+              "x": 70,
+              "y": 208,
+              "w": 318,
+              "h": 110,
+              "title_size": 27,
+              "body_size": 22,
+              "fill": "#ECF3FA"
+            },
+            {
+              "type": "node",
+              "heading": "Pi 工具扩展",
+              "body": "注册 search_evidence，\n参数限三个有效指标编号",
+              "x": 477,
+              "y": 208,
+              "w": 325,
+              "h": 110,
+              "title_size": 25,
+              "body_size": 22,
+              "fill": "#ECF3FA"
+            },
+            {
+              "type": "node",
+              "heading": "现有 Python 查询",
+              "body": "子进程执行现有 CLI，\n返回数值和来源编号",
+              "x": 887,
+              "y": 208,
+              "w": 318,
+              "h": 110,
+              "title_size": 25,
+              "body_size": 21,
+              "fill": "#ECF3FA"
+            },
+            {
+              "type": "arrow",
+              "points": [
+                [
+                  388,
+                  265
+                ],
+                [
+                  474,
+                  265
+                ]
+              ]
+            },
+            {
+              "type": "arrow",
+              "points": [
+                [
+                  802,
+                  265
+                ],
+                [
+                  884,
+                  265
+                ]
+              ]
+            },
+            {
+              "type": "text",
+              "text": "载入",
+              "x": 402,
+              "y": 227,
+              "w": 65,
+              "h": 30,
+              "size": 20,
+              "color": "#60728C",
+              "bold": false
+            },
+            {
+              "type": "text",
+              "text": "执行",
+              "x": 819,
+              "y": 227,
+              "w": 65,
+              "h": 30,
+              "size": 20,
+              "color": "#60728C",
+              "bold": false
+            },
+            {
+              "type": "text",
+              "text": "一次真实工具执行，在事件记录里留下了什么？",
+              "x": 66,
+              "y": 350,
+              "w": 1135,
+              "h": 43,
+              "size": 28,
+              "color": "#003F88",
+              "bold": true
+            },
+            {
+              "type": "node",
+              "heading": "工具开始",
+              "body": "tool_execution_start",
+              "x": 70,
+              "y": 410,
+              "w": 253,
+              "h": 93,
+              "title_size": 25,
+              "body_size": 18,
+              "fill": "#FFFFFF"
+            },
+            {
+              "type": "node",
+              "heading": "工具结束",
+              "body": "tool_execution_end",
+              "x": 369,
+              "y": 410,
+              "w": 246,
+              "h": 93,
+              "title_size": 25,
+              "body_size": 18,
+              "fill": "#FFFFFF"
+            },
+            {
+              "type": "node",
+              "heading": "下一轮模型请求",
+              "body": "已带回 NEA 指标",
+              "x": 661,
+              "y": 410,
+              "w": 251,
+              "h": 93,
+              "title_size": 25,
+              "body_size": 22,
+              "fill": "#FFFFFF"
+            },
+            {
+              "type": "node",
+              "heading": "任务结束",
+              "body": "agent_end",
+              "x": 958,
+              "y": 410,
+              "w": 247,
+              "h": 93,
+              "title_size": 25,
+              "body_size": 22,
+              "fill": "#FFFFFF"
+            },
+            {
+              "type": "arrow",
+              "points": [
+                [
+                  323,
+                  458
+                ],
+                [
+                  366,
+                  458
+                ]
+              ]
+            },
+            {
+              "type": "arrow",
+              "points": [
+                [
+                  615,
+                  458
+                ],
+                [
+                  658,
+                  458
+                ]
+              ]
+            },
+            {
+              "type": "arrow",
+              "points": [
+                [
+                  912,
+                  458
+                ],
+                [
+                  955,
+                  458
+                ]
+              ]
+            },
+            {
+              "type": "text",
+              "text": "E5 回执：2 次模型请求；工具执行成功，第二次请求含 NEA 和 2.78 亿千瓦。",
+              "x": 66,
+              "y": 526,
+              "w": 1140,
+              "h": 45,
+              "size": 23,
+              "color": "#003F88",
+              "bold": true
+            },
+            {
+              "type": "box",
+              "x": 65,
+              "y": 574,
+              "w": 1150,
+              "h": 63,
+              "fill": "#ECF3FA"
+            },
+            {
+              "type": "text",
+              "text": "本组按初查、补查、写稿分别记事。装机栏为空时，能查清走到哪一步、补查有没有命中。",
+              "x": 80,
+              "y": 587,
+              "w": 1124,
+              "h": 43,
+              "size": 23,
+              "color": "#003F88",
+              "bold": true
+            }
+          ]
+        }
+      ],
+      "speech": "Pi 帮我们看清另一个问题：工具到底执行到哪一步？上排的扩展把同一个 Python 查询接进 Pi。下排能先后看到工具开始、结束，下一轮模型请求里也查得到 NEA 的值。这个实验同样模拟模型回复。我们自己的简报把初查、补查和写稿分开记录。装机栏空了，可以打开记录，看程序有没有补查，以及补查究竟返回了什么。",
+      "cue": "先指上排的扩展与 Python 查询，再指下排工具开始、结束及第二轮请求。扩展登记和工具执行的证据分别见实现、E5 回执。",
+      "sources": [
+        "presentations/02-midterm/evidence/pi-cli.json",
+        "tools/midterm/pi_evidence.mjs",
+        "tools/midterm/pi_probe.py",
+        "https://github.com/earendil-works/pi/blob/v1.6.0/packages/agent/src/agent-loop.ts#L268-L308",
+        "https://github.com/earendil-works/pi/blob/v1.6.0/packages/coding-agent/docs/json.md",
+        "code/report_app/pv_agent.py"
+      ],
+      "summary": "复用现有 Python 查询，解读工具事件与第二次模型请求，用于定位失败。",
+      "notes": "Pi 帮我们看清另一个问题：工具到底执行到哪一步？上排的扩展把同一个 Python 查询接进 Pi。下排能先后看到工具开始、结束，下一轮模型请求里也查得到 NEA 的值。这个实验同样模拟模型回复。我们自己的简报把初查、补查和写稿分开记录。装机栏空了，可以打开记录，看程序有没有补查，以及补查究竟返回了什么。\n\n操作提示　先指上排的扩展与 Python 查询，再指下排工具开始、结束及第二轮请求。扩展登记和工具执行的证据分别见实现、E5 回执。\n\n核对材料\npresentations/02-midterm/evidence/pi-cli.json\ntools/midterm/pi_evidence.mjs\ntools/midterm/pi_probe.py\nhttps://github.com/earendil-works/pi/blob/v1.6.0/packages/agent/src/agent-loop.ts#L268-L308\nhttps://github.com/earendil-works/pi/blob/v1.6.0/packages/coding-agent/docs/json.md\ncode/report_app/pv_agent.py"
+    },
+    {
+      "id": "runtime",
+      "section": "系统架构",
+      "title": "固定简报按缺项补查，自定义研究按题找资料",
+      "subtitle": "日常生成由本组 Python 程序负责。DeepSeek Harness 和 Pi 分别用于独立的工具接入实验。",
+      "seconds": 53,
+      "items": [
+        {
+          "type": "diagram",
+          "name": "report-runtime",
+          "caption": "光伏报告生成系统的两条实际运行路径",
+          "view": [
+            60,
+            155,
+            1160,
+            494
+          ],
+          "parts": [
+            {
+              "type": "text",
+              "text": "任务入口",
+              "x": 65,
+              "y": 156,
+              "w": 247,
+              "h": 40,
+              "size": 25,
+              "color": "#003F88",
+              "bold": true
+            },
+            {
+              "type": "text",
+              "text": "资料与写作怎样配合",
+              "x": 352,
+              "y": 156,
+              "w": 458,
+              "h": 40,
+              "size": 25,
+              "color": "#003F88",
+              "bold": true
+            },
+            {
+              "type": "text",
+              "text": "校验与恢复",
+              "x": 826,
+              "y": 156,
+              "w": 369,
+              "h": 40,
+              "size": 25,
+              "color": "#003F88",
+              "bold": true
+            },
+            {
+              "type": "node",
+              "heading": "固定简报",
+              "body": "两章、三项指标\n离线决策 / 实时 GLM",
+              "x": 65,
+              "y": 211,
+              "w": 254,
+              "h": 132,
+              "title_size": 26,
+              "body_size": 21,
+              "fill": "#ECF3FA"
+            },
+            {
+              "type": "node",
+              "heading": "LangGraph 按章编排",
+              "body": "只读工具查固定资料；\n缺项只在同一批资料中补查一次。",
+              "x": 354,
+              "y": 211,
+              "w": 445,
+              "h": 132,
+              "title_size": 26,
+              "body_size": 22,
+              "fill": "#ECF3FA"
+            },
+            {
+              "type": "node",
+              "heading": "按证据字段填数",
+              "body": "没有来源就留“待核实”。\n每完成一章保存检查点。",
+              "x": 837,
+              "y": 211,
+              "w": 348,
+              "h": 132,
+              "title_size": 25,
+              "body_size": 22,
+              "fill": "#ECF3FA"
+            },
+            {
+              "type": "arrow",
+              "points": [
+                [
+                  319,
+                  278
+                ],
+                [
+                  351,
+                  278
+                ]
+              ]
+            },
+            {
+              "type": "arrow",
+              "points": [
+                [
+                  799,
+                  278
+                ],
+                [
+                  834,
+                  278
+                ]
+              ]
+            },
+            {
+              "type": "node",
+              "heading": "自定义研究",
+              "body": "用户给出问题、篇幅、\n来源和可选写作参考",
+              "x": 65,
+              "y": 369,
+              "w": 254,
+              "h": 132,
+              "title_size": 26,
+              "body_size": 21,
+              "fill": "#FFFFFF"
+            },
+            {
+              "type": "node",
+              "heading": "Python 工作台按章写作",
+              "body": "联网留存本次数据、原文摘录和来源链接；\n写作参考和事实证据分别送入模型。",
+              "x": 354,
+              "y": 369,
+              "w": 445,
+              "h": 132,
+              "title_size": 26,
+              "body_size": 21,
+              "fill": "#FFFFFF"
+            },
+            {
+              "type": "node",
+              "heading": "逐句核对引用",
+              "body": "查数值、单位与统计口径；\n进度与证据存入 SQLite。",
+              "x": 837,
+              "y": 369,
+              "w": 348,
+              "h": 132,
+              "title_size": 25,
+              "body_size": 21,
+              "fill": "#FFFFFF"
+            },
+            {
+              "type": "arrow",
+              "points": [
+                [
+                  319,
+                  436
+                ],
+                [
+                  351,
+                  436
+                ]
+              ]
+            },
+            {
+              "type": "arrow",
+              "points": [
+                [
+                  799,
+                  436
+                ],
+                [
+                  834,
+                  436
+                ]
+              ]
+            },
+            {
+              "type": "arrow",
+              "points": [
+                [
+                  1185,
+                  276
+                ],
+                [
+                  1203,
+                  276
+                ],
+                [
+                  1203,
+                  547
+                ]
+              ]
+            },
+            {
+              "type": "arrow",
+              "points": [
+                [
+                  1024,
+                  501
+                ],
+                [
+                  1024,
+                  547
+                ]
+              ]
+            },
+            {
+              "type": "node",
+              "heading": "两条路径都要经过人工核对",
+              "body": "核对正文、出处和待核实项  →  确认定稿  →  保留 Markdown 与 PDF",
+              "x": 65,
+              "y": 550,
+              "w": 1150,
+              "h": 88,
+              "title_size": 26,
+              "body_size": 23,
+              "fill": "#ECF3FA"
+            }
+          ]
+        }
+      ],
+      "speech": "上排是刚演示的固定简报。离线样例用固定决策，实时模式可以调用 GLM；两种都由 LangGraph 按章组织，查不到只在同一批资料里补查一次。数值从证据字段填入，写好一章就保存一章。下排是自己出题时走的路。工作台从允许的来源联网取数，留下本次数据、原文摘录和来源链接，再按章写、查引用。勾选的参考报告可以指导章节写法，里面的数字还要回到本题证据。两条路最后都要人核对再导出。下一页看看，上排如果真的少一份资料，会留下什么。",
+      "cue": "从上排按“固定任务—工具—按章检查”讲，然后沿下排讲联网与 SQLite。两排最后指向共同的人工核对。E8 中已完成首章在恢复时被跳过。",
+      "sources": [
+        "code/report_app/pv_agent.py",
+        "code/report_app/pv_checkpoint.py",
+        "code/report_app/long_report.py",
+        "code/report_app/research.py",
+        "code/report_app/writing_references.py",
+        "presentations/02-midterm/evidence/glm-resume.json"
+      ],
+      "summary": "比较固定/实时简报和自定义联网路径的证据来源、编排、核对、恢复和导出。",
+      "notes": "上排是刚演示的固定简报。离线样例用固定决策，实时模式可以调用 GLM；两种都由 LangGraph 按章组织，查不到只在同一批资料里补查一次。数值从证据字段填入，写好一章就保存一章。下排是自己出题时走的路。工作台从允许的来源联网取数，留下本次数据、原文摘录和来源链接，再按章写、查引用。勾选的参考报告可以指导章节写法，里面的数字还要回到本题证据。两条路最后都要人核对再导出。下一页看看，上排如果真的少一份资料，会留下什么。\n\n操作提示　从上排按“固定任务—工具—按章检查”讲，然后沿下排讲联网与 SQLite。两排最后指向共同的人工核对。E8 中已完成首章在恢复时被跳过。\n\n核对材料\ncode/report_app/pv_agent.py\ncode/report_app/pv_checkpoint.py\ncode/report_app/long_report.py\ncode/report_app/research.py\ncode/report_app/writing_references.py\npresentations/02-midterm/evidence/glm-resume.json"
+    },
+    {
+      "id": "counterfactual",
+      "section": "质量验证",
+      "title": "拿掉装机来源，最终 PDF 会保留“待核实”",
+      "subtitle": "真实 GLM 提出查询，程序按工具返回值填数。E7 两次只改变资料中是否含国家能源局发布。",
+      "seconds": 41,
+      "items": [
+        {
+          "type": "text",
+          "text": "两份资料齐全",
+          "x": 65,
+          "y": 175,
+          "w": 387,
+          "h": 47,
           "size": 30,
           "color": "#003F88",
           "bold": true
         },
         {
           "type": "text",
-          "text": "2024年中国光伏产业简报 · 2026年11月21日",
-          "x": 75,
-          "y": 610,
-          "w": 1100,
-          "h": 34,
-          "size": 22,
-          "color": "#60728C",
-          "bold": false
-        }
-      ],
-      "speech": "各位老师、同学好，我们是第11组。请想象我们正在写一份光伏产业简报，手上有两个容易弄混的数字，一个是组件产量，一个是发电新增装机。我们想解决的是，每个数字写进报告以后，还能不能查回原文。还有，如果手头少一份资料，报告会怎样处理？接下来我用这一个案例，从查资料讲到导出。",
-      "cue": "",
-      "notes": "各位老师、同学好，我们是第11组。请想象我们正在写一份光伏产业简报，手上有两个容易弄混的数字，一个是组件产量，一个是发电新增装机。我们想解决的是，每个数字写进报告以后，还能不能查回原文。还有，如果手头少一份资料，报告会怎样处理？接下来我用这一个案例，从查资料讲到导出。"
-    },
-    {
-      "title": "先把一份光伏简报做完整",
-      "subtitle": "开题覆盖多产业、多报告。中期先做光伏两章，把一条流程跑完整。",
-      "seconds": 55,
-      "items": [
-        {
-          "type": "text",
-          "text": "588 GW",
-          "x": 70,
-          "y": 170,
-          "w": 515,
-          "h": 72,
-          "size": 51,
-          "color": "#003F88",
-          "bold": true
-        },
-        {
-          "type": "text",
-          "text": "2.78 亿千瓦",
-          "x": 670,
-          "y": 170,
-          "w": 525,
-          "h": 72,
-          "size": 51,
-          "color": "#003F88",
-          "bold": true
-        },
-        {
-          "type": "text",
-          "text": "组件产量 · 工信部",
-          "x": 72,
-          "y": 251,
-          "w": 518,
-          "h": 48,
-          "size": 34,
-          "color": "#233042",
-          "bold": false
-        },
-        {
-          "type": "text",
-          "text": "新增装机 · 国家能源局",
-          "x": 672,
-          "y": 251,
-          "w": 520,
-          "h": 48,
-          "size": 34,
-          "color": "#233042",
-          "bold": false
-        },
-        {
-          "type": "text",
-          "text": "当年制造了多少组件",
-          "x": 72,
-          "y": 310,
-          "w": 515,
-          "h": 42,
-          "size": 25,
-          "color": "#60728C",
-          "bold": false
-        },
-        {
-          "type": "text",
-          "text": "当年新增了多少发电装机",
-          "x": 672,
-          "y": 310,
-          "w": 530,
-          "h": 42,
-          "size": 25,
-          "color": "#60728C",
-          "bold": false
-        },
-        {
-          "type": "box",
+          "text": "工信部 + 国家能源局\n3 项指标均有出处",
           "x": 65,
-          "y": 422,
-          "w": 1150,
-          "h": 106,
-          "fill": "#ECF3FA"
-        },
-        {
-          "type": "text",
-          "text": "开题原型把资料摘出来。中期原型按章节查数、标缺项，再由人核对导出。",
-          "x": 83,
-          "y": 445,
-          "w": 1114,
-          "h": 60,
-          "size": 29,
-          "color": "#003F88",
-          "bold": false
-        },
-        {
-          "type": "text",
-          "text": "两项均为2024年统计。",
-          "x": 70,
-          "y": 585,
-          "w": 1130,
-          "h": 38,
-          "size": 22,
-          "color": "#60728C",
-          "bold": false
-        }
-      ],
-      "speech": "请看这两个数。588吉瓦是工信部统计的组件产量，说的是当年生产了多少。右边的2.78亿千瓦来自国家能源局，说的是当年新装了多少发电设备。即使把单位换成一样，也不能把它们当成同一个指标。开题时，我们能把资料摘出来供人阅读。到了中期，我们先把这个案例做完整，按“制造与价格”和“发电新增装机”两章查数据，写完以后，人可以顺着来源回原文。",
-      "cue": "",
-      "notes": "请看这两个数。588吉瓦是工信部统计的组件产量，说的是当年生产了多少。右边的2.78亿千瓦来自国家能源局，说的是当年新装了多少发电设备。即使把单位换成一样，也不能把它们当成同一个指标。开题时，我们能把资料摘出来供人阅读。到了中期，我们先把这个案例做完整，按“制造与价格”和“发电新增装机”两章查数据，写完以后，人可以顺着来源回原文。\nhttps://wap.miit.gov.cn/gyhxxhb/jgsj/dzxxsnew/xyyx/art/2025/art_1717bf6fa0a34311a2c347fb9623e607.html\nhttps://www.nea.gov.cn/20250221/e10f363cabe3458aaf78ba4558970054/c.html"
-    },
-    {
-      "title": "系统查数据，人确认后导出",
-      "subtitle": "每一章先查必需的指标。查不到的项目最多补查一次。",
-      "seconds": 65,
-      "items": [
-        {
-          "type": "flow",
-          "nodes": [
-            [
-              "按章查资料",
-              "拿到数字、单位和原文位置",
-              65,
-              195,
-              370,
-              108
-            ],
-            [
-              "检查缺哪项",
-              "缺项补查一次，仍缺就标记",
-              455,
-              195,
-              370,
-              108
-            ],
-            [
-              "核对再导出",
-              "草稿可改，确认后生成 PDF",
-              845,
-              195,
-              370,
-              108
-            ]
-          ],
-          "edges": [
-            [
-              435,
-              249,
-              455,
-              249
-            ],
-            [
-              825,
-              249,
-              845,
-              249
-            ]
-          ]
-        },
-        {
-          "type": "text",
-          "text": "模型提出查找请求、整理文字，程序把证据表里的数字和单位填进去。",
-          "x": 70,
-          "y": 362,
-          "w": 1130,
-          "h": 57,
-          "size": 29,
-          "color": "#003F88",
-          "bold": false
-        },
-        {
-          "type": "text",
-          "text": "LangGraph 负责控制步骤。DeepSeek Harness 和 Pi 用来验证工具回传。",
-          "x": 70,
-          "y": 452,
-          "w": 1130,
-          "h": 60,
-          "size": 27,
+          "y": 241,
+          "w": 390,
+          "h": 80,
+          "size": 25,
           "color": "#233042",
           "bold": false
-        },
-        {
-          "type": "text",
-          "text": "两个框架的工具测试使用本地模拟模型。",
-          "x": 70,
-          "y": 545,
-          "w": 1130,
-          "h": 43,
-          "size": 23,
-          "color": "#60728C",
-          "bold": false
-        }
-      ],
-      "speech": "拿装机这一章来说，模板先告诉系统，这一章必须查到什么。模型提出查找请求，资料工具把年份、数值、单位和出处带回来。系统检查有没有缺项，缺就只补查那一项。数字和单位由程序直接从证据表填进去，模型负责整理文字。最后由人核对原文，确认后导出。这里控制步骤的是 LangGraph。我们也分别用 DeepSeek Harness 和 Pi 检查了资料工具能不能被模型叫到、结果能不能送回。那两项检查用的是模拟响应。",
-      "cue": "",
-      "notes": "拿装机这一章来说，模板先告诉系统，这一章必须查到什么。模型提出查找请求，资料工具把年份、数值、单位和出处带回来。系统检查有没有缺项，缺就只补查那一项。数字和单位由程序直接从证据表填进去，模型负责整理文字。最后由人核对原文，确认后导出。这里控制步骤的是 LangGraph。我们也分别用 DeepSeek Harness 和 Pi 检查了资料工具能不能被模型叫到、结果能不能送回。那两项检查用的是模拟响应。",
-      "id": "chapter-flow"
-    },
-    {
-      "title": "拿掉装机资料后，PDF 会怎么写",
-      "subtitle": "这两张图截自真实 GLM-5.3-Flash 联调导出的 PDF。",
-      "seconds": 100,
-      "items": [
-        {
-          "type": "text",
-          "text": "两份资料都在",
-          "x": 70,
-          "y": 158,
-          "w": 540,
-          "h": 52,
-          "size": 33,
-          "color": "#003F88",
-          "bold": true
-        },
-        {
-          "type": "text",
-          "text": "只拿掉国家能源局的资料",
-          "x": 665,
-          "y": 158,
-          "w": 540,
-          "h": 52,
-          "size": 33,
-          "color": "#003F88",
-          "bold": true
-        },
-        {
-          "type": "box",
-          "x": 65,
-          "y": 223,
-          "w": 555,
-          "h": 114,
-          "fill": "#ECF3FA"
-        },
-        {
-          "type": "box",
-          "x": 660,
-          "y": 223,
-          "w": 555,
-          "h": 114,
-          "fill": "#ECF3FA"
         },
         {
           "type": "image",
           "path": "presentations/02-midterm/evidence/glm-full-excerpt.png",
-          "x": 79,
-          "y": 237,
-          "w": 527,
-          "h": 86
-        },
-        {
-          "type": "image",
-          "path": "presentations/02-midterm/evidence/glm-missing-excerpt.png",
-          "x": 674,
-          "y": 237,
-          "w": 527,
-          "h": 86
-        },
-        {
-          "type": "text",
-          "text": "找到新增装机和出处。",
-          "x": 75,
-          "y": 361,
-          "w": 525,
-          "h": 50,
-          "size": 28,
-          "color": "#233042",
-          "bold": false
-        },
-        {
-          "type": "text",
-          "text": "初查没找到，补查一次仍为空。",
-          "x": 668,
-          "y": 361,
-          "w": 530,
-          "h": 52,
-          "size": 28,
-          "color": "#233042",
-          "bold": false
+          "x": 469,
+          "y": 173,
+          "w": 738,
+          "h": 129
         },
         {
           "type": "box",
           "x": 65,
-          "y": 478,
+          "y": 328,
           "w": 1150,
-          "h": 82,
-          "fill": "#ECF3FA"
+          "h": 2,
+          "fill": "#D9E1EB"
         },
         {
           "type": "text",
-          "text": "缺资料的那一栏保留“待核实”。制造数据仍然有出处。",
-          "x": 83,
-          "y": 496,
-          "w": 1120,
+          "text": "仅保留工信部",
+          "x": 65,
+          "y": 360,
+          "w": 387,
           "h": 48,
-          "size": 32,
+          "size": 30,
           "color": "#003F88",
           "bold": true
         },
         {
           "type": "text",
-          "text": "样张来源：E7 完整资料与缺装机资料两组联调记录。",
-          "x": 70,
-          "y": 593,
-          "w": 1120,
+          "text": "装机初查、补查均为空；\n另两项制造指标仍有出处。",
+          "x": 65,
+          "y": 423,
+          "w": 390,
+          "h": 85,
+          "size": 24,
+          "color": "#233042",
+          "bold": false
+        },
+        {
+          "type": "image",
+          "path": "presentations/02-midterm/evidence/glm-missing-excerpt.png",
+          "x": 469,
+          "y": 360,
+          "w": 738,
+          "h": 135
+        },
+        {
+          "type": "box",
+          "x": 65,
+          "y": 561,
+          "w": 1150,
+          "h": 63,
+          "fill": "#ECF3FA"
+        },
+        {
+          "type": "text",
+          "text": "中期 E9：郭润航另用固定离线决策独立复跑两份资料，同一栏也分别为“2.78 亿千瓦”和“待核实”。",
+          "x": 80,
+          "y": 574,
+          "w": 1124,
+          "h": 43,
+          "size": 21,
+          "color": "#003F88",
+          "bold": true
+        }
+      ],
+      "speech": "两张图都截自真实 GLM 输出的 PDF。上面两份资料都在，装机栏给了 2.78 亿千瓦和出处。下面只拿走能源局资料。GLM 提出查询，装机初查和补查都空了，程序按返回值把这一行写成“待核实”。工信部还在，所以组件产量、价格变化照旧。郭润航换成固定离线决策，独立复跑同一对输入，也看到了同样的两行。这个实验说明这组材料上的行为，更多题目还要另验。",
+      "cue": "对准两张 PDF 的同一栏朗读。E7 为真实模型；中期 E9 为离线独立复跑。",
+      "sources": [
+        "presentations/02-midterm/evidence/glm-full.json",
+        "presentations/02-midterm/evidence/glm-missing.json",
+        "presentations/02-midterm/evidence/光伏简报_GLM完整资料.pdf",
+        "presentations/02-midterm/evidence/光伏简报_GLM缺装机资料.pdf",
+        "presentations/02-midterm/evidence/郭润航_样张说明.md"
+      ],
+      "summary": "真实 GLM 单因素删源，结合独立离线复跑，区分两种证据。",
+      "notes": "两张图都截自真实 GLM 输出的 PDF。上面两份资料都在，装机栏给了 2.78 亿千瓦和出处。下面只拿走能源局资料。GLM 提出查询，装机初查和补查都空了，程序按返回值把这一行写成“待核实”。工信部还在，所以组件产量、价格变化照旧。郭润航换成固定离线决策，独立复跑同一对输入，也看到了同样的两行。这个实验说明这组材料上的行为，更多题目还要另验。\n\n操作提示　对准两张 PDF 的同一栏朗读。E7 为真实模型；中期 E9 为离线独立复跑。\n\n核对材料\npresentations/02-midterm/evidence/glm-full.json\npresentations/02-midterm/evidence/glm-missing.json\npresentations/02-midterm/evidence/光伏简报_GLM完整资料.pdf\npresentations/02-midterm/evidence/光伏简报_GLM缺装机资料.pdf\npresentations/02-midterm/evidence/郭润航_样张说明.md"
+    },
+    {
+      "id": "iteration",
+      "section": "联调与迭代",
+      "title": "正文写对了，附表却选错了：我们怎样改？",
+      "subtitle": "用实际联网成稿发现偏题，再用定向错误检查统计口径。",
+      "seconds": 38,
+      "items": [
+        {
+          "type": "text",
+          "text": "同题重算附表",
+          "x": 65,
+          "y": 154,
+          "w": 1150,
+          "h": 41,
+          "size": 28,
+          "color": "#003F88",
+          "bold": true
+        },
+        {
+          "type": "table",
+          "x": 65,
+          "y": 209,
+          "w": 1150,
+          "h": 151,
+          "size": 24,
+          "rows": [
+            [
+              "原稿中发生了什么",
+              "改过以后怎样核对"
+            ],
+            [
+              "研究题问组件。正文写对了产量，附表却选了上游的多晶硅。",
+              "用题目与正文引用筛选附表。对同一运行记录重算，选中组件产量 588 GW。"
+            ]
+          ],
+          "widths": [
+            0.49,
+            0.51
+          ]
+        },
+        {
+          "type": "text",
+          "text": "只看“数字在原表里”也会漏掉错误",
+          "x": 65,
+          "y": 386,
+          "w": 1140,
+          "h": 42,
+          "size": 28,
+          "color": "#003F88",
+          "bold": true
+        },
+        {
+          "type": "table",
+          "x": 65,
+          "y": 440,
+          "w": 1150,
+          "h": 153,
+          "size": 23,
+          "rows": [
+            [
+              "6 条植入错误",
+              "3 条有依据的陈述",
+              "3 条需人工判断的陈述"
+            ],
+            [
+              "旧版发现 3 条，当前发现 6 条。含错省、错年、累计写成新增。",
+              "当前全部放行。",
+              "缺出处、无效编号、由装机量推断融资原因，交给人核对。"
+            ]
+          ],
+          "widths": [
+            0.37,
+            0.24,
+            0.39
+          ]
+        },
+        {
+          "type": "text",
+          "text": "定向用例来自光伏分省表。12 句的结果不能推算整份报告的事实准确率。",
+          "x": 65,
+          "y": 618,
+          "w": 1140,
           "h": 38,
           "size": 22,
           "color": "#60728C",
           "bold": false
         }
       ],
-      "speech": "我们做了两次真实联调，请先看左边。两份资料都在，简报里写出了2.78亿千瓦，后面有国家能源局的来源编号，报告末尾能跳回原文。现在再看右边。我们只拿掉国家能源局的资料，工信部的那份还在。系统第一次查装机没有结果，就专门补查一次，还是找不到。大家可以看右边这一行，最后导出的 PDF 仍然写着“待核实”。同一份报告里，组件产量和价格仍然有出处。这个对照也说明，遇到资料不全，研究员能一眼看出还有哪项要补。两边都是已经导出的样张，现场直接看这一页。",
-      "cue": "先指左边的数值和来源编号，停顿，再指右边“待核实”。这一页展示预存的实测结果。",
-      "notes": "我们做了两次真实联调，请先看左边。两份资料都在，简报里写出了2.78亿千瓦，后面有国家能源局的来源编号，报告末尾能跳回原文。现在再看右边。我们只拿掉国家能源局的资料，工信部的那份还在。系统第一次查装机没有结果，就专门补查一次，还是找不到。大家可以看右边这一行，最后导出的 PDF 仍然写着“待核实”。同一份报告里，组件产量和价格仍然有出处。这个对照也说明，遇到资料不全，研究员能一眼看出还有哪项要补。两边都是已经导出的样张，现场直接看这一页。\n先指左边的数值和来源编号，停顿，再指右边“待核实”。这一页展示预存的实测结果。"
-    },
-    {
-      "title": "我们验证了什么",
-      "subtitle": "把真实联调、离线演示和工具测试分开看。",
-      "seconds": 60,
-      "items": [
-        {
-          "type": "table",
-          "x": 65,
-          "y": 165,
-          "w": 1150,
-          "h": 385,
-          "rows": [
-            [
-              "验证方式",
-              "实际看到的结果"
-            ],
-            [
-              "真实 GLM 联调",
-              "完整资料 3 项可回查。缺装机时 1 项待核实。"
-            ],
-            [
-              "离线复跑与自动测试",
-              "复现补查和缺项。27 项自动测试通过。"
-            ],
-            [
-              "框架接入（模拟模型）",
-              "DeepSeek Harness 和 Pi 各自调用资料工具并收到结果。"
-            ],
-            [
-              "重启恢复（真实 GLM）",
-              "主动停在第二章前。重启后跳过第一章并导出 PDF。"
-            ]
-          ],
-          "widths": [
-            0.29,
-            0.71
-          ],
-          "size": 26
-        },
-        {
-          "type": "text",
-          "text": "目前只验证了这个光伏案例。换行业或换一批资料，需要继续测。",
-          "x": 70,
-          "y": 572,
-          "w": 1130,
-          "h": 58,
-          "size": 28,
-          "color": "#003F88",
-          "bold": false
-        }
+      "speech": "再回到刚才的自定义题。第一份稿正文写对了组件产量，附表却挑了多晶硅。我们让附表优先匹配题目和正文引用，再用同一份记录重算，这次选到了组件产量 588 GW。另一个容易漏的错，是把湖北的数填在江西名下。六句故意写错的例子，旧规则发现三句，新规则找到六句。但由装机变化猜融资原因，还得让人读；这十二句也说明不了整篇准确率。",
+      "cue": "先指左侧原稿与右侧重算结果，再用“错省”解释下方 12 条分组。附表重算不是第二次真实模型生成。",
+      "sources": [
+        "presentations/02-midterm/evidence/工作台联网研究_2024年制造与价格.md",
+        "presentations/02-midterm/evidence/README.md",
+        "docs/报告核查与修订.md",
+        "tools/evaluate_research_review.py"
       ],
-      "speech": "这几个测试各自回答一个问题。真实的 GLM 联调说明，这个光伏案例的两组资料都能走到 PDF。离线模式可以反复看补查怎么走。二十七项自动测试检查了伪造引用、人工确认、PDF 导出和恢复等行为。我们也用模拟模型试了 DeepSeek Harness 和 Pi，看到两个框架都能调用资料工具并拿回结果。最后，我们用真实的 GLM 写完第一章，主动停掉程序。重启后程序跳过第一章，把余下的章节跑完，最后导出了 PDF。",
-      "cue": "",
-      "notes": "这几个测试各自回答一个问题。真实的 GLM 联调说明，这个光伏案例的两组资料都能走到 PDF。离线模式可以反复看补查怎么走。二十七项自动测试检查了伪造引用、人工确认、PDF 导出和恢复等行为。我们也用模拟模型试了 DeepSeek Harness 和 Pi，看到两个框架都能调用资料工具并拿回结果。最后，我们用真实的 GLM 写完第一章，主动停掉程序。重启后程序跳过第一章，把余下的章节跑完，最后导出了 PDF。"
+      "summary": "追踪一次真实联网附表偏题和修正，再用另一组定向用例说明规则边界。",
+      "notes": "再回到刚才的自定义题。第一份稿正文写对了组件产量，附表却挑了多晶硅。我们让附表优先匹配题目和正文引用，再用同一份记录重算，这次选到了组件产量 588 GW。另一个容易漏的错，是把湖北的数填在江西名下。六句故意写错的例子，旧规则发现三句，新规则找到六句。但由装机变化猜融资原因，还得让人读；这十二句也说明不了整篇准确率。\n\n操作提示　先指左侧原稿与右侧重算结果，再用“错省”解释下方 12 条分组。附表重算不是第二次真实模型生成。\n\n核对材料\npresentations/02-midterm/evidence/工作台联网研究_2024年制造与价格.md\npresentations/02-midterm/evidence/README.md\ndocs/报告核查与修订.md\ntools/evaluate_research_review.py"
     },
     {
-      "title": "六个人围绕同一份简报交接",
-      "subtitle": "开题公开样例已复用。中期分工按以下安排拟定。",
-      "seconds": 50,
+      "id": "cooperation",
+      "section": "协作与交付",
+      "title": "六个人围绕同一条验收问题交接",
+      "subtitle": "共同需求：新增装机必须有原文；拿掉资料，缺项必须留在最终 PDF。",
+      "seconds": 32,
       "items": [
         {
           "type": "table",
           "x": 65,
-          "y": 165,
+          "y": 161,
           "w": 1150,
-          "h": 315,
+          "h": 365,
+          "size": 23,
           "rows": [
             [
               "成员",
-              "交付什么"
+              "交出的东西",
+              "下一位怎么用"
             ],
             [
-              "程文博、田亦洁",
-              "定好每一章该查什么，写清验收条件。"
+              "崔大元",
+              "三项指标的来源表 · PR #12",
+              "对照国家能源局原文核对装机口径"
             ],
             [
-              "崔大元、许子萌",
-              "整理来源和数据，接好检索、补查和模型调用。"
+              "许子萌",
+              "流程图、工具回传说明 · PR #13",
+              "让报告和讲解说清初查、补查和导出"
             ],
             [
-              "李佳雨、郭润航",
-              "核对草稿并导出，复跑缺资料用例并准备展示。"
+              "郭润航",
+              "独立跑出的完整、缺资料样张",
+              "交李佳雨并排核对同一栏 · 随 PR #11"
+            ],
+            [
+              "田亦洁、李佳雨",
+              "系统设计报告 #10、展示稿 #11",
+              "两份材料对照同一份来源表和样张"
+            ],
+            [
+              "程文博",
+              "合并组员修改、联调、主讲",
+              "从网页查出处，再验收下载的 PDF"
             ]
           ],
           "widths": [
-            0.29,
-            0.71
-          ],
-          "size": 27
+            0.19,
+            0.41,
+            0.4
+          ]
+        },
+        {
+          "type": "box",
+          "x": 65,
+          "y": 561,
+          "w": 1150,
+          "h": 64,
+          "fill": "#ECF3FA"
         },
         {
           "type": "text",
-          "text": "11/23 课后确认分工　　11/27 组内复核样张　　11/29 计划彩排",
-          "x": 70,
-          "y": 543,
-          "w": 1140,
-          "h": 48,
-          "size": 27,
+          "text": "协作顺序：提出验收问题 → 组内讨论口径 → 成员提 PR → 组长合并并联调。",
+          "x": 82,
+          "y": 575,
+          "w": 1115,
+          "h": 44,
+          "size": 25,
           "color": "#003F88",
-          "bold": false
+          "bold": true
+        },
+        {
+          "type": "text",
+          "text": "组员原始提交",
+          "x": 65,
+          "y": 641,
+          "w": 195,
+          "h": 32,
+          "size": 20,
+          "color": "#60728C"
+        },
+        {
+          "type": "text",
+          "text": "PR #10",
+          "x": 248,
+          "y": 639,
+          "w": 120,
+          "h": 33,
+          "size": 21,
+          "color": "#003F88",
+          "href": "https://github.com/BrockPhlin/industry-report-harness/pull/10"
+        },
+        {
+          "type": "text",
+          "text": "PR #11",
+          "x": 388,
+          "y": 639,
+          "w": 120,
+          "h": 33,
+          "size": 21,
+          "color": "#003F88",
+          "href": "https://github.com/BrockPhlin/industry-report-harness/pull/11"
+        },
+        {
+          "type": "text",
+          "text": "PR #12",
+          "x": 528,
+          "y": 639,
+          "w": 120,
+          "h": 33,
+          "size": 21,
+          "color": "#003F88",
+          "href": "https://github.com/BrockPhlin/industry-report-harness/pull/12"
+        },
+        {
+          "type": "text",
+          "text": "PR #13",
+          "x": 668,
+          "y": 639,
+          "w": 120,
+          "h": 33,
+          "size": 21,
+          "color": "#003F88",
+          "href": "https://github.com/BrockPhlin/industry-report-harness/pull/13"
         }
       ],
-      "speech": "这份简报也决定了我们怎么分工。程文博和田亦洁先把范围和验收条件写清，页上需要哪些数字，先定下来。崔大元把公开资料、单位和原文位置整理好，交给许子萌接到检索和模型流程里。李佳雨和郭润航拿最终草稿和 PDF 来看缺项有没有保留，复跑以后准备展示。这次已经复用了开题时整理的公开样例。中期分工按页面上的安排拟定，实际交接由组内确认后记录。",
-      "cue": "",
-      "notes": "这份简报也决定了我们怎么分工。程文博和田亦洁先把范围和验收条件写清，页上需要哪些数字，先定下来。崔大元把公开资料、单位和原文位置整理好，交给许子萌接到检索和模型流程里。李佳雨和郭润航拿最终草稿和 PDF 来看缺项有没有保留，复跑以后准备展示。这次已经复用了开题时整理的公开样例。中期分工按页面上的安排拟定，实际交接由组内确认后记录。"
+      "speech": "这条装机指标怎样交接？崔大元找到原文和段落，许子萌画出初查、补查路径。郭润航独立跑完整和缺资料两种输入，把 PDF 交给李佳雨看同一栏。田亦洁把条件写进设计报告，李佳雨同步展示。最后我合并组员的修改，操作工作台、核对两份 PDF。每份原始提交都能从这页打开。",
+      "cue": "从左到右指一行，再点出下方四个原始 PR，可在问答时进入查看。",
+      "sources": [
+        "https://github.com/BrockPhlin/industry-report-harness/pull/10",
+        "https://github.com/BrockPhlin/industry-report-harness/pull/11",
+        "https://github.com/BrockPhlin/industry-report-harness/pull/12",
+        "https://github.com/BrockPhlin/industry-report-harness/pull/13",
+        "presentations/02-midterm/evidence/郭润航_样张说明.md"
+      ],
+      "summary": "按证据、工具编排、独立复跑、交付和联调说明六人贡献。",
+      "notes": "这条装机指标怎样交接？崔大元找到原文和段落，许子萌画出初查、补查路径。郭润航独立跑完整和缺资料两种输入，把 PDF 交给李佳雨看同一栏。田亦洁把条件写进设计报告，李佳雨同步展示。最后我合并组员的修改，操作工作台、核对两份 PDF。每份原始提交都能从这页打开。\n\n操作提示　从左到右指一行，再点出下方四个原始 PR，可在问答时进入查看。\n\n核对材料\nhttps://github.com/BrockPhlin/industry-report-harness/pull/10\nhttps://github.com/BrockPhlin/industry-report-harness/pull/11\nhttps://github.com/BrockPhlin/industry-report-harness/pull/12\nhttps://github.com/BrockPhlin/industry-report-harness/pull/13\npresentations/02-midterm/evidence/郭润航_样张说明.md"
     },
     {
-      "title": "下一阶段补异常测试，再验证复用",
-      "subtitle": "中期交付是一份有出处、能保留缺项的光伏简报。",
-      "seconds": 40,
+      "id": "next",
+      "section": "当前状态与计划",
+      "title": "接下来用没做过的光伏题，验收写作参考",
+      "subtitle": "已交付：固定样例、联网研究、人工核对导出。进行中：按实测修正附表与证据核查。",
+      "seconds": 21,
       "items": [
+        {
+          "type": "text",
+          "text": "盲评尚未开展",
+          "x": 65,
+          "y": 160,
+          "w": 1150,
+          "h": 45,
+          "size": 29,
+          "color": "#003F88",
+          "bold": true
+        },
+        {
+          "type": "text",
+          "text": "固定题目、模型、篇幅和证据编号，只开关写作参考摘记。若证据不同，另记取数差异。",
+          "x": 65,
+          "y": 217,
+          "w": 1140,
+          "h": 80,
+          "size": 26,
+          "color": "#233042",
+          "bold": false
+        },
         {
           "type": "table",
           "x": 65,
-          "y": 165,
+          "y": 313,
           "w": 1150,
-          "h": 315,
+          "h": 239,
+          "size": 24,
           "rows": [
             [
-              "下一步",
-              "怎样算做成了"
+              "拟定日期",
+              "负责人",
+              "看得见的交付件"
             ],
             [
-              "资料口径冲突",
-              "同一指标出现矛盾说法时，保留原文供人工核对。"
+              "12 月 2 日",
+              "田亦洁、崔大元",
+              "定独立题目，留原表和人工核对答案。"
             ],
             [
-              "模型超时",
-              "保存进度，说明失败原因，再复测重启和导出。"
+              "12 月 4 日",
+              "许子萌、郭润航",
+              "同题、同模型、同篇幅跑两份，核对两版证据编号。"
             ],
             [
-              "验证复用",
-              "换一个能源案例，检验能否沿用资料和模板接口。"
+              "12 月 7 日",
+              "李佳雨、程文博",
+              "匿名核对两份报告，记修改内容、核查用时，验收修订稿。"
             ]
           ],
           "widths": [
-            0.29,
-            0.71
-          ],
-          "size": 27
+            0.16,
+            0.24,
+            0.6
+          ]
+        },
+        {
+          "type": "box",
+          "x": 65,
+          "y": 578,
+          "w": 1150,
+          "h": 63,
+          "fill": "#ECF3FA"
         },
         {
           "type": "text",
-          "text": "先把异常用例测清，再评估扩展到更多报告。",
-          "x": 70,
-          "y": 540,
-          "w": 1130,
-          "h": 49,
-          "size": 29,
+          "text": "风险：已有题目少，模型或来源也可能变化。保留原表快照、模型配置和两份输出，供组员复核。",
+          "x": 80,
+          "y": 591,
+          "w": 1124,
+          "h": 43,
+          "size": 22,
           "color": "#003F88",
-          "bold": false
+          "bold": true
         }
       ],
-      "speech": "下一步，我们先补两类测试。一类是两份资料对同一指标说法不同，要让研究员能看到两边的原文。另一类是模型超时，要说清楚停在哪一步，重启以后能不能继续。等这些测完，再换一个能源案例，看看只改资料和模板能不能复用这套流程。今天我们交付的是一份数字有出处、缺项看得见、核对后能导出的光伏简报。谢谢大家。",
-      "cue": "",
-      "notes": "下一步，我们先补两类测试。一类是两份资料对同一指标说法不同，要让研究员能看到两边的原文。另一类是模型超时，要说清楚停在哪一步，重启以后能不能继续。等这些测完，再换一个能源案例，看看只改资料和模板能不能复用这套流程。今天我们交付的是一份数字有出处、缺项看得见、核对后能导出的光伏简报。谢谢大家。"
+      "speech": "能选参考报告了，省不省返工还要盲评。二日留新题和原表，四日同模型、同篇幅跑两份。先核对证据编号，取数不同的单独记；证据相同，才比较写法。七日记录修改与用时。谢谢大家。",
+      "cue": "指表中三组负责人。仅同题、同模型、同篇幅、同证据的报告用于对照写法；若取数变化，另记取数差异。",
+      "sources": [
+        "code/report_app/writing_references.py",
+        "code/report_app/reference_catalog.py"
+      ],
+      "summary": "说明已完成、在做和未做的事项，列出三次交付、负责人、日期与风险。",
+      "notes": "能选参考报告了，省不省返工还要盲评。二日留新题和原表，四日同模型、同篇幅跑两份。先核对证据编号，取数不同的单独记；证据相同，才比较写法。七日记录修改与用时。谢谢大家。\n\n操作提示　指表中三组负责人。仅同题、同模型、同篇幅、同证据的报告用于对照写法；若取数变化，另记取数差异。\n\n核对材料\ncode/report_app/writing_references.py\ncode/report_app/reference_catalog.py"
     }
   ]
 }

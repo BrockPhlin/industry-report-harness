@@ -1,0 +1,21 @@
+{
+  "research": {
+    "name": "研究报告",
+    "source": "Artificial Intelligence Index Report 2026",
+    "locator": "PDF 第 2、14、20 页",
+    "guide": "开篇写主要发现，按研究问题分章，数据表注明指标、单位、年份和来源，单列方法与局限。"
+  },
+  "trends": {
+    "name": "趋势解读",
+    "source": "Technology Trends Outlook 2026",
+    "locator": "PDF 第 3、5、13 页",
+    "guide": "每章围绕一个变化，先写数据，再讨论解释与下一步核实办法。"
+  },
+  "market": {
+    "name": "光伏市场观察",
+    "source": "IEA PVPS · Snapshot of Global PV Markets 2026",
+    "locator": "目录，第 2 页",
+    "url": "https://iea-pvps.org/wp-content/uploads/2026/04/Snapshot-of-Global-PV-Markets-2026.pdf",
+    "guide": "区分年度新增与累计规模。依任务安排市场细分、区域比较、口径差异和数据附表，各节围绕一个市场问题。"
+  }
+}

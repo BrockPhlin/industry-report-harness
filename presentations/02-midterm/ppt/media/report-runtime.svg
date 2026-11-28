@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="60 155 1160 494" width="1160" height="494" role="img">
+  <title>光伏报告生成系统的两条实际运行路径</title>
+  <defs>
+    <marker id="tip" viewBox="0 0 10 10" refX="9.4" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#003F88" />
+    </marker>
+  </defs>
+  <rect x="60" y="155" width="1160" height="494" fill="#FFFFFF" />
+  <text x="65" y="181" font-size="25" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+    <tspan x="65" dy="0">任务入口</tspan>
+  </text>
+  <text x="352" y="181" font-size="25" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+    <tspan x="352" dy="0">资料与写作怎样配合</tspan>
+  </text>
+  <text x="826" y="181" font-size="25" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+    <tspan x="826" dy="0">校验与恢复</tspan>
+  </text>
+  <g>
+    <title>固定简报</title>
+    <rect x="65" y="211" width="254" height="132" fill="#ECF3FA" stroke="#B5C8DB" stroke-width="1" />
+    <text x="77" y="245" font-size="26" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+      <tspan x="77" dy="0">固定简报</tspan>
+    </text>
+    <text x="77" y="276" font-size="21" font-family="LXGW WenKai, KaiTi, serif" fill="#233042" font-weight="normal">
+      <tspan x="77" dy="0">两章、三项指标</tspan>
+      <tspan x="77" dy="26.04">离线决策 / 实时 GLM</tspan>
+    </text>
+  </g>
+  <g>
+    <title>LangGraph 按章编排</title>
+    <rect x="354" y="211" width="445" height="132" fill="#ECF3FA" stroke="#B5C8DB" stroke-width="1" />
+    <text x="366" y="245" font-size="26" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+      <tspan x="366" dy="0">LangGraph 按章编排</tspan>
+    </text>
+    <text x="366" y="277" font-size="22" font-family="LXGW WenKai, KaiTi, serif" fill="#233042" font-weight="normal">
+      <tspan x="366" dy="0">只读工具查固定资料；</tspan>
+      <tspan x="366" dy="27.28">缺项只在同一批资料中补查一次。</tspan>
+    </text>
+  </g>
+  <g>
+    <title>按证据字段填数</title>
+    <rect x="837" y="211" width="348" height="132" fill="#ECF3FA" stroke="#B5C8DB" stroke-width="1" />
+    <text x="849" y="244" font-size="25" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+      <tspan x="849" dy="0">按证据字段填数</tspan>
+    </text>
+    <text x="849" y="275" font-size="22" font-family="LXGW WenKai, KaiTi, serif" fill="#233042" font-weight="normal">
+      <tspan x="849" dy="0">没有来源就留“待核实”。</tspan>
+      <tspan x="849" dy="27.28">每完成一章保存检查点。</tspan>
+    </text>
+  </g>
+  <polyline points="319,278 351,278" fill="none" stroke="#003F88" stroke-width="2.5" marker-end="url(#tip)" />
+  <polyline points="799,278 834,278" fill="none" stroke="#003F88" stroke-width="2.5" marker-end="url(#tip)" />
+  <g>
+    <title>自定义研究</title>
+    <rect x="65" y="369" width="254" height="132" fill="#FFFFFF" stroke="#B5C8DB" stroke-width="1" />
+    <text x="77" y="403" font-size="26" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+      <tspan x="77" dy="0">自定义研究</tspan>
+    </text>
+    <text x="77" y="434" font-size="21" font-family="LXGW WenKai, KaiTi, serif" fill="#233042" font-weight="normal">
+      <tspan x="77" dy="0">用户给出问题、篇幅、</tspan>
+      <tspan x="77" dy="26.04">来源和可选写作参考</tspan>
+    </text>
+  </g>
+  <g>
+    <title>Python 工作台按章写作</title>
+    <rect x="354" y="369" width="445" height="132" fill="#FFFFFF" stroke="#B5C8DB" stroke-width="1" />
+    <text x="366" y="403" font-size="26" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+      <tspan x="366" dy="0">Python 工作台按章写作</tspan>
+    </text>
+    <text x="366" y="434" font-size="21" font-family="LXGW WenKai, KaiTi, serif" fill="#233042" font-weight="normal">
+      <tspan x="366" dy="0">联网留存本次数据、原文摘录和来源链接；</tspan>
+      <tspan x="366" dy="26.04">写作参考和事实证据分别送入模型。</tspan>
+    </text>
+  </g>
+  <g>
+    <title>逐句核对引用</title>
+    <rect x="837" y="369" width="348" height="132" fill="#FFFFFF" stroke="#B5C8DB" stroke-width="1" />
+    <text x="849" y="402" font-size="25" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+      <tspan x="849" dy="0">逐句核对引用</tspan>
+    </text>
+    <text x="849" y="432" font-size="21" font-family="LXGW WenKai, KaiTi, serif" fill="#233042" font-weight="normal">
+      <tspan x="849" dy="0">查数值、单位与统计口径；</tspan>
+      <tspan x="849" dy="26.04">进度与证据存入 SQLite。</tspan>
+    </text>
+  </g>
+  <polyline points="319,436 351,436" fill="none" stroke="#003F88" stroke-width="2.5" marker-end="url(#tip)" />
+  <polyline points="799,436 834,436" fill="none" stroke="#003F88" stroke-width="2.5" marker-end="url(#tip)" />
+  <polyline points="1185,276 1203,276 1203,547" fill="none" stroke="#003F88" stroke-width="2.5" marker-end="url(#tip)" />
+  <polyline points="1024,501 1024,547" fill="none" stroke="#003F88" stroke-width="2.5" marker-end="url(#tip)" />
+  <g>
+    <title>两条路径都要经过人工核对</title>
+    <rect x="65" y="550" width="1150" height="88" fill="#ECF3FA" stroke="#B5C8DB" stroke-width="1" />
+    <text x="77" y="584" font-size="26" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+      <tspan x="77" dy="0">两条路径都要经过人工核对</tspan>
+    </text>
+    <text x="77" y="617" font-size="23" font-family="LXGW WenKai, KaiTi, serif" fill="#233042" font-weight="normal">
+      <tspan x="77" dy="0">核对正文、出处和待核实项  →  确认定稿  →  保留 Markdown 与 PDF</tspan>
+    </text>
+  </g>
+</svg>

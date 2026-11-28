@@ -1,4 +1,4 @@
-"""Run from any directory: python code/run.py --port 8000."""
+"""Start the local photovoltaic research workspace."""
 import argparse
 from pathlib import Path
 
@@ -11,19 +11,19 @@ ROOT = Path(__file__).resolve().parent
 
 
 def main():
-    parser = argparse.ArgumentParser(description="第11组产业报告基线，本地运行")
+    parser = argparse.ArgumentParser(description="光伏产业研究工作台，本地运行")
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--database", type=Path, default=ROOT / "runtime/app.sqlite3")
+    parser.add_argument("--env-file", type=Path, default=ROOT / ".env",
+                        help="本机模型配置文件，默认读取 code/.env")
     args = parser.parse_args()
-    service = Service(Store(args.database), read_config(ROOT / ".env"))
-    server = make_server(service, port=args.port)
-    print(f"第11组基线：http://127.0.0.1:{server.server_port}")
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        server.server_close()
+    service = Service(Store(args.database), read_config(args.env_file))
+    with make_server(service, port=args.port) as server:
+        try:
+            print(f"光伏研究工作台：http://127.0.0.1:{server.server_port}")
+            server.serve_forever()
+        except KeyboardInterrupt:
+            pass
 
 
 if __name__ == "__main__":

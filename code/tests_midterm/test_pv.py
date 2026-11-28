@@ -194,8 +194,7 @@ raise SystemExit(main())
             task = Path(tmp) / "job"
             result = self.cli("run", task, "--mode", "fixture")
             self.assertEqual(result.returncode, 0, result.stderr)
-            baseline = (task / "baseline.md").read_text()
-            self.assertIn("588 GW", baseline)
+            self.assertFalse((task / "baseline.md").exists())
             trace = self.cli("inspect", task, "--json")
             self.assertEqual(json.loads(trace.stdout)["mode"], "fixture")
             draft_path = task / "draft.md"

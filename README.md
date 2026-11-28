@@ -1,30 +1,29 @@
-# 产业智能报告生成系统（第11组）
+# 第11组 · 光伏产业报告生成系统
 
-用公开资料生成能查回原文的产业简报，目前以2024年中国光伏为主。系统按章查指标，缺资料就标为“待核实”。研究员核对 Markdown 草稿后，再确认导出 PDF。
+给产业研究员的本地工作台。输入研究问题，选择年份、地区和写作重点，系统查找公开资料、逐章撰写 Markdown 草稿。研究员可以点回出处、修改文字，核对后导出 PDF。中期展示选用「2024 年中国光伏制造与新增装机」这一题，便于现场对照工信部和国家能源局原文。[中期展示、报告与讲稿](presentations/02-midterm/README.md)
 
-## 在本地跑一次
+## 启动工作台
 
-以下以 Python 3.12 为例。导出 PDF 需要安装 Typst，离线示例无需配置 API 密钥。请在仓库根目录执行。
+需要 Python 3.12，导出新 PDF 还需要 Typst（终端运行 `typst --version` 可检查）。在仓库根目录执行：
 
 ```sh
 python3.12 -m venv .venv
 .venv/bin/python -m pip install -r code/requirements-midterm.txt
-mkdir -p .build
-demo=$(mktemp -d .build/pv-demo-XXXXXX)
-.venv/bin/python code/pv_brief.py run "$demo/full" --mode fixture
-.venv/bin/python code/pv_brief.py inspect "$demo/full"
+.venv/bin/python code/run.py --port 8765
 ```
 
-核对 `$demo/full/draft.md` 后，运行以下命令确认并导出。PDF 保存在 `$demo/full/reviewed/brief.pdf`。
+打开 <http://127.0.0.1:8765/>。首次体验无需模型密钥。
 
-```sh
-.venv/bin/python code/pv_brief.py approve "$demo/full" --confirm
-```
+1. 点 **生成示例简报**。系统用两份已保存的公开资料生成两章草稿。
+2. 点装机数字旁的 **[NEA]**，查看发布机构、原文位置和本次引用。返回草稿，点 **核对并导出 PDF**，确认后下载。
+3. 回到首页，分别打开两份「真实 GLM 样张」。两份来自同一次对照试验。拿掉国家能源局资料后，新增装机一栏会保留「待核实」。[来源表与试验记录](presentations/02-midterm/evidence/README.md)
 
-想换成真实模型或复跑缺资料的情况，可以照着[验证记录里的命令](presentations/02-midterm/evidence/README.md)操作。
+## 自己出一道研究题
 
-## 组内材料
+把 `code/.env.example` 复制为 `code/.env`，在本机填写 Chat Completions 完整地址、模型名和密钥，重启工作台。已有配置文件时，启动命令可追加 `--env-file 本机文件路径`。选择「先聊一聊」可以商定读者、范围和提纲，也可以直接写报告。在「范围与篇幅」里可选数据来源、按行指定章名；输入框下方的「参考报告」按钮可勾选写作参考。参考报告提供写法，正文数字回到当次检索保存的证据。长报告支持中断后从已完成的章节继续。[运行原理](docs/code-guide.md)
 
-- [中期准备材料](presentations/02-midterm/README.md)有组员手册、设计报告框架、PPT 框架和完整讲稿。
-- [实测样张与运行记录](presentations/03-final/evidence/README.md)记录了资料冲突、超时恢复和风电简报复用。
-- 组员在各自分支修改，提交 PR 后互相检查，由组长确认合并。
+「分省数据对比」可以独立使用，无需模型。选择省份、时期和指标即可查看差值、下载报告或带走计算明细。在资料库可以分别查找原始统计、政策原文和参考研报。[分省数据说明](docs/分省数据对比.md) · [报告核查方法](docs/报告核查与修订.md)
+
+## 小组协作
+
+成员按任务提交分支和 PR，组长负责联调和课堂展示。中期材料列有六人的交接件、四份供稿 PR、离线复跑和真实模型样张。[中期材料与分工](presentations/02-midterm/README.md) · [命令行复跑步骤](presentations/02-midterm/evidence/README.md)

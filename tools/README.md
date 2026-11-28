@@ -18,11 +18,11 @@
 
 SDK属于材料构建依赖，业务运行不需要它。默认读取Codex托管环境；ARTIFACT_NODE_MODULES、ARTIFACT_TOOL_MODULE、PRESENTATION_SKILL_DIR、RUNTIME_PYTHON可指定路径。仓库附LXGW WenKai与Smiley Sans Oblique及许可。PPTX与展示PDF分别生成，发布前必须逐页检查两者；检查不能证明产业事实或原生PowerPoint渲染。
 
-`python tools/build_deck.py`是团队早期python-pptx备选，仅支持旧版文字、表格、流程、图片，尚不支持本稿新增图表和矩形对象；不能用于覆盖当前输出。直接编辑PPTX后应同步slides.json或明确更换唯一内容源。
+`python tools/build_deck.py`是python-pptx备选构建器，支持文字、表格、流程、图片和矩形（含分节标签）；加`--midterm`时读取presentations/02-midterm/ppt/slides.json，输出中期PPTX。它不支持开题稿中的原生图表，开题稿仍以build_slides.mjs为准。直接编辑PPTX后应同步slides.json或明确更换唯一内容源。
 
 `python3 tools/check_package.py`检查当前版本文件、链接、分工、页数、WBS合计及排期。`python3 -m unittest discover -s tests -v`在code目录运行应用基线测试；模型响应为模拟值，不能替代真实模型与业务验证。
 
-`python3 tools/measure_source_payload.py`用临时数据库中的构造资料比较列表JSON字节数，只依赖标准库，不证明运行速度或产业分析质量。
+开题原型的资料列表体积测试保存在[当时的检查记录](../docs/优化检查记录.md)。光伏工作台的引用和资料修订评测见[报告核查与修订](../docs/报告核查与修订.md)。
 
 PDF沿用组长改好的无版本号文件名，版本与日期在文档内标明；PPTX以版本号区分，更新检查通过后删旧稿。报告中的技术图按slides.json的id定位，插入协作页不会导致取错进度图。
 
@@ -54,3 +54,18 @@ render_report(report / "设计变更与验收对照.md", report / "第11组_终�
               "终期设计变更说明", 15, 10000, "## 复现资料")
 PY
 ```
+
+## 重新生成中期提交件
+
+在仓库根目录运行。系统设计报告使用 XeLaTeX 排版，使用 LibreOffice Writer 统计正文字数，两者都须安装并能在命令行调用。报告字体随仓库提供。展示稿使用公开 Python 依赖，可在同一台机器上重新生成，无需模型密钥。
+
+```sh
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r tools/requirements.txt
+.venv/bin/python tools/midterm/build_materials.py
+.venv/bin/python -S tools/check_package.py
+```
+
+只改报告，可单独运行 `tools/midterm/build_design_report.py`。只改演示内容，用同一解释器运行 `tools/midterm/build_deck.py`。前者从 report.md 生成可编辑 TeX 和 PDF，后者从 slides.json 生成 PPTX、PDF 和两份讲稿。最终文件在[中期材料目录](../presentations/02-midterm/README.md)。
+
+中期展示的三幅技术图在 `ppt/slides.json` 中以节点、文字和带方向的折线描述。重新生成后，PowerPoint 中可编辑图组与节点，`ppt/media/` 中对应的独立 SVG 可插入其他文档。系统设计报告的流程图从 `report/figures/` 下的 TikZ 源文件编译为矢量 PDF。相关路径均相对于 [presentations/02-midterm](../presentations/02-midterm/README.md)。

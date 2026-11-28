@@ -1,4 +1,4 @@
-"""Generate, compare and confirm a photovoltaic brief from the command line."""
+"""Generate, audit and confirm a photovoltaic brief from the command line."""
 import argparse
 from hashlib import sha256
 import json
@@ -11,9 +11,9 @@ import sys
 import tempfile
 
 from report_app.errors import AppError
-from report_app.generator import excerpt_report, read_config
+from report_app.generator import read_config
 from report_app.pv_checkpoint import RunCheckpoint, input_fingerprint
-from report_app.pv_evidence import CODE_DIR, fact_line, load_inputs, search_evidence
+from report_app.pv_evidence import CODE_DIR, load_inputs, search_evidence
 from report_app.pv_model import ChatWriter
 
 
@@ -29,23 +29,23 @@ def review_contract(markdown, protected_lines):
             or line.startswith(("运行方式：", "- 待核实：", "- 候选资料："))]
 
 
-def baseline_sources(sources, facts):
-    return [dict(source, body="【本次输入资料摘编】\n" +
-                 "\n".join(fact_line(fact).rsplit(" [", 1)[0]
-                           for rows in facts.values() for fact in rows if fact["source"] == source["id"]))
-            for source in sources.values()]
-
-
-def create_run(args):
+def create_run(args, *, config=None, question=None, focus=None):
     from report_app.pv_agent import FixtureWriter, generate_brief
 
     if args.output.exists():
         raise AppError("任务目录已存在，请指定新目录")
     template, sources, facts = load_inputs(args.omit_source, template_path=args.template, corpus_path=args.corpus)
+    if focus is not None:
+        sections = [s for s in template["sections"] if s["title"] in focus]
+        if not sections or len(sections) != len(focus):
+            raise AppError("请选择模板中已有的研究重点")
+        template = dict(template, sections=[dict(s, research_question=question) for s in sections],
+                        scope="本次依据公开统计，核对2024年中国光伏的" +
+                              "、".join(s["title"] for s in sections) + "。")
     if not sources:
         raise AppError("演示任务至少需要一份资料")
     if args.mode == "live":
-        model = ChatWriter(read_config(CODE_DIR / ".env"), request_timeout=args.request_timeout)
+        model = ChatWriter(read_config(CODE_DIR / ".env") if config is None else config, request_timeout=args.request_timeout)
         route = model.connection[:2]
     else:
         model = FixtureWriter()
@@ -62,17 +62,15 @@ def create_run(args):
                 raise
             raise AppError(f"{exc}。已保存 {len(checkpoint.completed)} 章。重跑原命令并追加 --resume 可继续。",
                            exc.status, exc.code) from None
-        baseline, _ = excerpt_report(template["title"], baseline_sources(sources, facts))
         trace["review_contract"] = review_contract(draft, trace["protected_lines"])
         with tempfile.TemporaryDirectory(dir=args.output.parent) as tmp:
             staging = Path(tmp) / "run"
             staging.mkdir()
             (staging / "draft.md").write_text(draft, encoding="utf-8")
-            (staging / "baseline.md").write_text(baseline, encoding="utf-8")
             write_json(staging / "trace.json", trace)
             staging.rename(args.output)
     shutil.rmtree(checkpoint.path, ignore_errors=True)
-    print(f"草稿、同源摘录基线、调用记录已写入 {args.output}。缺资料 {len(trace['missing'])} 项，"
+    print(f"草稿和调用记录已写入 {args.output}。缺资料 {len(trace['missing'])} 项，"
           f"资料表述不一致 {len(trace['conflicts'])} 项。")
 
 
@@ -92,18 +90,56 @@ def pdf_blocks(markdown):
         yield {"kind": kinds.get(prefix, "paragraph"), "text": tail if sep and prefix in kinds else line}
 
 
-def approve_run(args):
+def study_blocks(markdown, charts=(), evidence=()):
+    rows = []
+    table_number = 0
+    figures = {chart.get("table_number",1): chart for chart in charts}
+    links = {row["ref"]:row["url"] for row in evidence}
+    for block in pdf_blocks(markdown):
+        line = block["text"]
+        if line.startswith("|") and line.endswith("|"):
+            if not re.fullmatch(r"[| :\-]+", line):
+                rows.append([cell.strip() for cell in line[1:-1].split("|")])
+            continue
+        if rows:
+            table_number += 1
+            yield {"kind": "table", "rows": rows}
+            if table_number in figures:
+                yield {"kind":"chart", **figures[table_number]}
+            rows = []
+        if block["kind"] == "heading" and line == "摘要":
+            yield {"kind": "contents"}
+        if block["kind"] == "paragraph":
+            if re.match(r"^表 \d+",line):
+                block["kind"] = "caption"
+            pieces = re.split(r"(\[E\d+\])",line)
+            if len(pieces)>1:
+                block["spans"] = [{"text":part,"url":links.get(part[1:-1])} for part in pieces if part]
+        yield block
+    if rows:
+        yield {"kind": "table", "rows": rows}
+        if table_number+1 in figures:
+            yield {"kind":"chart", **figures[table_number+1]}
+
+
+def approve_run(args, *, confirmation="explicit_cli_confirmation"):
     trace = json.loads((args.output / "trace.json").read_text(encoding="utf-8"))
     draft_path = args.markdown or args.output / "draft.md"
     draft = draft_path.read_text(encoding="utf-8")
-    if len(draft) > 20000:
-        raise AppError("审阅稿不能超过20000字符")
-    if review_contract(draft, trace["protected_lines"]) != trace["review_contract"]:
+    is_long = trace.get("kind") == "long"
+    if len(draft) > (90000 if is_long else 20000):
+        raise AppError("审阅稿超过导出长度上限")
+    if is_long and args.markdown:
+        from report_app.long_report import editorial_revision
+        editorial_revision((args.output / "draft.md").read_text(encoding="utf-8"),draft,trace.get("evidence"))
+    elif review_contract(draft, trace["protected_lines"]) != trace["review_contract"]:
         raise AppError("审阅稿更改了指标、待核实项或对应来源，请重新生成后核对")
     pending = trace["missing"] or trace.get("conflicts")
     status = "状态：已按命令确认，仍有待核实项。" if pending else "状态：已按命令确认。"
     if draft.count("状态：待人工核对。") != 1:
         raise AppError("审阅稿缺少唯一的待确认标识")
+    if confirmation == "explicit_web_confirmation":
+        status = status.replace("按命令确认", "经网页审阅确认")
     approved = draft.replace("状态：待人工核对。", status, 1)
     final_dir = args.output / "reviewed"
     if final_dir.exists():
@@ -112,8 +148,11 @@ def approve_run(args):
         raise AppError("导出 PDF 需要安装 Typst")
     with tempfile.TemporaryDirectory(dir=args.output) as tmp:
         staging = Path(tmp)
-        write_json(staging / "brief.json", list(pdf_blocks(approved)))
-        shutil.copyfile(CODE_DIR / "templates/pv-brief.typ", staging / "brief.typ")
+        charts = trace.get("charts", [trace["chart"]] if trace.get("chart") else [])
+        blocks = study_blocks(approved,charts,trace.get("evidence",[])) if is_long else pdf_blocks(approved)
+        write_json(staging / "brief.json", list(blocks))
+        template = "solar-study.typ" if is_long else "pv-brief.typ"
+        shutil.copyfile(CODE_DIR / "templates" / template, staging / "brief.typ")
         fonts = CODE_DIR.parent / "assets/fonts"
         result = subprocess.run(["typst", "compile", "--font-path", str(fonts), "brief.typ", "brief.pdf"],
                                 cwd=staging, capture_output=True, text=True, timeout=30)
@@ -126,7 +165,7 @@ def approve_run(args):
         write_json(finished / "confirmation.json", {
             "mode": trace["mode"], "missing": trace["missing"], "conflicts": trace.get("conflicts", []),
             "markdown_sha256": sha256(approved.encode()).hexdigest(),
-            "source_approval": "explicit_cli_confirmation",
+            "source_approval": confirmation,
         })
         finished.rename(final_dir)
     print(f"已导出 {final_dir / 'brief.pdf'}")
@@ -139,6 +178,17 @@ def evidence_command(args):
 
 def inspect_run(args):
     trace = json.loads((args.output / "trace.json").read_text(encoding="utf-8"))
+    if trace.get("kind") == "long":
+        if args.json:
+            fields = ("plan", "target", "body_length", "evidence", "retrieval", "missing", "operations")
+            print(json.dumps({field: trace[field] for field in fields if field in trace}, ensure_ascii=False, indent=2))
+        else:
+            print(f"{trace['plan']['title']} ｜ 正文 {trace['body_length']} 字")
+            for source in trace["retrieval"]:
+                print(f"{source['source']} ｜ {source['result']}")
+            for item in trace["missing"]:
+                print("待补资料 ｜ " + item)
+        return
     if args.json:
         public = {key: trace[key] for key in ("mode", "framework", "sources", "events", "missing")}
         if trace.get("conflicts"):
@@ -171,15 +221,71 @@ def seconds(raw):
     return value
 
 
+def audit_export(args):
+    from report_app.report_review import review_report
+
+    raw = args.markdown.read_bytes()
+    bundle = json.loads(args.evidence.read_text(encoding="utf-8"))
+    if not isinstance(bundle, dict) or bundle.get("markdown_sha256") != sha256(raw).hexdigest():
+        raise AppError("正文指纹不匹配，请选择同一次导出的 Markdown 和证据 JSON")
+    rows = bundle.get("evidence")
+    if not isinstance(rows, list) or not all(isinstance(r, dict) and isinstance(r.get("ref"), str) for r in rows):
+        raise AppError("证据 JSON 缺少可识别的证据记录")
+    result = review_report(raw.decode("utf-8"), rows)
+    result["markdown_sha256"] = bundle["markdown_sha256"]
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
 def input_options(command):
     command.add_argument("--template", type=Path, help="章节模板 JSON，默认使用光伏模板")
     command.add_argument("--corpus", type=Path, help="来源及指标 JSON，默认使用光伏样例")
     command.add_argument("--omit-source", action="append", default=[], help="临时排除指定来源")
 
 
+def compare_provinces(args):
+    from report_app.comparison_report import render_comparison
+    from report_app.province_comparison import build_comparison, comparison_catalog
+
+    selection = comparison_catalog()["default"].copy()
+    for name in ("period", "metric", "regions"):
+        if getattr(args, name) is not None:
+            selection[name] = getattr(args, name)
+    if args.output.exists():
+        raise AppError("输出目录已存在，请为分省对比选择新目录")
+    result = build_comparison(selection)
+    with tempfile.TemporaryDirectory(dir=args.output.parent) as tmp:
+        stage = Path(tmp) / "comparison"
+        stage.mkdir()
+        (stage / "report.md").write_bytes(render_comparison(result, "markdown"))
+        (stage / "calculation.json").write_bytes(render_comparison(result, "json"))
+        if args.pdf:
+            (stage / "report.pdf").write_bytes(render_comparison(result, "pdf"))
+        stage.rename(args.output)
+    print(f"分省对比及复算记录已写入 {args.output}")
+
+
+def verify_exported_comparison(args):
+    from report_app.comparison_report import verify_comparison
+
+    bundle = json.loads(args.calculation.read_text(encoding="utf-8"))
+    result = verify_comparison(bundle, args.markdown.read_bytes() if args.markdown else None)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
+    compare = commands.add_parser("compare", help="离线生成分省光伏对比报告及复算记录")
+    compare.add_argument("output", type=Path, help="保存报告的新目录")
+    compare.add_argument("--period", choices=("half_year", "annual", "three_quarters"))
+    compare.add_argument("--metric", help="指标编号，例如 central_new 或 distributed_stock")
+    compare.add_argument("--regions", nargs="+", help="参与比较的省级地区简称，用空格隔开")
+    compare.add_argument("--pdf", action="store_true", help="同时导出 PDF，需要 Typst")
+    compare.set_defaults(handler=compare_provinces)
+    verify = commands.add_parser("verify-comparison", help="用仓库原表复算已下载的计算记录")
+    verify.add_argument("calculation", type=Path)
+    verify.add_argument("--markdown", type=Path, help="一并核对 Markdown 原始文件的指纹")
+    verify.set_defaults(handler=verify_exported_comparison)
     run = commands.add_parser("run", help="生成草稿和可审计运行记录")
     run.add_argument("output", type=Path, help="新建任务目录，其上级必须存在")
     run.add_argument("--mode", choices=("fixture", "live"), required=True)
@@ -200,6 +306,10 @@ def main():
     inspect.add_argument("output", type=Path)
     inspect.add_argument("--json", action="store_true", help="输出机器可读记录")
     inspect.set_defaults(handler=inspect_run)
+    audit = commands.add_parser("audit", help="离线核对已导出的报告正文与引用")
+    audit.add_argument("markdown", type=Path)
+    audit.add_argument("evidence", type=Path)
+    audit.set_defaults(handler=audit_export)
     args = parser.parse_args()
     try:
         args.handler(args)

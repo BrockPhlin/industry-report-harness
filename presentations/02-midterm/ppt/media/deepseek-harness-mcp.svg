@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="60 155 1160 494" width="1160" height="494" role="img">
+  <title>DeepSeek Harness 的 MCP 工具往返</title>
+  <defs>
+    <marker id="tip" viewBox="0 0 10 10" refX="9.4" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#003F88" />
+    </marker>
+  </defs>
+  <rect x="60" y="155" width="1160" height="494" fill="#FFFFFF" />
+  <text x="68" y="184" font-size="28" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+    <tspan x="68" dy="0">模型提出工具请求</tspan>
+  </text>
+  <g>
+    <title>模拟模型 · 第一轮</title>
+    <rect x="70" y="215" width="326" height="108" fill="#ECF3FA" stroke="#B5C8DB" stroke-width="1" />
+    <text x="82" y="248" font-size="25" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+      <tspan x="82" dy="0">模拟模型 · 第一轮</tspan>
+    </text>
+    <text x="82" y="278" font-size="21" font-family="LXGW WenKai, KaiTi, serif" fill="#233042" font-weight="normal">
+      <tspan x="82" dy="0">请求查询新增装机</tspan>
+      <tspan x="82" dy="26.04">调用编号 toolu_pv</tspan>
+    </text>
+  </g>
+  <g>
+    <title>Harness SDK</title>
+    <rect x="473" y="215" width="326" height="108" fill="#ECF3FA" stroke="#B5C8DB" stroke-width="1" />
+    <text x="485" y="248" font-size="25" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+      <tspan x="485" dy="0">Harness SDK</tspan>
+    </text>
+    <text x="485" y="278" font-size="21" font-family="LXGW WenKai, KaiTi, serif" fill="#233042" font-weight="normal">
+      <tspan x="485" dy="0">按工具名转发请求，</tspan>
+      <tspan x="485" dy="26.04">连接独立的 MCP 进程</tspan>
+    </text>
+  </g>
+  <g>
+    <title>只读 MCP 服务</title>
+    <rect x="875" y="215" width="330" height="108" fill="#ECF3FA" stroke="#B5C8DB" stroke-width="1" />
+    <text x="887" y="248" font-size="25" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+      <tspan x="887" dy="0">只读 MCP 服务</tspan>
+    </text>
+    <text x="887" y="278" font-size="21" font-family="LXGW WenKai, KaiTi, serif" fill="#233042" font-weight="normal">
+      <tspan x="887" dy="0">tools/call 触发</tspan>
+      <tspan x="887" dy="26.04">search_evidence</tspan>
+    </text>
+  </g>
+  <polyline points="396,269 470,269" fill="none" stroke="#003F88" stroke-width="2.5" marker-end="url(#tip)" />
+  <polyline points="799,269 872,269" fill="none" stroke="#003F88" stroke-width="2.5" marker-end="url(#tip)" />
+  <polyline points="1040,324 1040,385" fill="none" stroke="#003F88" stroke-width="2.5" marker-end="url(#tip)" />
+  <text x="409" y="250" font-size="20" font-family="LXGW WenKai, KaiTi, serif" fill="#60728C" font-weight="normal">
+    <tspan x="409" dy="0">请求</tspan>
+  </text>
+  <text x="809" y="250" font-size="20" font-family="LXGW WenKai, KaiTi, serif" fill="#60728C" font-weight="normal">
+    <tspan x="809" dy="0">stdio</tspan>
+  </text>
+  <text x="1057" y="357" font-size="19" font-family="LXGW WenKai, KaiTi, serif" fill="#60728C" font-weight="normal">
+    <tspan x="1057" dy="0">查询已录入指标</tspan>
+  </text>
+  <g>
+    <title>模拟模型 · 第二轮</title>
+    <rect x="70" y="390" width="326" height="108" fill="#FFFFFF" stroke="#B5C8DB" stroke-width="1" />
+    <text x="82" y="423" font-size="25" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+      <tspan x="82" dy="0">模拟模型 · 第二轮</tspan>
+    </text>
+    <text x="82" y="453" font-size="21" font-family="LXGW WenKai, KaiTi, serif" fill="#233042" font-weight="normal">
+      <tspan x="82" dy="0">同一对话收到数值、</tspan>
+      <tspan x="82" dy="26.04">单位与原文位置</tspan>
+    </text>
+  </g>
+  <g>
+    <title>SDK 包装返回值</title>
+    <rect x="473" y="390" width="326" height="108" fill="#FFFFFF" stroke="#B5C8DB" stroke-width="1" />
+    <text x="485" y="423" font-size="25" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+      <tspan x="485" dy="0">SDK 包装返回值</tspan>
+    </text>
+    <text x="485" y="453" font-size="21" font-family="LXGW WenKai, KaiTi, serif" fill="#233042" font-weight="normal">
+      <tspan x="485" dy="0">tool_result 带同一个</tspan>
+      <tspan x="485" dy="26.04">tool_use_id</tspan>
+    </text>
+  </g>
+  <g>
+    <title>检索命中</title>
+    <rect x="875" y="390" width="330" height="108" fill="#FFFFFF" stroke="#B5C8DB" stroke-width="1" />
+    <text x="887" y="423" font-size="25" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+      <tspan x="887" dy="0">检索命中</tspan>
+    </text>
+    <text x="887" y="453" font-size="21" font-family="LXGW WenKai, KaiTi, serif" fill="#233042" font-weight="normal">
+      <tspan x="887" dy="0">NEA · 2024 年新增装机</tspan>
+      <tspan x="887" dy="26.04">2.78 亿千瓦</tspan>
+    </text>
+  </g>
+  <polyline points="473,445 399,445" fill="none" stroke="#003F88" stroke-width="2.5" marker-end="url(#tip)" />
+  <polyline points="875,445 802,445" fill="none" stroke="#003F88" stroke-width="2.5" marker-end="url(#tip)" />
+  <text x="409" y="428" font-size="20" font-family="LXGW WenKai, KaiTi, serif" fill="#60728C" font-weight="normal">
+    <tspan x="409" dy="0">回传</tspan>
+  </text>
+  <text x="810" y="428" font-size="20" font-family="LXGW WenKai, KaiTi, serif" fill="#60728C" font-weight="normal">
+    <tspan x="810" dy="0">证据</tspan>
+  </text>
+  <text x="65" y="545" font-size="24" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+    <tspan x="65" dy="0">E4 回执：两次模型请求；第二次带回同一调用的工具结果。</tspan>
+  </text>
+  <rect x="65" y="574" width="1150" height="63" fill="#ECF3FA" stroke="none" stroke-width="0" />
+  <text x="80" y="610" font-size="23" font-family="LXGW WenKai, KaiTi, serif" fill="#003F88" font-weight="bold">
+    <tspan x="80" dy="0">本组也用原调用号回传首轮命中，程序补查的证据另外列出。回看时能分清哪一轮找到了数字。</tspan>
+  </text>
+</svg>
