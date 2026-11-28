@@ -78,7 +78,7 @@ M4 & 查清发生了什么 & 能从事件记录查到本章的请求、命中、
 {\centering\includegraphics[width=1.0\linewidth]{\detokenize{系统运行架构.png}}\par}\capline{图1　研究工作台与固定简报的调用边界}
 \subhead{沿着一条装机记录走一遍}
 {\centering\includegraphics[width=0.95\linewidth]{\detokenize{../briefing/光伏简报生成流程.png}}\par}\capline{图2　固定简报从模板到审阅导出，依据许子萌的技术供稿}
-以“发电新增装机”章为例。Python 先读取该章必需的指标编号。GLM 发出工具调用，程序检查工具名和查询范围，检索器返回证据及其原文位置。LangGraph 比对必查清单，只让缺的编号补查一次。程序按照返回记录填入年份、数值和单位；模型提交的观察若夹带未经允许的数字，就省略该观察并留下记录。章写完才保存检查点，整篇生成后由人确认导出。\par
+以“发电新增装机”章为例。Python 先读取该章必需的指标编号。GLM 发出工具调用，程序检查工具名和查询范围，检索器返回证据及其原文位置。LangGraph 比对必查清单，只让缺的编号补查一次。程序依据检索记录填入年份、数值和单位。如果模型给出的补充说明含有数字，程序会省略这条说明，并在运行记录中标明已省略。章写完才保存检查点，整篇生成后由人确认导出。\par
 网络或模型服务失败时，已有草稿和引用应能够解释到哪一步。固定输入便于复查这种行为；开放研究则需额外记录远端数据快照、报告范围和每一章采用的资料。本地工具保存两类任务各自的运行记录。\par
 \clearpage
 \hypertarget{reportpart3}{}
@@ -198,7 +198,7 @@ M4 运行可追踪 & 事件、inspect 入口、章节检查点 & E8 已完成章
 \subhead{风险怎样被发现，接下来查什么}
 资料修订可能改变发布日期、指标口径或符号。来源工具保留快照和定位，测试人员对照本次引用与新版原表，报告中显示差异。模型服务中断时不能断言外部请求是否计费；程序标明中断点、保留已完成章，回到同一配置恢复。补充 E11 人为将等待时间设为0.1秒，发生超时，恢复默认等待后成功导出。过小超时是试验条件，实际延迟分布尚待重复测量。\par
 \subhead{AI 使用与人工核验}
-Codex 辅助整理模块说明、核对脚本和排版，真实模型用在 E7 的章节查询与辅助观察。项目组用工具回执和代码逐项检查“谁执行查询”“何时允许补查”；用官方段落和同栏 PDF 核对统计值、单位及缺项。田亦洁负责设计报告内容复核，崔大元负责原文定位，许子萌负责工具与编排说明，郭润航负责独立复跑，李佳雨核对展示与样张，程文博负责最终验收和汇报。正式文件中的事实以已归档材料为据，列出的后续试验均为计划。\par
+Codex 辅助整理模块说明、核对脚本和排版。E7 使用真实模型查询章节资料、撰写补充说明。Carbon 分两轮审阅报告和讲稿，Opus 分两轮查看工作台网页截图。组员对照代码和运行记录核实每次由谁查询、何时补查，再回到原始发布和同栏对照样张核对统计值、单位与缺项。田亦洁负责设计报告内容复核，崔大元负责原文定位，许子萌负责工具与编排说明，郭润航负责独立复跑，李佳雨核对展示与样张，程文博负责最终验收和汇报。正式文件中的事实以已归档材料为据，列出的后续试验均为计划。\par
 \subhead{版本记录}
 v0.4 记录真实 GLM 联调及按章恢复；v0.8 整理课程设计要求，补齐来源表与独立复跑。v1.0 合入技术供稿并串联四份协作 PR，区分固定简报与工作台，补入区间变化率反例、验收对应和后续分工。固定简报的试验条件以各份收据为准；工作台设计与自动回归对应代码提交 d41a7c7。\par
 \clearpage
@@ -212,5 +212,5 @@ v0.4 记录真实 GLM 联调及按章恢复；v0.8 整理课程设计要求，�
 \href{https://github.com/BrockPhlin/industry-report-harness/blob/d41a7c7/docs/\%E6\%8A\%A5\%E5\%91\%8A\%E6\%A0\%B8\%E6\%9F\%A5\%E4\%B8\%8E\%E4\%BF\%AE\%E8\%AE\%A2.md}{资料核查与定向评测}对照错省、错年、错指标等错误；\href{https://github.com/BrockPhlin/industry-report-harness/blob/d41a7c7/code/tests\_midterm/test\_series\_growth.py}{期间变化率回归}使用 E1 与 E2 两个中国光伏直流侧序列，原件可回查\href{https://iea-pvps.org/trends\_reports/trends-2026/}{IEA PVPS 全球趋势报告}。\par
 \href{https://github.com/BrockPhlin/industry-report-harness/pull/10}{PR \#10 设计报告}、\href{https://github.com/BrockPhlin/industry-report-harness/pull/11}{PR \#11 展示交接}、\href{https://github.com/BrockPhlin/industry-report-harness/pull/12}{PR \#12 来源表}与\href{https://github.com/BrockPhlin/industry-report-harness/pull/13}{PR \#13 技术供稿}提供团队交付记录。各项课程要求见\href{https://github.com/BrockPhlin/industry-report-harness/blob/7876b7c/materials/references/\%E8\%AF\%BE\%E7\%A8\%8B\%E6\%8A\%A5\%E5\%91\%8A\%E4\%B8\%8E\%E8\%AF\%84\%E5\%88\%86\%E7\%BB\%86\%E5\%88\%99.md}{课程评分细则}。\par
 \subhead{篇幅统计}
-正文第1至8页，LibreOffice Writer 26.8.0.0.alpha0 字数统计为 5289 字。统计包含正文标题、段落、表格、图注与 AI 使用说明；封面目录、参考资料及图内文字不计入。
+正文第1至8页，LibreOffice Writer 26.8.0.0.alpha0 字数统计为 5327 字。统计包含正文标题、段落、表格、图注与 AI 使用说明；封面目录、参考资料及图内文字不计入。
 \end{document}
