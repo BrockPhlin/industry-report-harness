@@ -8,6 +8,7 @@ TOOLS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TOOLS))
 from build_deck import build as build_pptx
 from build_pdfs import ROOT, build_slide_pdf, register_fonts
+from slide_diagrams import svg_diagram
 
 STAGE = ROOT / "presentations/02-midterm"
 PPT = STAGE / "ppt"
@@ -17,7 +18,8 @@ def material_links(slide, directory):
     links = []
     for source in slide["sources"]:
         if source.startswith("https://"):
-            label = "PR #" + source.rsplit("/", 1)[1]
+            label = ("PR #" + source.rsplit("/", 1)[1] if "/pull/" in source
+                     else source.rsplit("/", 1)[1].split("#", 1)[0])
             links.append(f"[{label}]({source})")
         else:
             filename = ROOT / source
@@ -28,10 +30,16 @@ def material_links(slide, directory):
     return " · ".join(links)
 
 
+def time_plan(deck):
+    total = sum(slide["seconds"] for slide in deck["slides"])
+    minutes, seconds = divmod(total, 60)
+    return f"{len(deck['slides'])} 页共 {minutes} 分 {seconds} 秒，含第 3 页现场演示 90 秒。另留 {420-total} 秒用于切屏和停顿。"
+
+
 def render_script(deck, target, introduction):
-    text = [f"# {introduction}", "", "**展示人：程文博**。九页共 6 分 35 秒，其中第 3、4 页连续演示 90 秒。课程展示时限 7 分钟，余下 25 秒用于切屏和停顿。"]
+    text = [f"# {introduction}", "", "**展示人：程文博**。" + time_plan(deck)]
     if target.parent.name == "briefing":
-        text += ["", "彩排时打开本机工作台首页，准备一个可写入的下载目录。先用两份固定资料演示生成、核对、导出，再从第 5 页回到幻灯片。真实 GLM 试验的证据在第 6 页。"]
+        text += ["", "彩排时打开本机工作台首页，准备一个可写入的下载目录。先用两份固定资料演示生成、核对、导出，回到第 4 页解释框架。第 6 页走读实际运行路径，第 7 页核对真实 GLM 试验样张。"]
     elapsed = 0
     for idx, slide in enumerate(deck["slides"], 1):
         start, elapsed = elapsed, elapsed + slide["seconds"]
@@ -45,23 +53,13 @@ def render_script(deck, target, introduction):
 
 
 def render_outline(deck):
-    synopsis = [
-        "两句提问引出来源和缺项，程文博独讲。",
-        "对比组件产量与电站新增装机的统计对象，说明怎样限定第一类报告。",
-        "对照一次联网自定义研究，从本机首页生成离线固定简报。",
-        "从装机栏点进来源，核对位置，确认后下载 PDF。",
-        "对照 DeepSeek Harness、Pi CLI 的工具接法，再说明生产简报怎样按章取证。",
-        "真实 GLM 样张的装机栏。相同模板、两种输入，直接看区别。",
-        "从一条验收问题追到四份 PR，说明六名组员怎样交接。",
-        "用错省例子解释 12 条定向评测，指出何时需要人工判断。",
-        "三组负责人、三个拟定日期，拿到同题对照后再判断写作参考的收益。",
-    ]
-    lines = ["# 第 11 组中期展示框架", "", "正式展示 9 页，程文博主讲，使用开题的浙大蓝白版式。讲述与操作共 6 分 35 秒。", "",
+    lines = ["# 第 11 组中期展示框架", "", "程文博主讲，使用开题的浙大蓝白版式。" + time_plan(deck), "",
              "| 页 | 内容 | 用时 | 展示重点 |", "| ---: | --- | ---: | --- |"]
-    for i, (slide, purpose) in enumerate(zip(deck["slides"], synopsis), 1):
+    for i, slide in enumerate(deck["slides"], 1):
+        purpose = slide["summary"]
         lines.append(f"| {i} | {slide['title']} | {slide['seconds']} 秒 | {purpose} |")
-    lines.extend(["", "老师提出的框架选型、主题范围和智能体分工分别在第 5、2、7 页回答。第 3、4 页的系统操作和第 6 页两份 PDF 是这三个决定的直接例子。",
-        "", "[逐页讲稿](讲稿.md) · [组内彩排稿](../briefing/中期汇报完整讲稿.md) · [设计报告](../report/report.md) · [运行材料](../evidence/README.md)"])
+    lines.extend(["", "老师提出的范围、框架选型、智能体分工分别见第 2、4–6、9 页。第 3 页可现场操作；第 7、8 页分别以删源样张、联网成稿及错误句检验交付行为。",
+        "", "[DeepSeek Harness 工具往返图](media/deepseek-harness-mcp.svg) · [Pi CLI 事件图](media/pi-cli-events.svg) · [项目双路径图](media/report-runtime.svg)", "", "[逐页讲稿](讲稿.md) · [组内彩排稿](../briefing/中期汇报完整讲稿.md) · [设计报告](../report/report.md) · [运行材料](../evidence/README.md)"])
     (PPT / "中期PPT框架.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -69,12 +67,16 @@ def build():
     source = PPT / "slides.json"
     deck = json.loads(source.read_text(encoding="utf-8"))
     slides = deck["slides"]
-    if len(slides) != 9 or sum(s["seconds"] for s in slides) != 395:
-        raise ValueError("本次正式稿共有九页、395 秒。")
-    if sum(s["seconds"] for s in slides[2:4]) != 90:
-        raise ValueError("第 3、4 页的现场演示应为 90 秒。")
+    if len(slides) != deck["formal_slides"] or not 0 < sum(s["seconds"] for s in slides) <= 420:
+        raise ValueError("请核对正式页数及各页用时；演示与讲述总共不超过 7 分钟。")
+    if slides[2]["id"] != "demo" or slides[2]["seconds"] != 90:
+        raise ValueError("第 3 页的现场演示应为 90 秒。")
     if any(s["speech"] not in s["notes"] for s in slides):
         raise ValueError("幻灯片备注与现场讲稿应一致。")
+    for slide in slides:
+        for item in slide["items"]:
+            if item["type"] == "diagram":
+                svg_diagram(item, PPT / "media" / (item["name"] + ".svg"))
     register_fonts()
     build_slide_pdf(source, PPT / f"第11组_中期展示_{deck['version']}.pdf", "中期展示")
     build_pptx(midterm=True)

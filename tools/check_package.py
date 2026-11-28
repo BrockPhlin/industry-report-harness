@@ -9,6 +9,11 @@ import zipfile
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
+ns = {
+    "p": "http://schemas.openxmlformats.org/presentationml/2006/main",
+    "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
+    "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+}
 deck = json.loads((ROOT/"presentations/01-opening/ppt/slides.json").read_text(encoding="utf-8"))
 report_source = (ROOT/"presentations/01-opening/report/report.md").read_text(encoding="utf-8")
 required = [
@@ -112,9 +117,6 @@ assert '逐步形成自己的创新' in json.dumps(deck,ensure_ascii=False)
 assert '目录' in report_source and '参考报告检索试验' in report_source
 # Display-only export: exactly one full-slide raster, no editable foreground.
 with zipfile.ZipFile(ROOT/image_deck) as z:
-    ns={'p':'http://schemas.openxmlformats.org/presentationml/2006/main',
-        'a':'http://schemas.openxmlformats.org/drawingml/2006/main',
-        'r':'http://schemas.openxmlformats.org/officeDocument/2006/relationships'}
     from posixpath import normpath,join,dirname
     for i,s in enumerate(deck['slides'],1):
         part=f'ppt/slides/slide{i}.xml';node=ET.fromstring(z.read(part))
@@ -191,6 +193,22 @@ with zipfile.ZipFile(deck_pptx) as file:
     for index, slide in enumerate(slides, 1):
         page = ET.fromstring(file.read(f"ppt/slides/slide{index}.xml"))
         assert page.findall(".//{http://schemas.openxmlformats.org/drawingml/2006/main}t"), "Editable text required"
+        for diagram in (item for item in slide["items"] if item["type"] == "diagram"):
+            svg_path = midterm / "ppt/media" / (diagram["name"] + ".svg")
+            svg = ET.parse(svg_path).getroot()
+            svg_ns = {"s": "http://www.w3.org/2000/svg"}
+            groups = page.findall(".//p:grpSp", ns)
+            group = next((g for g in groups
+                          if g.find("p:nvGrpSpPr/p:cNvPr", ns).get("name") == diagram["caption"]), None)
+            assert group is not None, f"Missing editable diagram on slide {index}"
+            assert not group.findall(".//p:pic", ns) and not svg.findall(".//s:image", svg_ns)
+            arrows = sum(part["type"] == "arrow" for part in diagram["parts"])
+            assert len(group.findall(".//p:cxnSp/p:spPr/a:ln/a:tailEnd[@type='triangle']", ns)) == arrows
+            assert len(svg.findall(".//s:polyline[@marker-end]", svg_ns)) == arrows
+            headings = {part["heading"] for part in diagram["parts"] if part["type"] == "node"}
+            ppt_labels = {node.text for node in group.findall(".//a:t", ns)}
+            svg_labels = {node.text for node in svg.findall(".//s:tspan", svg_ns)}
+            assert headings and headings <= ppt_labels & svg_labels, f"Missing node label in {svg_path.name}"
         notes = ET.fromstring(file.read(f"ppt/notesSlides/notesSlide{index}.xml"))
         assert slide["speech"] in speech and slide["speech"] in "".join(notes.itertext())
 

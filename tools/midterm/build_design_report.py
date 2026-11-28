@@ -15,7 +15,9 @@ from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[2]
 FOLDER = ROOT / "presentations/02-midterm/report"
-TITLE = "第11组_系统设计报告_v1.0"
+VERSION = "v1.1"
+TITLE = "第11组_系统设计报告_" + VERSION
+FIGURES = ("workbench-architecture", "section-flow")
 IMAGE = re.compile(r"!\[([^]]+)\]\(([^)]+)\)\{width=(\d+)%\}")
 LINK = re.compile(r"\[([^]]+)\]\((https://[^)]+)\)")
 META = "{urn:oasis:names:tc:opendocument:xmlns:meta:1.0}"
@@ -93,7 +95,7 @@ def editor_count(text, tmp):
     return int(stats.get(META + "word-count")), generator
 
 
-PREAMBLE = r"""% 从本目录执行 xelatex -halt-on-error -interaction=nonstopmode 第11组_系统设计报告_v1.0.tex 两次。
+PREAMBLE = r"""% 从本目录执行 xelatex -halt-on-error -interaction=nonstopmode 第11组_系统设计报告_@VERSION@.tex 两次。
 % 编写与重建入口见 tools/midterm/build_design_report.py。图片和字体的相对路径以本目录为准。
 \documentclass[UTF8,12pt,fontset=none]{ctexart}
 \usepackage[a4paper,left=23mm,right=23mm,top=26mm,bottom=25mm,headheight=16pt,headsep=7mm,footskip=11mm]{geometry}
@@ -103,7 +105,7 @@ PREAMBLE = r"""% 从本目录执行 xelatex -halt-on-error -interaction=nonstopm
 \setCJKsansfont[Path=../../../assets/fonts/,BoldFont=LXGWWenKai-Medium.ttf]{LXGWWenKai-Regular.ttf}
 \definecolor{zblue}{HTML}{003F88}\definecolor{ink}{HTML}{243448}\definecolor{muted}{HTML}{506581}
 \definecolor{pale}{HTML}{E9F1F9}\definecolor{hair}{HTML}{BED0E2}
-\hypersetup{colorlinks=true,linkcolor=zblue,urlcolor=zblue,pdftitle={第11组 系统设计报告 v1.0},pdfauthor={软件工程管理第11组},bookmarksnumbered=true}
+\hypersetup{colorlinks=true,linkcolor=zblue,urlcolor=zblue,pdftitle={第11组 系统设计报告 @VERSION@},pdfauthor={软件工程管理第11组},bookmarksnumbered=true}
 \linespread{1.0}\setlength{\parindent}{0pt}\setlength{\parskip}{4pt plus 1pt}
 \setlength{\tabcolsep}{5pt}\setlength{\emergencystretch}{18pt}
 \newcommand{\chaptertitle}[1]{\vspace*{0pt}{\color{zblue}\fontsize{22}{26}\selectfont\bfseries #1\par}\vspace{3pt}{\color{hair}\hrule height .8pt}\vspace{6pt}}
@@ -111,7 +113,7 @@ PREAMBLE = r"""% 从本目录执行 xelatex -halt-on-error -interaction=nonstopm
 \newcolumntype{Y}{>{\raggedright\arraybackslash}X}
 \newcommand{\capline}[1]{{\color{muted}\fontsize{10}{12}\selectfont #1\par}}
 \pagestyle{fancy}\fancyhf{}\fancyhead[L]{\small\color{muted}《软件工程管理》\quad 第11组}
-\fancyhead[R]{\small\color{muted}产业智能报告生成系统 \quad 系统设计报告 v1.0}
+\fancyhead[R]{\small\color{muted}产业智能报告生成系统 \quad 系统设计报告 @VERSION@}
 \fancyfoot[R]{\small\color{muted}\thepage}
 \renewcommand{\headrulewidth}{.45pt}\renewcommand{\headrule}{\hbox to\headwidth{\color{hair}\leaders\hrule height\headrulewidth\hfill}}
 \begin{document}
@@ -167,7 +169,9 @@ def render(markdown, tmp):
     if body_count > 15 or count > 10000:
         raise ValueError("报告超过系统设计报告篇幅上限")
     headings = [p.splitlines()[0].removeprefix("# ") for p in pages[1:]]
-    tex = [PREAMBLE, cover(pages[0], headings)]
+    if "**版本**：" + VERSION not in pages[0]:
+        raise ValueError("封面和生成文件的版本不一致")
+    tex = [PREAMBLE.replace("@VERSION@", VERSION), cover(pages[0], headings)]
     for i, page in enumerate(pages[1:], 1):
         tex.append(r"\clearpage")
         if i == 1:
@@ -197,23 +201,34 @@ def render(markdown, tmp):
     return "\n".join(tex) + "\n", body_count + 2
 
 
+def compile_tex(source, cwd, tmp):
+    result = subprocess.run(["xelatex", "-no-shell-escape", "-interaction=nonstopmode", "-halt-on-error",
+                             "-output-directory=" + str(tmp), str(source)], cwd=cwd, text=True, capture_output=True)
+    if result.returncode:
+        raise SystemExit(result.stdout[-5500:])
+    log = (tmp / (source.stem + ".log")).read_text(errors="replace")
+    warnings = [line for line in log.splitlines() if "Overfull" in line or "Missing character" in line]
+    if warnings:
+        raise SystemExit(f"{source.name} 排版或缺字：" + "\n".join(warnings))
+    return log
+
+
 def main():
     build = ROOT / ".build/midterm/design-report"
     build.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=build) as directory:
         tmp = Path(directory)
+        figures = FOLDER / "figures"
+        for name in FIGURES:
+            compile_tex(figures / (name + ".tex"), figures, tmp)
+            shutil.copyfile(tmp / (name + ".pdf"), figures / (name + ".pdf"))
         source, expected = render((FOLDER / "report.md").read_text(encoding="utf-8"), tmp)
         tex = tmp / (TITLE + ".tex")
         tex.write_text(source, encoding="utf-8")
         for _ in range(2):
-            result = subprocess.run(["xelatex", "-no-shell-escape", "-interaction=nonstopmode", "-halt-on-error",
-                                     "-output-directory=" + str(tmp), str(tex)],
-                                    cwd=FOLDER, text=True, capture_output=True)
-            if result.returncode:
-                raise SystemExit(result.stdout[-5500:])
-        log = (tmp / (TITLE + ".log")).read_text(errors="replace")
+            log = compile_tex(tex, FOLDER, tmp)
         match = re.search(r"Output written on [\s\S]+? \((\d+) pages?", log)
-        if not match or int(match[1]) != expected or "Overfull \\hbox" in log or "Missing character" in log:
+        if not match or int(match[1]) != expected:
             shutil.copyfile(tmp / (TITLE + ".pdf"), build / "preview.pdf")
             raise SystemExit("请检查排版、缺字与实际分页：" + "\n".join(l for l in log.splitlines() if
                              any(k in l for k in ("Overfull", "Missing character", "pages)"))))

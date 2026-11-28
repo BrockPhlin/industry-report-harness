@@ -1,0 +1,25 @@
+\documentclass[border=2pt]{standalone}
+\input{figure-style}
+\begin{document}
+\begin{tikzpicture}[x=1cm,y=1cm,text=ink]
+  % Two independent report paths. Lines only connect stages traversed by each path.
+  \newcommand{\stage}[5]{
+    \draw[#4] (#1,#2) rectangle ++(4.45,-1.65);
+    \node[captionlabel] at (#1+.12,#2-.42) {#3};
+    \node[legendtext,align=left] at (#1+.12,#2-1.05) {#5};}
+  \node[captionlabel] at (0,0) {固定简报};
+  \node[legendtext] at (2.05,0) {用已登记的资料验证三项指标};
+  \stage{0}{-.35}{选择模板与资料}{fixed}{网页或命令行发起\\也可在命令行排除某来源}
+  \stage{5.15}{-.35}{逐章查询}{fixed}{LangGraph 编排\\指标编号查固定资料}
+  \stage{10.3}{-.35}{核对简报}{fixed}{命中、缺项均进入草稿\\人工确认后导出定稿}
+  \draw[link] (4.45,-1.2)--(5.15,-1.2);
+  \draw[link] (9.6,-1.2)--(10.3,-1.2);
+  \node[captionlabel] at (0,-2.52) {自定义研究};
+  \node[legendtext] at (2.05,-2.52) {研究员在本地网页指定题目、篇幅与资料范围};
+  \stage{0}{-2.87}{拟定研究范围}{frame}{讨论提纲或直接提交\\按任务保存题目与选择}
+  \stage{5.15}{-2.87}{收集资料并按章写作}{frame}{指定来源的原件或数据集\\提取证据并编号}
+  \stage{10.3}{-2.87}{逐句审阅与修订}{frame}{查看原句、引用和原文\\草稿可润色，确认后导出}
+  \draw[link] (4.45,-3.72)--(5.15,-3.72);
+  \draw[link] (9.6,-3.72)--(10.3,-3.72);
+\end{tikzpicture}
+\end{document}

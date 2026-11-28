@@ -79,10 +79,18 @@ npm install --prefix .build/pi-probe --ignore-scripts @earendil-works/pi-coding-
 
 修复后，用相同问题再做一次真实模型研究，生成 2 章、正文 749 字，附表为组件产量 588 GW，指向 E4；程序记录本次联网核对时源文件内容未变。两次运行都以 800 字为目标。正文长度由模型生成，附表和来源由程序整理。
 
-## 展示材料复核
+## v1.0 展示材料复核
 
 Gemini 4 Carbon 先看了汇报顺序，建议及早交代六人的交接方式，并用一个真实的联网题说明工作台能做什么。第 2 页现在先交代找资料、按章写、核对这三步；第 3 页把联网题与固定资料的现场演示放在一起讲。模型工具回传、去掉装机来源和逐句核查仍按各自输入与观察结果分别说明。
 
 Claude Opus 5.5 核对了桌面首页、来源卡和手机草稿的截图。按反馈放大了「来源 [NEA]」等按钮，明确标出真实 GLM 样张，并调整了手机顶栏。第二轮看图确认三处都已改善。截图评审用于改善课堂可读性；上述软件运行结果来自本机实测。
 
 Carbon 第二轮审阅了修改后的讲稿、报告和 README 文字。技术页明确说清本机模拟服务验证的是工具回传，另两份对照样张使用真实 GLM；报告也将模型附加文字的处理写成读者可核对的具体行为。
+
+## v1.1 架构图如何核对
+
+两张框架图使用同一个查询 `pv-new-capacity`。这次用 E4、E5 对应的发布版本重新运行，两个结果 JSON 分别与归档回执逐字段一致。两次都发出两条本机模拟模型请求。E4 第二条请求带有原调用编号及国家能源局证据；E5 的执行结束事件表明工具已返回，还可从第二条请求核对究竟返回了哪条记录。这些观察来自实际运行框架。比较两种接法时，产业指标的来源始终是同一份国家能源局资料。
+
+[DeepSeek Harness 对应版本的 MCP 工具桥](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.2-rc.5/packages/mcp/mcp-client/src/tools.ts#L126-L177) · [Pi 对应版本的扩展接口](https://github.com/earendil-works/pi/blob/v1.6.0/packages/coding-agent/docs/extensions.md) · [Pi 的工具结果进入会话循环](https://github.com/earendil-works/pi/blob/v1.6.0/packages/agent/src/agent-loop.ts#L268-L308)
+
+本组固定简报与联网研究分别按[章内状态图](../../../code/report_app/pv_agent.py)和[长报告的阶段编排](../../../code/report_app/long_report.py)运行。对架构图的两轮 Carbon 文字审阅集中在两个问题：讲者能否指明返回值怎样进入下一轮，以及缺资料时由哪一段程序保留“待核实”。图中箭头最终按代码、E4/E5 回执和 E7 成稿核对。

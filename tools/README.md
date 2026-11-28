@@ -67,3 +67,5 @@ python3.12 -m venv .venv
 ```
 
 只改报告，可单独运行 `tools/midterm/build_design_report.py`。只改演示内容，用同一解释器运行 `tools/midterm/build_deck.py`。前者从 report.md 生成可编辑 TeX 和 PDF，后者从 slides.json 生成 PPTX、PDF 和两份讲稿。最终文件在[中期材料目录](../presentations/02-midterm/README.md)。
+
+中期展示的三幅技术图在 `ppt/slides.json` 中以节点、文字和带方向的折线描述。重新生成后，PowerPoint 中可编辑图组与节点，`ppt/media/` 中对应的独立 SVG 可插入其他文档。系统设计报告的流程图从 `report/figures/` 下的 TikZ 源文件编译为矢量 PDF。相关路径均相对于 [presentations/02-midterm](../presentations/02-midterm/README.md)。

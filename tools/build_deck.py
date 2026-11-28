@@ -23,10 +23,11 @@ from PIL import Image
 
 from pptx import Presentation
 from pptx.dml.color import RGBColor
-from pptx.enum.shapes import MSO_SHAPE
+from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.util import Emu, Pt
 from pptx.oxml.xmlchemy import OxmlElement
+from slide_diagrams import node_shapes
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -215,6 +216,35 @@ def add_flow(slide, item, theme):
             set_run(run, size=body_size, bold=False, color=INK, theme=theme)
 
 
+def add_diagram(slide, item, theme):
+    diagram = slide.shapes.add_group_shape()
+    diagram.name = item["caption"]
+    for part in item["parts"]:
+        if part["type"] == "node":
+            group = diagram.shapes.add_group_shape()
+            group.name = part["heading"]
+            rect, title, body = node_shapes(part)
+            add_box(group, rect)
+            add_text(group, title, theme)
+            add_text(group, body, theme)
+        elif part["type"] == "text":
+            add_text(diagram, part, theme)
+        elif part["type"] == "box":
+            add_box(diagram, part)
+        elif part["type"] == "arrow":
+            points = part["points"]
+            for i, ((x1,y1),(x2,y2)) in enumerate(zip(points, points[1:]), 2):
+                connector = diagram.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, px(x1), px(y1), px(x2), px(y2))
+                connector.line.color.rgb = BLUE
+                connector.line.width = Pt(1.9)
+                if i == len(points):
+                    tip = OxmlElement("a:tailEnd")
+                    tip.set("type", "triangle")
+                    connector.line._get_or_add_ln().append(tip)
+        else:
+            raise ValueError(f"Unknown diagram element {part['type']}")
+
+
 def build(midterm: bool = False):
     theme = OPENING if midterm else LEGACY
     stage_dir = "02-midterm" if midterm else "01-opening"
@@ -267,6 +297,8 @@ def build(midterm: bool = False):
                 add_image(slide, it, contain=midterm)
             elif t == "table":
                 add_table(slide, it, theme)
+            elif t == "diagram":
+                add_diagram(slide, it, theme)
             elif t == "flow":
                 add_flow(slide, it, theme)
             elif t == "box":

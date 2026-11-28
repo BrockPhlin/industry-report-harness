@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import html
 import io
+import math
 import json
 import re
 from pathlib import Path
@@ -359,6 +360,29 @@ def draw_chart(pdf, item):
         slide_text(pdf,dict(text=label,x=cx-110,y=bottom+17,w=220,h=34,size=23,color=INK))
 
 
+def diagram_arrow(pdf, points):
+    """Draw a vector path and triangular tip using the common diagram coordinates."""
+    pdf.setStrokeColor(colors.HexColor(BLUE))
+    pdf.setFillColor(colors.HexColor(BLUE))
+    pdf.setLineWidth(2.5)
+    path = pdf.beginPath()
+    x, y = points[0]
+    path.moveTo(x, 720-y)
+    for x, y in points[1:]:
+        path.lineTo(x, 720-y)
+    pdf.drawPath(path, stroke=1)
+    prev_x, prev_y = points[-2]
+    dx, dy = x-prev_x, y-prev_y
+    length = math.hypot(dx, dy)
+    ux, uy = dx/length, dy/length
+    tip = pdf.beginPath()
+    tip.moveTo(x,720-y)
+    tip.lineTo(x-12*ux+5*uy,720-(y-12*uy-5*ux))
+    tip.lineTo(x-12*ux-5*uy,720-(y-12*uy+5*ux))
+    tip.close()
+    pdf.drawPath(tip, stroke=0, fill=1)
+
+
 def draw_items(pdf, items):
     for item in items:
         if item["type"] == "text":
@@ -376,9 +400,19 @@ def draw_items(pdf, items):
                 pdf.setFillColor(colors.HexColor(PALE));pdf.rect(x,720-y-h,w,h,stroke=1,fill=1)
                 slide_text(pdf,dict(text=title,x=x+15,y=y+13,w=w-30,h=40,size=30,bold=True,color=BLUE))
                 slide_text(pdf,dict(text=body,x=x+15,y=y+63,w=w-30,h=35,size=23,color=INK))
+        elif item["type"] == "diagram":
+            draw_items(pdf, item["parts"])
+        elif item["type"] == "node":
+            from slide_diagrams import node_shapes
+            draw_items(pdf, node_shapes(item))
+        elif item["type"] == "arrow":
+            diagram_arrow(pdf, item["points"])
         elif item['type'] == 'box':
             pdf.setFillColor(colors.HexColor(item['fill']))
-            pdf.rect(item['x'],720-item['y']-item['h'],item['w'],item['h'],fill=1,stroke=0)
+            if item.get('line'):
+                pdf.setStrokeColor(colors.HexColor(item['line']))
+                pdf.setLineWidth(item.get('line_w', 1))
+            pdf.rect(item['x'],720-item['y']-item['h'],item['w'],item['h'],fill=1,stroke=int(bool(item.get('line'))))
         elif item['type'] == 'chart':
             draw_chart(pdf,item)
         else:
