@@ -47,13 +47,17 @@ assert claims[0]["owner"] == "程文博"
 with (ROOT/"team/members.csv").open(encoding="utf-8") as f:
     names={r["name"] for r in csv.DictReader(f)}
 assert all(not r["owner"] or r["owner"] in names for r in claims)
-for source in ROOT.rglob("*.md"):
-    if ".build" in source.parts:
-        continue
-    for target in re.findall(r"\[[^\]]+\]\(([^)]+)\)",source.read_text(encoding="utf-8")):
-        if target.startswith(("http:","https:","#")):
+for directory, children, filenames in os.walk(ROOT):
+    children[:] = [name for name in children if name not in {".git", ".build", ".venv", "node_modules", "__pycache__"}
+                   and Path(directory, name) != ROOT / "code/runtime"]
+    for name in filenames:
+        if not name.endswith(".md"):
             continue
-        assert (source.parent/target.split("#")[0]).exists(), f"Broken link in {source}: {target}"
+        source = Path(directory, name)
+        for target in re.findall(r"\[[^\]]+\]\(([^)]+)\)", source.read_text(encoding="utf-8")):
+            if target.startswith(("http:", "https:", "#")):
+                continue
+            assert (source.parent / target.split("#")[0]).exists(), f"Broken link in {source}: {target}"
 assert len(deck["slides"]) == 12 and sum(s["seconds"] for s in deck["slides"]) == 400
 assert deck["formal_slides"] == len(deck['slides']) and all(s['seconds']>0 for s in deck['slides'])
 assert all(s.get('speech') and s['speech'] in s['notes'] for s in deck['slides'])
@@ -161,12 +165,19 @@ assert list(map(int,contents_targets))==list(range(1,11))
 midterm = ROOT / "presentations/02-midterm"
 midterm_deck = json.loads((midterm / "ppt/slides.json").read_text(encoding="utf-8"))
 version = midterm_deck["version"]
-report_version = midterm_deck.get("report_version", version)
 slides = midterm_deck["slides"]
 speech = (midterm / "ppt/讲稿.md").read_text(encoding="utf-8")
 deck_pptx = midterm / f"ppt/第11组_中期展示_{version}.pptx"
 midterm_report = (midterm / "report/report.md").read_text(encoding="utf-8")
-report_version = re.search(r"\*\*版本\*\*：(v\d+(?:\.\d+)+)", midterm_report)[1]
+report_version = re.search(r"\*\*版本\*\*\s*[：:]\s*(v\d+(?:\.\d+)+)", midterm_report)[1]
+assert midterm_deck["report_version"] == report_version, "Deck references a different design report"
+assert (midterm / f"report/第11组_系统设计报告_{report_version}.tex").is_file()
+for folder, stem, expected_version, extensions in [
+    ("report", "第11组_系统设计报告_", report_version, ("pdf", "tex")),
+    ("ppt", "第11组_中期展示_", version, ("pdf", "pptx")),
+]:
+    for ext in extensions:
+        assert {p.name for p in (midterm / folder).glob(f"{stem}*.{ext}")} == {f"{stem}{expected_version}.{ext}"}
 for pdf in [midterm / f"ppt/第11组_中期展示_{version}.pdf",
             midterm / f"report/第11组_系统设计报告_{report_version}.pdf"]:
     with pdf.open("rb") as file:
@@ -178,6 +189,8 @@ with zipfile.ZipFile(deck_pptx) as file:
     assert sum(bool(re.fullmatch(r"ppt/slides/slide\d+\.xml", name))
                for name in file.namelist()) == len(slides)
     for index, slide in enumerate(slides, 1):
+        page = ET.fromstring(file.read(f"ppt/slides/slide{index}.xml"))
+        assert page.findall(".//{http://schemas.openxmlformats.org/drawingml/2006/main}t"), "Editable text required"
         notes = ET.fromstring(file.read(f"ppt/notesSlides/notesSlide{index}.xml"))
         assert slide["speech"] in speech and slide["speech"] in "".join(notes.itertext())
 

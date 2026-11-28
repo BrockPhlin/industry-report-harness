@@ -54,3 +54,16 @@ render_report(report / "设计变更与验收对照.md", report / "第11组_终�
               "终期设计变更说明", 15, 10000, "## 复现资料")
 PY
 ```
+
+## 重新生成中期提交件
+
+在仓库根目录运行。系统设计报告使用 XeLaTeX 排版，使用 LibreOffice Writer 统计正文字数，两者都须安装并能在命令行调用。报告字体随仓库提供。展示稿使用公开 Python 依赖，可在同一台机器上重新生成，无需模型密钥。
+
+```sh
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r tools/requirements.txt
+.venv/bin/python tools/midterm/build_materials.py
+.venv/bin/python -S tools/check_package.py
+```
+
+只改报告，可单独运行 `tools/midterm/build_design_report.py`。只改演示内容，用同一解释器运行 `tools/midterm/build_deck.py`。前者从 report.md 生成可编辑 TeX 和 PDF，后者从 slides.json 生成 PPTX、PDF 和两份讲稿。最终文件在[中期材料目录](../presentations/02-midterm/README.md)。

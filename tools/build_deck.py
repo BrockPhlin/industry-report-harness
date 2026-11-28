@@ -3,7 +3,7 @@
 
 A portable alternative to build_slides.mjs (which needs Codex's private
 @oai/artifact-tool runtime). This script uses only python-pptx and renders
-the same layout: 1280x720 canvas, Microsoft YaHei typography,
+an editable 1280x720 canvas with the opening master’s fonts for the midterm,
 blue accent #003F88, pale table header #ECF3FA.
 
 Usage:
@@ -17,12 +17,16 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import NamedTuple
+
+from PIL import Image
 
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.util import Emu, Pt
+from pptx.oxml.xmlchemy import OxmlElement
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -33,10 +37,15 @@ PALE = RGBColor(0xEC, 0xF3, 0xFA)
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 GRID = RGBColor(0xD9, 0xE1, 0xEB)
 
-TITLE_FONT = "Microsoft YaHei"
-BODY_FONT = "Microsoft YaHei"
+class Theme(NamedTuple):
+    title: str
+    body: str
+    points_per_unit: float
 
-SIZE_SCALE = 0.92
+
+LEGACY = Theme("Microsoft YaHei", "Microsoft YaHei", 0.92)
+# The opening master uses pixel units on a 1280 px canvas at 96 dpi.
+OPENING = Theme("Smiley Sans Oblique", "LXGW WenKai", 72 / 96)
 
 PX = 9525
 
@@ -45,22 +54,26 @@ def px(v: float) -> Emu:
     return Emu(int(v * PX))
 
 
-def scaled(size: float) -> float:
-    return round(size * SIZE_SCALE, 1)
-
-
 def hex_color(value: str) -> RGBColor:
     return RGBColor.from_string(value.lstrip("#"))
 
 
-def set_run(run, *, size, bold, color, font):
-    run.font.size = Pt(scaled(size))
+def set_run(run, *, size, bold, color, theme, heading=False):
+    font = theme.title if heading else theme.body
+    precision = 2 if theme is OPENING else 1
+    run.font.size = Pt(round(size * theme.points_per_unit, precision))
     run.font.bold = bold
     run.font.color.rgb = color
     run.font.name = font
+    if theme is OPENING:
+        # PowerPoint chooses the East Asian face independently of the Latin run.
+        properties = run._r.get_or_add_rPr()
+        east_asian = OxmlElement("a:ea")
+        east_asian.set("typeface", font)
+        properties.append(east_asian)
 
 
-def add_text(slide, item):
+def add_text(slide, item, theme):
     box = slide.shapes.add_textbox(px(item["x"]), px(item["y"]), px(item["w"]), px(item["h"]))
     tf = box.text_frame
     tf.word_wrap = True
@@ -71,12 +84,14 @@ def add_text(slide, item):
         p.alignment = PP_ALIGN.LEFT
         run = p.add_run()
         run.text = line
+        if item.get("href"):
+            run.hyperlink.address = item["href"]
         set_run(
             run,
             size=item.get("size", 20),
             bold=item.get("bold", False),
             color=RGBColor.from_string(item.get("color", "233042").lstrip("#")),
-            font=TITLE_FONT if item.get("font") == "title" else BODY_FONT,
+            theme=theme, heading=item.get("font") == "title",
         )
     return box
 
@@ -110,12 +125,19 @@ def add_box(slide, item):
     )
 
 
-def add_image(slide, item):
+def add_image(slide, item, contain=False):
     p = ROOT / item["path"]
-    slide.shapes.add_picture(str(p), px(item["x"]), px(item["y"]), px(item["w"]), px(item["h"]))
+    x, y, width, height = (item[key] for key in ("x", "y", "w", "h"))
+    if contain:
+        with Image.open(p) as image:
+            scale = min(width / image.width, height / image.height)
+            fitted_w, fitted_h = image.width * scale, image.height * scale
+        x, y = x + (width - fitted_w) / 2, y + (height - fitted_h) / 2
+        width, height = fitted_w, fitted_h
+    slide.shapes.add_picture(str(p), px(x), px(y), px(width), px(height))
 
 
-def add_table(slide, item):
+def add_table(slide, item, theme):
     rows, cols = len(item["rows"]), len(item["rows"][0])
     gfx = slide.shapes.add_table(rows, cols, px(item["x"]), px(item["y"]), px(item["w"]), px(item["h"]))
     tbl = gfx.table
@@ -135,6 +157,17 @@ def add_table(slide, item):
             cell.vertical_anchor = MSO_ANCHOR.MIDDLE
             cell.fill.solid()
             cell.fill.fore_color.rgb = PALE if r == 0 else WHITE
+            if theme is OPENING:
+                props = cell._tc.get_or_add_tcPr()
+                for side in ("lnL", "lnR", "lnT", "lnB"):
+                    line = OxmlElement("a:" + side)
+                    line.set("w", str(int(Pt(.45))))
+                    fill = OxmlElement("a:solidFill")
+                    color = OxmlElement("a:srgbClr")
+                    color.set("val", "D9E1EB")
+                    fill.append(color)
+                    line.append(fill)
+                    props.insert(0, line)
             tf = cell.text_frame
             tf.word_wrap = True
             tf.text = ""
@@ -147,12 +180,12 @@ def add_table(slide, item):
                 size=item.get("size", 20),
                 bold=(r == 0),
                 color=BLUE if r == 0 else INK,
-                font=BODY_FONT,
+                theme=theme,
             )
     return tbl
 
 
-def add_flow(slide, item):
+def add_flow(slide, item, theme):
     for x1, y1, x2, y2 in item["edges"]:
         left = min(x1, x2)
         top = min(y1, y2)
@@ -170,7 +203,7 @@ def add_flow(slide, item):
         p = tf.paragraphs[0]
         run = p.add_run()
         run.text = title
-        set_run(run, size=title_size, bold=True, color=BLUE, font=BODY_FONT)
+        set_run(run, size=title_size, bold=True, color=BLUE, theme=theme)
         bbox = slide.shapes.add_textbox(px(x + 15), px(y + 58), px(w - 30), px(h - 64))
         tf = bbox.text_frame
         tf.word_wrap = True
@@ -179,10 +212,11 @@ def add_flow(slide, item):
             p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
             run = p.add_run()
             run.text = line
-            set_run(run, size=body_size, bold=False, color=INK, font=BODY_FONT)
+            set_run(run, size=body_size, bold=False, color=INK, theme=theme)
 
 
 def build(midterm: bool = False):
+    theme = OPENING if midterm else LEGACY
     stage_dir = "02-midterm" if midterm else "01-opening"
     label = "中期展示" if midterm else "开题展示"
     deck_dir = ROOT / "presentations" / stage_dir / "ppt"
@@ -206,14 +240,14 @@ def build(midterm: bool = False):
             p = tf.paragraphs[0]
             run = p.add_run()
             run.text = s["title"]
-            set_run(run, size=40, bold=True, color=BLUE, font=TITLE_FONT)
+            set_run(run, size=40, bold=not midterm, color=BLUE, theme=theme, heading=True)
             add_rect(slide, 60, 89, 1160, 3, BLUE)
             section = s.get("section")
             sub_x = 65
-            if section:
+            if section and not midterm:
                 add_rect(slide, 65, 98, 165, 36, PALE)
                 add_text(slide, {"text": section, "x": 78, "y": 104, "w": 140, "h": 26,
-                                 "size": 18, "bold": True, "color": "#003F88"})
+                                 "size": 18, "bold": True, "color": "#003F88"}, theme)
                 sub_x = 247
             sub = slide.shapes.add_textbox(px(sub_x), px(100), px(1260 - sub_x), px(40))
             tf = sub.text_frame
@@ -222,19 +256,19 @@ def build(midterm: bool = False):
             p = tf.paragraphs[0]
             run = p.add_run()
             run.text = s["subtitle"]
-            set_run(run, size=23, bold=False, color=MUTED, font=BODY_FONT)
+            set_run(run, size=23, bold=False, color=MUTED, theme=theme)
             add_image(slide, {"path": "assets/brand/char_blue.png", "x": 1100, "y": 30, "w": 115, "h": 39})
 
         for it in s["items"]:
             t = it["type"]
             if t == "text":
-                add_text(slide, it)
+                add_text(slide, it, theme)
             elif t == "image":
-                add_image(slide, it)
+                add_image(slide, it, contain=midterm)
             elif t == "table":
-                add_table(slide, it)
+                add_table(slide, it, theme)
             elif t == "flow":
-                add_flow(slide, it)
+                add_flow(slide, it, theme)
             elif t == "box":
                 add_box(slide, it)
             else:
@@ -246,19 +280,19 @@ def build(midterm: bool = False):
         p = tf.paragraphs[0]
         run = p.add_run()
         if midterm:
-            run.text = f"第11组 · 中期展示 {spec['version']} / 数字有出处 · 缺项看得见"
+            run.text = f"第11组 · 中期展示 {spec['version']}"
         else:
             run.text = f"开题初稿 {spec['version']} / 计划与实际分开记录"
-        set_run(run, size=17, bold=False, color=MUTED, font=BODY_FONT)
+        set_run(run, size=17, bold=False, color=MUTED, theme=theme)
 
         pg = slide.shapes.add_textbox(px(1135), px(682), px(100), px(25))
         tf = pg.text_frame
         tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
         p = tf.paragraphs[0]
-        p.alignment = PP_ALIGN.RIGHT
+        p.alignment = PP_ALIGN.LEFT if midterm else PP_ALIGN.RIGHT
         run = p.add_run()
-        run.text = f"{idx + 1:02d} / {total}"
-        set_run(run, size=17, bold=False, color=MUTED, font=BODY_FONT)
+        run.text = f"{idx + 1:02d} / {total:02d}" if midterm else f"{idx + 1:02d} / {total}"
+        set_run(run, size=17, bold=False, color=MUTED, theme=theme)
 
         notes = slide.notes_slide.notes_text_frame
         notes.text = s.get("notes", "")

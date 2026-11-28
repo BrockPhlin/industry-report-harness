@@ -1,0 +1,216 @@
+% 从本目录执行 xelatex -halt-on-error -interaction=nonstopmode 第11组_系统设计报告_v1.0.tex 两次。
+% 编写与重建入口见 tools/midterm/build_design_report.py。图片和字体的相对路径以本目录为准。
+\documentclass[UTF8,12pt,fontset=none]{ctexart}
+\usepackage[a4paper,left=23mm,right=23mm,top=26mm,bottom=25mm,headheight=16pt,headsep=7mm,footskip=11mm]{geometry}
+\usepackage[table]{xcolor}
+\usepackage{graphicx,tabularx,array,fancyhdr,hyperref,fontspec}
+\setCJKmainfont[Path=../../../assets/fonts/,BoldFont=LXGWWenKai-Medium.ttf]{LXGWWenKai-Regular.ttf}
+\setCJKsansfont[Path=../../../assets/fonts/,BoldFont=LXGWWenKai-Medium.ttf]{LXGWWenKai-Regular.ttf}
+\definecolor{zblue}{HTML}{003F88}\definecolor{ink}{HTML}{243448}\definecolor{muted}{HTML}{506581}
+\definecolor{pale}{HTML}{E9F1F9}\definecolor{hair}{HTML}{BED0E2}
+\hypersetup{colorlinks=true,linkcolor=zblue,urlcolor=zblue,pdftitle={第11组 系统设计报告 v1.0},pdfauthor={软件工程管理第11组},bookmarksnumbered=true}
+\linespread{1.0}\setlength{\parindent}{0pt}\setlength{\parskip}{4pt plus 1pt}
+\setlength{\tabcolsep}{5pt}\setlength{\emergencystretch}{18pt}
+\newcommand{\chaptertitle}[1]{\vspace*{0pt}{\color{zblue}\fontsize{22}{26}\selectfont\bfseries #1\par}\vspace{3pt}{\color{hair}\hrule height .8pt}\vspace{6pt}}
+\newcommand{\subhead}[1]{\par\addvspace{8pt}{\color{zblue}\fontsize{14}{18}\selectfont\bfseries #1\par}\vspace{1pt}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcommand{\capline}[1]{{\color{muted}\fontsize{10}{12}\selectfont #1\par}}
+\pagestyle{fancy}\fancyhf{}\fancyhead[L]{\small\color{muted}《软件工程管理》\quad 第11组}
+\fancyhead[R]{\small\color{muted}产业智能报告生成系统 \quad 系统设计报告 v1.0}
+\fancyfoot[R]{\small\color{muted}\thepage}
+\renewcommand{\headrulewidth}{.45pt}\renewcommand{\headrule}{\hbox to\headwidth{\color{hair}\leaders\hrule height\headrulewidth\hfill}}
+\begin{document}
+\color{ink}\fontsize{12}{16}\selectfont
+\pagenumbering{Roman}\thispagestyle{empty}
+
+\noindent\includegraphics[width=39mm]{../../../assets/brand/logo_blue.png}\par\vspace{7mm}
+{\fontsize{29}{36}\selectfont\bfseries\color{zblue}产业智能报告生成系统\par}
+{\fontsize{20}{25}\selectfont\color{zblue}系统设计报告\par}\vspace{4mm}
+{\large 《软件工程管理》第11组 · 中期交付\par}\vspace{3mm}
+日期：2026-11-29　版本：v1.0\par
+统筹与中期汇报：程文博　设计报告原稿：田亦洁\par
+组员：田亦洁、李佳雨、许子萌、崔大元、郭润航\par
+\vspace{3mm}\noindent\colorbox{pale}{\parbox{\dimexpr\linewidth-2\fboxsep\relax}{\vspace{3pt}一份光伏报告里，组件产量和新增装机都可以用功率单位表示；资料只写了产量，系统凭什么给出装机数？本报告从这个问题出发，说明智能体怎样取证、补查、保留缺项，以及研究员怎样核对后导出。\vspace{3pt}}}\par
+\subhead{目录}\begingroup\setlength{\parskip}{3pt}
+\hyperlink{reportpart1}{1　用户任务与范围\dotfill 1}\par
+\hyperlink{reportpart2}{2　总体架构与核心流程\dotfill 2}\par
+\hyperlink{reportpart3}{3　工具接口与写作协议\dotfill 3}\par
+\hyperlink{reportpart4}{4　数据、恢复与运行边界\dotfill 4}\par
+\hyperlink{reportpart5}{5　同一题，拿掉装机资料后怎样写\dotfill 5}\par
+\hyperlink{reportpart6}{6　框架参照、设计取舍与核查\dotfill 6}\par
+\hyperlink{reportpart7}{7　计划执行、交接与剩余工作\dotfill 7}\par
+\hyperlink{reportpart8}{8　需求追踪、风险与核验责任\dotfill 8}\par
+\hyperlink{reportpart9}{参考资料与复核入口\dotfill 附录}\par
+\endgroup
+\clearpage
+\pagenumbering{arabic}
+\hypertarget{reportpart1}{}
+\pdfbookmark[1]{1　用户任务与范围}{outline1}
+\chaptertitle{1　用户任务与范围}
+研究员要写一份2024年中国光伏简报，回答两个问题：制造端的组件产量、价格有什么变化？发电侧新增了多少装机？工信部给出的组件产量为588 GW，国家能源局给出的新增装机为2.78亿千瓦。前者统计制造环节的产品，后者统计新增发电装机。即使单位可以换算，资料缺了一边，另一边也不能填进空栏。目标读者为产业研究人员；本次以公开统计构造任务，尚无用户访谈或试用记录。\par
+\subhead{开题后为什么先做光伏}
+开题设想支持多产业、多类报告。老师提出三点意见：参考现有智能体框架，选一类报告做深，按智能体的工作流程重新分工。中期选择公开原表可逐项复查的光伏报告。用固定两章、三项指标考察缺资料时的行为；本地研究工作台另支持自定章节、查询公开统计和分省比较。以下凡引用中期 E1–E9，均指固定简报在相应时间留下的记录。\par
+\subhead{中期需求与验收}
+\par\begingroup\fontsize{10.5}{13.5}\selectfont\renewcommand{\arraystretch}{1.12}
+\arrayrulecolor{hair}\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{.13\linewidth}>{\raggedright\arraybackslash}p{.32\linewidth}Y}\hline
+\rowcolor{pale}
+\bfseries\color{zblue} 编号 & \bfseries\color{zblue} 用户动作 & \bfseries\color{zblue} 验收条件\\ \hline
+M1 & 按章查数据 & 关键数字带统计期、单位、发布方与原文位置，能够回到原表。\\ \hline
+M2 & 发现缺项 & 初查后只补查尚缺指标；固定资料仍无结果时，草稿和 PDF 都显示待核实。\\ \hline
+M3 & 修改并交付 & 读者核对草稿及出处，明确确认后得到 Markdown 与 PDF；受保护的指标、来源和缺项不可在润色时悄悄改掉。\\ \hline
+M4 & 查清发生了什么 & 能从事件记录查到本章的请求、命中、采用与缺项；同一输入中断后可辨别哪些章已完成。\\ \hline
+\end{tabularx}\endgroup\par
+\subhead{三项指标各自回到哪条原文}
+\par\begingroup\fontsize{10.5}{13.5}\selectfont\renewcommand{\arraystretch}{1.12}
+\arrayrulecolor{hair}\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{.23\linewidth}>{\raggedright\arraybackslash}p{.31\linewidth}Y}\hline
+\rowcolor{pale}
+\bfseries\color{zblue} 指标 & \bfseries\color{zblue} 统计期与原值 & \bfseries\color{zblue} 发布材料与定位\\ \hline
+组件产量 & 2024年1—12月，588 GW & 工信部《2024年全国光伏制造行业运行情况》，“组件环节”段。\\ \hline
+组件价格变化 & 同期，同比下降29.7\% & 同一发布，“全年主要光伏产品”段。字段负号表示下降。\\ \hline
+全国光伏新增装机 & 2024年，2.78亿千瓦 & 国家能源局《2024年可再生能源并网运行情况》，“（三）光伏发电建设和运行情况”。\\ \hline
+\end{tabularx}\endgroup\par
+以上原文、发布日期和工具字段由崔大元在中期来源表逐项核对。系统可据此检查“这条资料说了什么”；判断变化原因还需单独的调查证据。\par
+\clearpage
+\hypertarget{reportpart2}{}
+\pdfbookmark[1]{2　总体架构与核心流程}{outline2}
+\chaptertitle{2　总体架构与核心流程}
+固定简报按给定章节和资料核查三项指标，可脱网复跑。联网研究允许用户指定题目、篇幅和资料来源。11月29日，工作台按800字目标试写“2024年中国光伏组件产量和组件价格怎样变化”，从制造资料来源取得1份工信部原始发布，整理出10条证据，生成2章、正文859字。\par
+{\centering\includegraphics[width=1.0\linewidth]{\detokenize{系统运行架构.png}}\par}\capline{图1　研究工作台与固定简报的调用边界}
+\subhead{沿着一条装机记录走一遍}
+{\centering\includegraphics[width=0.95\linewidth]{\detokenize{../briefing/光伏简报生成流程.png}}\par}\capline{图2　固定简报从模板到审阅导出，依据许子萌的技术供稿}
+以“发电新增装机”章为例。Python 先读取该章必需的指标编号。GLM 发出工具调用，程序检查工具名和查询范围，检索器返回证据及其原文位置。LangGraph 比对必查清单，只让缺的编号补查一次。程序按照返回记录填入年份、数值和单位；模型提交的观察若夹带未经允许的数字，就省略该观察并留下记录。章写完才保存检查点，整篇生成后由人确认导出。\par
+网络或模型服务失败时，已有草稿和引用应能够解释到哪一步。固定输入便于复查这种行为；开放研究则需额外记录远端数据快照、报告范围和每一章采用的资料。本地工具保存两类任务各自的运行记录。\par
+\clearpage
+\hypertarget{reportpart3}{}
+\pdfbookmark[1]{3　工具接口与写作协议}{outline3}
+\chaptertitle{3　工具接口与写作协议}
+\subhead{谁能请求什么，收到什么结果}
+\par\begingroup\fontsize{10.5}{13.5}\selectfont\renewcommand{\arraystretch}{1.12}
+\arrayrulecolor{hair}\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{.20\linewidth}>{\raggedright\arraybackslash}p{.34\linewidth}Y}\hline
+\rowcolor{pale}
+\bfseries\color{zblue} 接口与模块 & \bfseries\color{zblue} 输入 & \bfseries\color{zblue} 输出、约束与错误处理\\ \hline
+固定简报生成（run） & 新任务目录、模板、来源与事实；可排除某一来源 & 新任务写出草稿和运行记录。缺资料写入缺项；目录冲突报错。\\ \hline
+证据查询（search\_evidence） & 章节允许查询的指标编号 & 返回命中条目的原值、单位、时段和定位。未知或越界的工具请求不能进入章内结果。\\ \hline
+模型适配（ChatWriter） & 章要求、允许的工具；第二次请求附工具结果 & 首轮请求查询，次轮给出选用编号和可选观察。编号不属于本章命中集时校验失败。\\ \hline
+网页研究（/api/research） & 研究问题、范围、章节、来源与参考报告 & 返回任务编号和状态。先讨论的任务须确认才能写；缺可核对资料时提示调整。\\ \hline
+人工确认（approve） & 任务编号或目录、显式确认 & 检查受保护字段，调用 Typst 编排 Markdown，保存 PDF、定稿和正文指纹。\\ \hline
+分省比较（/api/comparisons） & 同期、指标、所选地区 & 返回两期值、差额、相对变化率和名次。口径变化的地区列入缺口。\\ \hline
+\end{tabularx}\endgroup\par
+\subhead{为什么不把所有工作交给一次模型请求}
+常规固定章节分两次请求。第一次索取本章证据，第二次接收实际工具结果后组织文字。适配器检查响应是否给出了所声明的工具、参数和调用编号，编排器检查哪些必查项仍缺失。补查由程序在同一批已载入资料中执行。这个分工使没有国家能源局资料时的行为可以用相同输入重复检查。\par
+固定简报的网页供核对与导出；若要修改正文，须在命令行用 approve {-}{-}markdown 传入修订稿并加 {-}{-}confirm 确认。联网长报告的草稿可在确认前直接用网页润色。\par
+参考报告和事实来源在工作台中分开记录。用户可选择指定的写作参考，提纲和相关章节接收带页码、可借鉴做法的摘记。例如，参考报告可以提醒作者把累计容量和年度新增分表列出。产业数字另从本章证据包取出，正文中的证据编号指回该条观测；跨行业报告中的数字不能移作光伏结论。写作选用的摘记随任务保存，恢复时沿用原选择。\par
+\clearpage
+\hypertarget{reportpart4}{}
+\pdfbookmark[1]{4　数据、恢复与运行边界}{outline4}
+\chaptertitle{4　数据、恢复与运行边界}
+\subhead{可回查的最小数据关系}
+\par\begingroup\fontsize{10.5}{13.5}\selectfont\renewcommand{\arraystretch}{1.12}
+\arrayrulecolor{hair}\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{.20\linewidth}>{\raggedright\arraybackslash}p{.34\linewidth}Y}\hline
+\rowcolor{pale}
+\bfseries\color{zblue} 实体 & \bfseries\color{zblue} 关键字段或文件 & \bfseries\color{zblue} 关联与一致性\\ \hline
+简报模板、来源、事实 & 章节的必查编号；事实的 source、period、value、unit；来源的公开链接与 locator & 编号连接章节与事实，来源 ID 连接事实与发布方。同一页面可记录多项指标，各有自己的原文定位。\\ \hline
+工作台任务与原始快照 & SQLite 内的任务、规划、来源、观测、原文段落 & 报告任务保留研究范围；观测关联具体快照。相同 URL 有新内容时，其版本指纹可区分。\\ \hline
+报告引用与写作参考 & trace.json 中的证据编号、定位、快照；参考报告 ID 和章节摘记 & 正文中的引文回查本次使用的证据。参考摘记只描述写作维度，单独保存。\\ \hline
+已完成章与确认件 & 输入指纹、已完成章节、进行中章；reviewed 中的定稿、PDF 和确认记录 & 同一输入可恢复完成章。确认记录中的 SHA-256 对应定稿文字，可用来检查文件配对。\\ \hline
+\end{tabularx}\endgroup\par
+\subhead{写到一半停下会发生什么}
+固定简报将模板、来源、事实、运行模式和模型路由纳入任务指纹。各章完成时以临时文件写入、同步并替换检查点；任务锁避免并发写同一份状态。整篇草稿与 trace 都写齐后，暂存目录才改名为任务目录。中期 E8 主动在第二章开始前退出。再次运行跳过已完成的第一章，第二章重跑一次并导出。这次验证的恢复单位是一章；尚未写完的模型请求仍可能重复计次。\par
+\subhead{部署、权限和数据保护}
+网页默认监听本机回环地址。服务检查跨站写请求并限制静态文件路径；数据抓取只访问允许的来源。密钥由运行环境或本机私有配置提供，不随任务导出。原始数据和个人编辑稿保存在本地，模型会接收完成当前写作所需的任务文本和证据摘录。单机审阅没有多人账户及角色授权；如需远程部署，应另行设计身份、访问范围和写入审计。正文指纹能发现文件被换版，不能据此认定某个结论成立。\par
+\clearpage
+\hypertarget{reportpart5}{}
+\pdfbookmark[1]{5　同一题，拿掉装机资料后怎样写}{outline5}
+\chaptertitle{5　同一题，拿掉装机资料后怎样写}
+实验固定2024年中国光伏简报的模板、问题、必查指标和模型服务，只改变输入资料是否含国家能源局发布。一组保留工信部与国家能源局两份资料，另一组只保留工信部资料。两份导出件均查看“发电新增装机”栏；再对照同一次运行保存的事件，确认这行文字怎样得来。\par
+{\centering\includegraphics[width=1.0\linewidth]{\detokenize{../evidence/发电新增装机_同栏对照_郭润航fixture.png}}\par}\capline{图3　郭润航11月24日独立离线复跑的同栏对照（中期 E9）}
+\par\begingroup\fontsize{10.5}{13.5}\selectfont\renewcommand{\arraystretch}{1.12}
+\arrayrulecolor{hair}\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{.20\linewidth}>{\raggedright\arraybackslash}p{.34\linewidth}Y}\hline
+\rowcolor{pale}
+\bfseries\color{zblue} 同一栏核对项 & \bfseries\color{zblue} 完整输入 & \bfseries\color{zblue} 缺国家能源局资料\\ \hline
+E7 实际 GLM 工具调用 & 装机章首次查询就返回 NEA 来源和原文位置。 & 初查为空；只对装机编号补查一次，仍为空。\\ \hline
+E7 定稿 & 三项指标均有出处；装机为2.78亿千瓦。 & 两项制造指标保留。装机栏显示待核实，缺项清单只有装机编号。\\ \hline
+E9 固定离线复跑 & 装机栏与真实模型样张同值、同单位、同来源。 & 该栏仍保留缺项，不会从制造章借数字。\\ \hline
+\end{tabularx}\endgroup\par
+两份真实 GLM 运行记录分别为 glm-full.json 与 glm-missing.json。后者还记录了制造章的一条附加观察未通过格式检查；该观察被省略与装机数据缺失是两件事。郭润航的 E9 用固定决策独立复跑，复现了同栏结果，不计作另一次真实模型调用。许子萌随后复核资料查询接口：完整输入命中三项，排除 NEA 后只返回两项制造指标。\par
+\subhead{能用这组对照得出什么判断}
+开题摘录模式把资料列在一起（E3）；中期流程则标出哪些章节查过、补查了什么、最后还缺什么。同题对照说明，在这两份固定材料上，删去来源不会让不相关的数字填进装机栏。样本只包含一个主题、两个输入条件。报告质量、用户省时和多次运行中的稳定性，仍要通过独立题目、人工核验和重复试验衡量。\par
+\clearpage
+\hypertarget{reportpart6}{}
+\pdfbookmark[1]{6　框架参照、设计取舍与核查}{outline6}
+\chaptertitle{6　框架参照、设计取舍与核查}
+\par\begingroup\fontsize{10.5}{13.5}\selectfont\renewcommand{\arraystretch}{1.12}
+\arrayrulecolor{hair}\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{.20\linewidth}>{\raggedright\arraybackslash}p{.34\linewidth}Y}\hline
+\rowcolor{pale}
+\bfseries\color{zblue} 参照与验证 & \bfseries\color{zblue} 查到的机制 & \bfseries\color{zblue} 项目拿来做什么\\ \hline
+DeepSeek Harness，E4 & SDK 通过标准输入输出连接只读 MCP 工具。工具回执带原调用 ID 进入第二次请求。 & 将工具参数、返回值与调用编号分别检查，让人能追溯一次查询。\\ \hline
+Pi coding agent，E5 & CLI 扩展调用同一只读查询。JSON 事件含工具执行开始、结束和运行完成。 & 将一次任务的事件留档，便于确认“调用成功”与“找到了目标资料”是否同时成立。\\ \hline
+DeepSeek chat-demo & 对照任务输入、附件与草稿的交互形式。 & 作为工作台交互设计参考，未用它开展模型质量对照试验。\\ \hline
+\end{tabularx}\endgroup\par
+E4、E5 各有两次模型请求，均在本机模拟模型服务运行；两份收据都记录工具结果已带回第二次请求。固定简报实际采用 LangGraph 管理章内分支，GLM-5.3-Flash 联调见 E7。这种设计限制了固定简报的章节和指标种类，但可以逐项验证原值与缺项。开放工作台允许更自由的写作，同时增加了引用核查、来源修订比对和人工解释的成本。\par
+\subhead{为什么查到数字还得核对指标}
+一条报告草稿同时引用中国两个直流侧序列：2024至2025年，年度新增装机从357升至415 GWdc，年末累计从1049升至1464 GWdc。若把新增序列的16.2\%接在累计装机后面，出处中虽有这个百分比，分母仍然用错。用各自末值除以初值再减一，累计装机的区间变化约为39.6\%。工作台对能唯一定位的首末值作确定性核对；缺少比较分母时保留原值，不能由这条规则处理的解释交给人判断。\par
+另用国家能源局两张上半年分省表做了12条定向用例。当前写稿检查放行3条正确陈述，拦下6条植入错误；缺出处、引用不存在与无证据的因果解释这3条在审阅中均标为需要人工判断。旧版记录中6条植错有3条漏检。这个比较检验数字、单位、地区、时期和指标错配；这些用例由项目组挑选，不能换算为整篇报告的准确率。\par
+\clearpage
+\hypertarget{reportpart7}{}
+\pdfbookmark[1]{7　计划执行、交接与剩余工作}{outline7}
+\chaptertitle{7　计划执行、交接与剩余工作}
+\par\begingroup\fontsize{10.5}{13.5}\selectfont\renewcommand{\arraystretch}{1.12}
+\arrayrulecolor{hair}\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{.20\linewidth}>{\raggedright\arraybackslash}p{.34\linewidth}Y}\hline
+\rowcolor{pale}
+\bfseries\color{zblue} 阶段目标 & \bfseries\color{zblue} 可核对的实际进展 & \bfseries\color{zblue} 当前判断\\ \hline
+开题设想多产业、多模板 & 中期先用光伏两章、三项指标完成来源定位、缺项保留、确认导出。 & 范围收窄，便于在相同材料上核对行为。多产业、多类型未整体交付。\\ \hline
+控制中断和资料冲突 & E8 验证按章恢复；补充用例另外验证合成冲突、强制短超时及风电模板复用。 & 已有定向结果。单次耗时与复用案例不足以推断生产稳定性。\\ \hline
+支持研究员自定义任务 & 工作台已有范围讨论、参考报告选择、按章写作、分省比较和审阅。 & 有无参考摘记对报告结构及核查耗时的影响，尚待同题盲评。\\ \hline
+\end{tabularx}\endgroup\par
+\subhead{六个人是怎样围绕同一份材料交接的}
+\par\begingroup\fontsize{10.5}{13.5}\selectfont\renewcommand{\arraystretch}{1.12}
+\arrayrulecolor{hair}\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{.20\linewidth}>{\raggedright\arraybackslash}p{.34\linewidth}Y}\hline
+\rowcolor{pale}
+\bfseries\color{zblue} 人员 & \bfseries\color{zblue} 交付与接收关系 & \bfseries\color{zblue} 可定位的产物\\ \hline
+崔大元、许子萌 & 崔大元整理三项原始发布与段落。许子萌复核查资料入口，解释有缺项时怎样补查。 & PR \#12 来源表；PR \#13 技术稿及流程图。\\ \hline
+郭润航、李佳雨 & 郭润航独立运行完整、缺装机两组输入并截取同栏。李佳雨将该图纳入展示稿，明确标为离线复跑。 & 中期 E9 样张、截图与说明；PR \#11 的展示交接说明。\\ \hline
+田亦洁、程文博 & 田亦洁在设计稿中纳入来源表、两组样张和接口说明。程文博统筹本次材料的一致性、验收及课堂汇报。 & PR \#10 的 v0.8 设计报告和本次 v1.0 的合稿。\\ \hline
+\end{tabularx}\endgroup\par
+这些交接可由文件、PR 与运行记录核对。成员讨论或评审的次数、实际工时没有据此估算。课堂产品规划的三个评审点落在范围、证据、发布：先确定目标读者和题目，再查必需指标是否有出处，最后由审阅人确认导出。\par
+\subhead{后续安排（组内拟定）}
+\par\begingroup\fontsize{10.5}{13.5}\selectfont\renewcommand{\arraystretch}{1.12}
+\arrayrulecolor{hair}\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{.14\linewidth}>{\raggedright\arraybackslash}p{.23\linewidth}Y}\hline
+\rowcolor{pale}
+\bfseries\color{zblue} 时间 & \bfseries\color{zblue} 负责人 & \bfseries\color{zblue} 交付与检查\\ \hline
+12月2日 & 田亦洁、崔大元 & 定一组未参与本轮调试的题目和原表，先列判断标准、出处和必须保留的缺项。\\ \hline
+12月4日 & 许子萌、郭润航 & 相同资料与版本各跑一份启用、关闭写作参考的报告；保留调用记录并匿名比较结构修改量与核查用时。\\ \hline
+12月7日 & 李佳雨、程文博 & 汇总误判、修改次数和人工评价，逐项验收；依结果决定保留或调整哪些写作建议。\\ \hline
+\end{tabularx}\endgroup\par
+\clearpage
+\hypertarget{reportpart8}{}
+\pdfbookmark[1]{8　需求追踪、风险与核验责任}{outline8}
+\chaptertitle{8　需求追踪、风险与核验责任}
+\par\begingroup\fontsize{10.5}{13.5}\selectfont\renewcommand{\arraystretch}{1.12}
+\arrayrulecolor{hair}\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{.13\linewidth}>{\raggedright\arraybackslash}p{.32\linewidth}Y}\hline
+\rowcolor{pale}
+\bfseries\color{zblue} 需求 & \bfseries\color{zblue} 实现位置 & \bfseries\color{zblue} 检查与遗留\\ \hline
+M1 按章取证 & pv\_evidence 取回记录；pv\_agent 按证据填数 & E7 完整输入三项可回查。开放写作中的语义、因果仍须核查。\\ \hline
+M2 缺项保留 & 章内条件边计算缺失编号；同资料补查一次 & E7 缺来源，E9 离线复跑，两份 PDF 同栏均显示缺项。\\ \hline
+M3 人工审阅 & approve\_run 检查修订稿，Typst 导出并保存确认记录 & E7 保留装机缺项；补充 E9 篡改冲突候选值不能确认导出。\\ \hline
+M4 运行可追踪 & 事件、inspect 入口、章节检查点 & E8 已完成章复用；未完成章可能重跑，不保证外部模型仅计费一次。\\ \hline
+\end{tabularx}\endgroup\par
+\subhead{风险怎样被发现，接下来查什么}
+资料修订可能改变发布日期、指标口径或符号。来源工具保留快照和定位，测试人员对照本次引用与新版原表，报告中显示差异。模型服务中断时不能断言外部请求是否计费；程序标明中断点、保留已完成章，回到同一配置恢复。补充 E11 人为将等待时间设为0.1秒，发生超时，恢复默认等待后成功导出。过小超时是试验条件，实际延迟分布尚待重复测量。\par
+\subhead{AI 使用与人工核验}
+Codex 辅助整理模块说明、核对脚本和排版，真实模型用在 E7 的章节查询与辅助观察。项目组用工具回执和代码逐项检查“谁执行查询”“何时允许补查”；用官方段落和同栏 PDF 核对统计值、单位及缺项。田亦洁负责设计报告内容复核，崔大元负责原文定位，许子萌负责工具与编排说明，郭润航负责独立复跑，李佳雨核对展示与样张，程文博负责最终验收和汇报。正式文件中的事实以已归档材料为据，列出的后续试验均为计划。\par
+\subhead{版本记录}
+v0.4 记录真实 GLM 联调及按章恢复；v0.8 整理课程设计要求，补齐来源表与独立复跑。v1.0 合入技术供稿并串联四份协作 PR，区分固定简报与工作台，补入区间变化率反例、验收对应和后续分工。固定简报的试验条件以各份收据为准；工作台设计与自动回归对应代码提交 d41a7c7。\par
+\clearpage
+\fancyfoot[R]{\small\color{muted}参考资料}
+\hypertarget{reportpart9}{}
+\pdfbookmark[1]{参考资料与复核入口}{outline9}
+\chaptertitle{参考资料与复核入口}
+\href{https://wap.miit.gov.cn/gyhxxhb/jgsj/dzxxsnew/xyyx/art/2025/art\_1717bf6fa0a34311a2c347fb9623e607.html}{工信部《2024年全国光伏制造行业运行情况》}与\href{https://www.nea.gov.cn/20250221/e10f363cabe3458aaf78ba4558970054/c.html}{国家能源局《2024年可再生能源并网运行情况》}支持三项统计。报告只摘取对应段落中的数字及口径。\par
+\href{https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/sdk}{DeepSeek Harness SDK}、\href{https://github.com/earendil-works/pi/tree/main/packages/coding-agent}{Pi coding agent}、\href{https://github.com/deepseek-ai/chat-demo}{DeepSeek chat-demo}与\href{https://docs.langchain.com/oss/python/langgraph/graph-api}{LangGraph Graph API}用于设计对照。工具回传的实际结果以项目 E4、E5 收据为准。\par
+\href{https://github.com/BrockPhlin/industry-report-harness/tree/cbbb1df/presentations/02-midterm/evidence}{中期 E1–E9 记录、样张与复跑命令}与\href{https://github.com/BrockPhlin/industry-report-harness/tree/7876b7c/presentations/03-final/evidence}{补充验证 E9–E12}按阶段编号。中期 E9 为郭润航的离线复跑；补充 E9 为合成的资料冲突。自定义题的产出另见中期证据目录中的《工作台联网研究\_2024年制造与价格.md》。\par
+\href{https://github.com/BrockPhlin/industry-report-harness/blob/d41a7c7/docs/\%E6\%8A\%A5\%E5\%91\%8A\%E6\%A0\%B8\%E6\%9F\%A5\%E4\%B8\%8E\%E4\%BF\%AE\%E8\%AE\%A2.md}{资料核查与定向评测}对照错省、错年、错指标等错误；\href{https://github.com/BrockPhlin/industry-report-harness/blob/d41a7c7/code/tests\_midterm/test\_series\_growth.py}{期间变化率回归}使用 E1 与 E2 两个中国光伏直流侧序列，原件可回查\href{https://iea-pvps.org/trends\_reports/trends-2026/}{IEA PVPS 全球趋势报告}。\par
+\href{https://github.com/BrockPhlin/industry-report-harness/pull/10}{PR \#10 设计报告}、\href{https://github.com/BrockPhlin/industry-report-harness/pull/11}{PR \#11 展示交接}、\href{https://github.com/BrockPhlin/industry-report-harness/pull/12}{PR \#12 来源表}与\href{https://github.com/BrockPhlin/industry-report-harness/pull/13}{PR \#13 技术供稿}提供团队交付记录。各项课程要求见\href{https://github.com/BrockPhlin/industry-report-harness/blob/7876b7c/materials/references/\%E8\%AF\%BE\%E7\%A8\%8B\%E6\%8A\%A5\%E5\%91\%8A\%E4\%B8\%8E\%E8\%AF\%84\%E5\%88\%86\%E7\%BB\%86\%E5\%88\%99.md}{课程评分细则}。\par
+\subhead{篇幅统计}
+正文第1至8页，LibreOffice Writer 26.8.0.0.alpha0 字数统计为 5289 字。统计包含正文标题、段落、表格、图注与 AI 使用说明；封面目录、参考资料及图内文字不计入。
+\end{document}

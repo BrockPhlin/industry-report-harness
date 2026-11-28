@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="325" viewBox="0 0 1440 325">
+  <title>固定简报与研究工作台的职责和数据流</title>
+  <defs><marker id="arrow" markerWidth="9" markerHeight="8" refX="8" refY="4" orient="auto"><path d="M0 0L8 4L0 8z" fill="#50769f"/></marker></defs>
+  <style>
+   text{font-family:"PingFang SC","Noto Sans CJK SC",sans-serif;fill:#24374c}
+   .role{font-size:24px;fill:#00438b;font-weight:600}.desc{font-size:19px}.card{fill:#f0f5fb;stroke:#adbed1;stroke-width:1.5}
+   .edge{fill:none;stroke:#50769f;stroke-width:2.5;marker-end:url(#arrow)}
+  </style>
+  <rect width="1440" height="325" fill="white"/>
+  <g transform="translate(7,11)">
+   <rect class="card" x="0" y="0" width="226" height="121" rx="7"/><text class="role" x="14" y="36">固定简报 CLI</text><text class="desc" x="14" y="68">章节模板</text><text class="desc" x="14" y="94">已录入的机构资料</text>
+   <path class="edge" d="M226 60H264"/>
+   <rect class="card" x="268" y="0" width="306" height="121" rx="7"/><text class="role" x="282" y="36">LangGraph 章内编排</text><text class="desc" x="282" y="68">GLM 提出查询；程序检索</text><text class="desc" x="282" y="94">有缺项时定向补查一次</text>
+   <path class="edge" d="M574 60H612"/>
+   <rect class="card" x="616" y="0" width="339" height="121" rx="7"/><text class="role" x="630" y="36">章节草稿与运行记录</text><text class="desc" x="630" y="68">程序按证据填入原值和单位</text><text class="desc" x="630" y="94">保存已完成章、缺项与出处</text>
+   <path class="edge" d="M955 60H1038V133H1088"/>
+   <rect class="card" x="0" y="158" width="226" height="121" rx="7"/><text class="role" x="14" y="194">研究工作台</text><text class="desc" x="14" y="226">研究问题、范围</text><text class="desc" x="14" y="252">可选资料和参考摘记</text>
+   <path class="edge" d="M226 218H264"/>
+   <rect class="card" x="268" y="158" width="306" height="121" rx="7"/><text class="role" x="282" y="194">规划与取数服务</text><text class="desc" x="282" y="226">按地区、年份、指标检索</text><text class="desc" x="282" y="252">快照与原文定位存入 SQLite</text>
+   <path class="edge" d="M574 218H612"/>
+   <rect class="card" x="616" y="158" width="339" height="121" rx="7"/><text class="role" x="630" y="194">逐章写作与数值核查</text><text class="desc" x="630" y="226">模型依章节证据写作</text><text class="desc" x="630" y="252">按引文核对数值、时段及口径</text>
+   <path class="edge" d="M955 218H1038V156H1088"/>
+   <rect x="1093" y="76" width="322" height="143" rx="7" fill="#e1edf7" stroke="#7998b6" stroke-width="2"/><text class="role" x="1108" y="120">人工审阅与导出</text><text class="desc" x="1108" y="154">核对草稿、原文与缺项</text><text class="desc" x="1108" y="185">确认后保存 Markdown、PDF</text>
+  </g>
+</svg>

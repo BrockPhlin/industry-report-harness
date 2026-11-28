@@ -285,6 +285,8 @@ def slide_text(pdf, item):
     if ph > item["h"] + 2:
         raise ValueError(f"Slide text overflows: {item['text'][:30]} ({ph}>{item['h']})")
     p.drawOn(pdf, item["x"], 720-item["y"]-ph)
+    if item.get("href"):
+        pdf.linkURL(item["href"], (item["x"], 720-item["y"]-ph, item["x"]+item["w"], 720-item["y"]))
 
 
 def slide_table(pdf, item):
