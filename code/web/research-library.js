@@ -229,11 +229,10 @@ function openLibrary() {
   const footer = element("div", undefined, "library-selection");
   const version = state.version;
   const row = state.row;
-  const fixture = !row && $("workflow").value === "fixture";
-  const selectedIds = fixture ? [] : row?.spec?.reference_ids || state.reference_ids;
+  const selectedIds = row?.spec?.reference_ids || state.reference_ids;
   const ids = new Set(selectedIds);
   const editing = Boolean(state.settings?.model && !state.busy &&
-    (row ? row.status === "planning" : !fixture));
+    (!row || row.status === "planning"));
   const status = element("span");
   status.setAttribute("role","status");
   const save = button("保存选择", async () => {
@@ -264,8 +263,6 @@ function openLibrary() {
     selectionStatus();
   } else if (!state.settings?.model) {
     footer.append(element("span", "当前可阅读和查询资料，配置模型后可为新研究选用报告。"));
-  } else if (!row && $("workflow").value === "fixture") {
-    footer.append(element("span", "离线样例使用固定资料。切换到讨论或直接写报告后可选用参考报告。"));
   }
   const panels = new Map();
   let libraryData;

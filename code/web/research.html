@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#143e38">
   <title>光伏研究室 · 产业研究工作台</title>
   <link rel="stylesheet" href="/research.css">
   <script src="/report-review.js" defer></script>
@@ -38,11 +39,28 @@
     <div id="canvas">
       <article id="conversation" hidden></article>
       <section id="welcome">
-        <div class="sun" aria-hidden="true"><span></span></div>
-        <h1>你想研究光伏的什么问题？</h1>
-        <p>从一个问题开始，查公开数据，写出带出处的研究报告。</p>
+        <div class="example-cover">
+          <div class="solar-landscape" aria-hidden="true"><span class="solar-disc"></span><span class="solar-array"></span></div>
+          <div class="cover-copy">
+            <span class="cover-kicker">年度简报示例</span>
+            <h1>2024 年中国<br>光伏产业简报</h1>
+            <p>用两份公开资料，看懂组件制造与电站装机。</p>
+          </div>
+          <div id="example-facts" class="example-facts" aria-label="两项不同统计口径的指标"></div>
+          <div class="example-start">
+            <button id="run-example" class="example-action" type="button" disabled>生成示例简报 <span aria-hidden="true">→</span></button>
+            <small>固定资料 · 无需模型</small>
+          </div>
+        </div>
+        <div class="archive-samples">
+          <strong>已生成的模型样张</strong>
+          <a href="/samples/2024-full.pdf" target="_blank" rel="noopener">资料齐全的 PDF ↗</a>
+          <a href="/samples/2024-missing.pdf" target="_blank" rel="noopener">缺装机资料的 PDF ↗</a>
+        </div>
       </section>
       <section id="input-area">
+        <div id="custom-heading"><h2>研究其他问题</h2><button id="open-library" class="link">浏览资料库 ↗</button></div>
+        <p id="offline-info" hidden>配置模型后，可用自己的问题检索资料并撰写长报告。 <button id="setup-model" class="link">查看配置</button></p>
         <form id="composer">
           <div id="attached-comparison" hidden>
             <a id="attached-link">已附上这份对比报告</a>
@@ -54,7 +72,6 @@
             <select id="workflow" aria-label="写作方式">
               <option value="discuss">先聊一聊</option>
               <option value="direct">直接写报告</option>
-              <option value="fixture">离线样例</option>
             </select>
             <button type="button" id="focus-btn" class="pill" aria-haspopup="dialog">范围与篇幅</button>
             <button type="button" id="references-btn" class="pill" aria-haspopup="dialog">参考报告</button>
@@ -65,8 +82,8 @@
           <button>梳理中国光伏制造、价格和装机的变化 <span>↗</span></button>
           <button>比较近五年中德太阳能发电的变化 <span>↗</span></button>
         </div>
-        <p id="notice" role="status" aria-live="polite"></p>
       </section>
+      <p id="notice" role="status" aria-live="polite"></p>
     </div>
   </main>
   <dialog id="dialog" aria-labelledby="dialog-title">

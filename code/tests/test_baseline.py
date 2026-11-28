@@ -143,6 +143,22 @@ class HttpTests(unittest.TestCase):
         with self.request("/") as r:
             self.assertIn("产业研究工作台", r.read().decode())
 
+    def test_demo_facts_and_archived_model_samples(self):
+        with self.request("/api/research/settings") as response:
+            settings = json.load(response)
+        facts = {row["id"]: row for row in settings["fixture_facts"]}
+        self.assertEqual(set(facts), {"pv-module-output", "pv-module-price", "pv-new-capacity"})
+        self.assertEqual({row["source"] for row in facts.values()},
+                         {row["id"] for row in settings["sources"]})
+        self.assertNotEqual(facts["pv-module-output"]["unit"], facts["pv-new-capacity"]["unit"])
+        for path in ["/samples/2024-full.pdf", "/samples/2024-missing.pdf"]:
+            with self.subTest(path=path), self.request(path) as response:
+                self.assertEqual(response.headers.get_content_type(), "application/pdf")
+                self.assertEqual(response.read(5), b"%PDF-")
+        with self.assertRaises(HTTPError) as ctx:
+            self.request("/samples/2025-full.pdf")
+        self.assertEqual(ctx.exception.code, 404)
+
     def test_cross_site_post_rejected_without_writes(self):
         with self.assertRaises(HTTPError) as ctx:
             self.request("/api/research", {"question": "x"}, {"Origin": "https://other.invalid"})

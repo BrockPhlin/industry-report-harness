@@ -29,7 +29,7 @@ class Research:
         self.pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="research")
         self.lock = Lock()
         self.active = set()
-        self.template, self.sources, _ = load_inputs()
+        self.template, self.sources, self.fixture_facts = load_inputs()
         self.library = SolarLibrary(self.store)
         with closing(self.store.connect()) as db, db:
             db.execute("""CREATE TABLE IF NOT EXISTS research (
@@ -293,6 +293,7 @@ class Research:
             source_groups=SOURCE_GROUPS,
             sections=[s["title"] for s in self.template["sections"]],
             sources=list(self.sources.values()),
+            fixture_facts=[fact for records in self.fixture_facts.values() for fact in records],
         )
 
     def rows(self, key=None):

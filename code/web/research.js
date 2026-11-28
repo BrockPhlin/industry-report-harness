@@ -22,8 +22,13 @@ function link(text, url) {
   return el;
 }
 async function requestJSON(path, data) {
-  const response = await fetch(path, data === undefined ? {} :
-    {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(data)});
+  let response;
+  try {
+    response = await fetch(path, data === undefined ? {} :
+      {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(data)});
+  } catch {
+    throw new Error("暂时连不上工作台，请检查本机服务是否仍在运行。");
+  }
   const result = await response.json();
   if (!response.ok) throw new Error(result.error?.message || "请求失败，请重试。");
   return result;
@@ -117,6 +122,12 @@ $("focus-btn").onclick = () => {
     field("写作结构",style),reference,sources,message,apply);
 };
 $("sources").onclick = () => openLibrary();
+$("open-library").onclick = () => openLibrary();
+$("setup-model").onclick = () => $("model-info").click();
+$("run-example").onclick = () => {
+  if (!state.settings || state.row || state.busy) return;
+  action("", {question:"2024 年中国光伏产业简报",mode:"fixture",focus:state.settings.sections});
+};
 $("references-btn").onclick = () => openLibrary();
 $("model-info").onclick = () => {
   const model = state.settings.model;
@@ -126,24 +137,30 @@ $("model-info").onclick = () => {
 };
 function controls() {
   const row = state.row;
+  const model = Boolean(state.settings?.model);
+  $("model-info").disabled = !state.settings;
   const planning = row?.status === "planning";
-  const readyToAsk = row && row.kind !== "comparison" && row.status === "ready" && row.mode === "live";
+  const readyToAsk = row && row.kind !== "comparison" && row.status === "ready" && row.mode === "live" && model;
   const attached = !row && Boolean(state.comparisonId);
   $("attached-comparison").hidden = !attached;
-  $("workflow").querySelector('[value="fixture"]').disabled = attached;
   if (attached) $("attached-link").href = "#" + state.comparisonId;
-  $("composer").hidden = Boolean(row && !readyToAsk && !planning);
+  $("run-example").disabled = !state.settings || state.busy;
+  $("composer").hidden = !model || Boolean(row && !readyToAsk && !planning);
+  $("custom-heading").hidden = Boolean(row);
+  $("offline-info").hidden = model || !state.settings || Boolean(row && !planning);
+  $("input-area").hidden = Boolean(row && $("composer").hidden && $("offline-info").hidden);
+  $("suggestions").hidden = !model || Boolean(row);
   $("workflow").hidden = Boolean(row);
   $("focus-btn").hidden = Boolean(row && !planning);
-  $("focus-btn").disabled = (!row && $("workflow").value === "fixture") || !state.settings || state.busy;
+  $("focus-btn").disabled = !model || state.busy;
   $("references-btn").hidden = Boolean(row && !planning);
   $("references-btn").disabled = !state.settings || state.busy;
-  const referenceCount = !row && $("workflow").value === "fixture" ? 0 : state.reference_ids.length;
+  const referenceCount = state.reference_ids.length;
   $("references-btn").textContent = referenceCount ? "参考报告 · " + referenceCount : "参考报告";
   $("send").title = planning ? "补充要求" : row ? "发送追问" : "发送研究问题";
   $("prompt").placeholder = planning ? "补充你想看的地区、时间或问题…" : row ? "就这份报告继续提问…" : "输入研究问题，也可以指定年份、读者和篇幅…";
-  $("send").disabled = state.busy || !state.settings;
-  $("prompt").disabled = state.busy;
+  $("send").disabled = state.busy || !model;
+  $("prompt").disabled = state.busy || !model;
 }
 async function historyList() {
   const rows = await api("");
@@ -173,7 +190,7 @@ function fresh() {
   $("conversation").hidden = true;
   $("prompt").value = "";
   controls();
-  $("prompt").focus();
+  window.scrollTo(0,0);
   historyList().catch(e => notice(e.message));
 }
 $("new").onclick = fresh;
@@ -183,6 +200,34 @@ document.querySelectorAll("#suggestions button").forEach(b => b.onclick = () => 
   $("prompt").value = b.textContent.replace("↗", "").trim();
   $("prompt").focus();
 });
+function exampleFacts(facts) {
+  const cards = [];
+  for (const [key, label, issuer] of [
+    ["pv-module-output","全国光伏组件产量","工信部 · 制造"],
+    ["pv-new-capacity","全国光伏发电新增装机","国家能源局 · 建设"]
+  ]) {
+    const fact = facts.find(item => item.id === key);
+    if (!fact) continue;
+    const line = element("div", undefined, "cover-stat");
+    const value = element("div", undefined, "cover-number");
+    value.append(element("b", fact.value), element("span", fact.unit));
+    line.append(element("small",issuer), value, element("span", label));
+    cards.push(line);
+  }
+  $("example-facts").replaceChildren(...cards);
+}
+function showFixtureSource(source) {
+  const section = element("div", undefined, "source-sheet");
+  section.append(element("p", source.title, "source-title"), element("p", source.publisher, "caption"));
+  const rows = (state.row?.markdown || "").split("\n").filter(line =>
+    line.startsWith("- ") && line.includes("[" + source.id + "]"));
+  if (rows.length) {
+    section.append(element("h3","本次简报引用的指标"));
+    for (const line of rows) section.append(element("p",line.slice(2).replace("[" + source.id + "]","").trim(),"cited-value"));
+  }
+  section.append(element("h3","原文位置"), element("p", source.locator), link("打开发布方原文 ↗", source.url));
+  dialog(source.id + " · 核对来源", section);
+}
 function citedText(text, style) {
   const p = element("p", undefined, style);
   const pieces = text.split(/(\*\*[^*\n]+\*\*|\[[\w-]+\])/g);
@@ -193,7 +238,7 @@ function citedText(text, style) {
         element("p",source.locator),element("blockquote",source.text),
         element("p",source.publisher+" · 采集于 "+source.fetched.slice(0,10)+" · 快照 "+source.digest.slice(0,10)),
         ...evidenceSourceLinks(source)),"cite"));
-    } else if (source) p.append(link(part, source.url));
+    } else if (source) p.append(button(part, () => showFixtureSource(source), "cite"));
     else if (part.startsWith("**") && part.endsWith("**")) p.append(element("strong", part.slice(2, -2)));
     else p.append(part);
   }
@@ -214,6 +259,18 @@ function dataFigure(chart) {
   }
   figure.append(citedText("资料来源 "+chart.refs.map(r=>"["+r+"]").join(" "),"caption"));
   return figure;
+}
+function briefMetric(text) {
+  const match = /^([^，]+)，([^：]+)：(.+?)\s+\[([\w-]+)\]$/.exec(text);
+  if (!match) return citedText(text, "metric");
+  const [,period,metric,value,ref] = match;
+  const line = element("p", undefined, "metric fact-line");
+  const label = element("span",metric,"fact-label");
+  label.append(element("small",period));
+  line.append(label,element("strong",value));
+  const source = state.settings.sources.find(item => item.id === ref);
+  if (source) line.append(button("[" + ref + "]", () => showFixtureSource(source), "cite"));
+  return line;
 }
 function documentView(markdown) {
   const paper = element("div", undefined, "paper");
@@ -246,7 +303,8 @@ function documentView(markdown) {
       paper.append(p);
     } else if (line.startsWith("## ")) paper.append(element("h3", line.slice(3)));
     else if (line.startsWith("# ")) paper.append(element("h2", line.slice(2)));
-    else if (line.startsWith("- ")) paper.append(citedText(line.slice(2), "metric"));
+    else if (line.startsWith("- ")) paper.append(state.row?.mode === "fixture" ?
+      briefMetric(line.slice(2)) : citedText(line.slice(2), "metric"));
     else paper.append(citedText(line, line.startsWith("运行方式") ? "meta" : ""));
   }
   if (table && figures.has(tableNumber)) paper.append(dataFigure(figures.get(tableNumber)));
@@ -291,12 +349,20 @@ function render(row) {
   article.hidden = false;
   document.querySelectorAll("#history button").forEach(b => b.classList.toggle("current", b.dataset.key === row.id));
   if (row.kind === "comparison") {
+    article.classList.remove("brief-sheet");
     article.replaceChildren(comparisonReport(row));
     controls();
     return;
   }
-  article.replaceChildren(element("div", row.question, "user"),
-    element("div", row.mode === "live" ? "光伏研究室 / " + row.model : "光伏研究室 / 离线演练", "byline"));
+  const brief = row.mode === "fixture" && row.status === "ready";
+  article.classList.toggle("brief-sheet", brief);
+  article.replaceChildren();
+  if (brief) {
+    article.append(element("div", row.approved ? "固定资料简报　/　已确认" : "固定资料简报　/　待人工核对", "byline"));
+  } else {
+    article.append(element("div", row.question, "user"),element("div",
+      row.mode === "live" ? "光伏研究室 / " + row.model : "光伏研究室 / 固定资料示例", "byline"));
+  }
   if (row.spec?.comparison_id) article.append(comparisonLink(row.spec.comparison_id, "查看本次研究所用的对比报告"));
   if (row.spec?.turns?.length) {
     const thread = element("details",undefined,"details");
@@ -319,8 +385,9 @@ function render(row) {
     if (state.source_groups.length) article.append(element("p","取数范围 · "+
       state.source_groups.map(code=>state.settings.source_groups[code]).join("、"),"caption"));
     if (state.outline.length) article.append(element("p","指定提纲 · "+state.outline.join(" / "),"caption"));
-    article.append(element("p","目标约 "+row.spec.target+" 字。可以继续补充要求，也可以开始写作。","caption"),
-      button("按这个范围写",()=>action("/write",{}),"action"));
+    const write = button("按这个范围写",()=>action("/write",{}),"action");
+    write.disabled = !state.settings?.model;
+    article.append(element("p","目标约 "+row.spec.target+" 字。可以继续补充要求，也可以开始写作。","caption"),write);
   } else if (row.status === "running" && row.spec) {
     article.append(element("p",row.spec.progress || "已提交，正在准备研究任务…"));
   } else if (row.status === "running") {
@@ -329,9 +396,13 @@ function render(row) {
     article.append(element("p", next ? "正在检索资料、编写「" + next + "」…" : "正在整理草稿…"),
       element("p", "已完成 " + done.length + " / " + row.focus.length + " 章", "caption"));
   } else if (row.status === "failed") {
-    article.append(element("p", row.error), button("继续生成", () => action("/retry", {}), "action"));
+    const retry = button("继续生成", () => action("/retry", {}), "action");
+    retry.disabled = row.mode === "live" && !state.settings?.model;
+    article.append(element("h3", /中断|终止/.test(row.error || "") ? "生成已中断" : "生成失败"),
+      element("p", row.error || "可以从已保存的进度继续。"),retry);
+    if (retry.disabled) article.append(element("p","重新连接模型后可继续此任务。","caption"));
     if (row.operations?.length) article.append(operationsView(row.operations));
-    if (row.spec) article.append(button("调整范围后重写",() => {
+    if (row.spec && state.settings?.model) article.append(button("调整范围后重写",() => {
       fresh();
       $("workflow").value = "discuss";
       $("prompt").value = row.question;
@@ -362,8 +433,21 @@ function render(row) {
       const exports = element("div",undefined,"actions");
       exports.append(download,evidenceFile);
       article.append(exports);
-    } else article.append(documentView(row.markdown), traceView(row.events));
+    } else {
+      const paper = documentView(row.markdown);
+      article.append(paper,traceView(row.events));
+      if (brief) {
+        const reading = element("p", "点指标旁的 [MIIT] 或 [NEA]，可核对发布机构和原文位置。", "brief-reading");
+        const firstSection = paper.querySelector("h3");
+        if (firstSection) paper.insertBefore(reading, firstSection);
+      }
+    }
     const actions = element("div", undefined, "actions");
+    if (brief) {
+      const md = element("a","下载 Markdown");
+      md.href = "/api/research/" + row.id + "/markdown";
+      actions.append(md);
+    }
     if (row.spec && !row.approved) actions.append(button("润色草稿", () => {
       const editor = element("textarea");
       editor.className = "draft-editor";
@@ -389,7 +473,8 @@ function render(row) {
     } else actions.append(button("核对并导出 PDF", () => dialog("已核对这份草稿？",
       element("p", "请检查报告中的指标、单位及出处。确认后将保存本次核对件。"),
       button("确认并生成 PDF", () => { $("dialog").close(); action("/approve", {confirm: true}); }, "action")), "action"));
-    article.append(actions);
+    if (brief) article.querySelector(".paper h2").after(actions);
+    else article.append(actions);
     for (const turn of row.answers) article.append(element("div", turn.question, "user"),
       element("div", "模型答复 · 据本次草稿", "byline"), citedText(turn.answer, "answer"));
   }
@@ -402,6 +487,7 @@ function watch(row, version) {
     try {
       const next = await api("/" + row.id);
       if (version !== state.version) return;
+      notice("");
       render(next);
       watch(next, version);
     } catch (err) {
@@ -431,7 +517,10 @@ async function action(suffix, body) {
   const key = state.row?.id;
   state.busy = true;
   controls();
-  notice(suffix === "/ask" ? "模型正在阅读草稿并答复…" : suffix === "/plan" || body.workflow === "discuss" ? "正在梳理你的研究需求…" : "正在提交…");
+  if (body.mode === "fixture") $("run-example").textContent = "正在生成简报…";
+  notice(body.mode === "fixture" ? "正在读取固定资料，按章编写简报…" : suffix === "/approve" ?
+    "正在保存核对件并生成 PDF…" : suffix === "/ask" ? "模型正在阅读草稿并答复…" :
+    suffix === "/plan" || body.workflow === "discuss" ? "正在梳理你的研究需求…" : "正在提交…");
   try {
     const row = await api((key ? "/" + key : "") + suffix, body);
     if (version !== state.version) { await historyList(); return; }
@@ -443,7 +532,14 @@ async function action(suffix, body) {
     await historyList();
     if (suffix === "/ask") $("input-area").scrollIntoView({block:"end"});
   } catch (err) { if (version === state.version) notice(err.message); }
-  finally { if (version === state.version) { state.busy = false; controls(); } }
+  finally {
+    if (body.mode === "fixture") {
+      const arrow = element("span","→");
+      arrow.setAttribute("aria-hidden","true");
+      $("run-example").replaceChildren("生成示例简报 ",arrow);
+    }
+    if (version === state.version) { state.busy = false; controls(); }
+  }
 }
 $("composer").onsubmit = e => {
   e.preventDefault();
@@ -451,7 +547,6 @@ $("composer").onsubmit = e => {
   if (!question) { notice("请写下研究问题。"); return; }
   if (state.row?.status === "planning") action("/plan",{question,target:null});
   else if (state.row) action("/ask", {question});
-  else if ($("workflow").value === "fixture") action("",{question,mode:"fixture",focus:state.settings.sections});
   else action("",{question, workflow:$("workflow").value, scope:state.scope, target:state.target,
     style:state.style,outline:state.outline,source_groups:state.source_groups,reference_ids:state.reference_ids,
     ...(state.comparisonId ? {comparison_id:state.comparisonId} : {})});
@@ -467,8 +562,8 @@ async function init() {
   $("model-label").textContent = model || "模型未配置";
   $("model-info").classList.toggle("live", Boolean(model));
   $("compare").disabled = false;
-  for (const option of $("workflow").options) option.disabled = !model && option.value !== "fixture";
-  $("workflow").value = model ? "discuss" : "fixture";
+  exampleFacts(state.settings.fixture_facts || []);
+  $("workflow").value = "discuss";
   $("workflow").onchange = controls;
   const originalKey = location.hash.slice(1);
   fresh();
@@ -491,4 +586,10 @@ async function init() {
   });
 }
 controls();
-init().catch(err => notice(err.message));
+function connect() {
+  init().catch(err => {
+    $("model-label").textContent = "服务未连接";
+    $("notice").replaceChildren(err.message + " ", button("重新连接",connect,"link"));
+  });
+}
+connect();

@@ -15,6 +15,11 @@ from .reference_catalog import catalog
 from .report_review import export_markdown, review_report
 
 WEB = Path(__file__).resolve().parents[1] / "web"
+SAMPLE_DIR = WEB.parents[1] / "presentations/02-midterm/evidence"
+SAMPLE_PDFS = {
+    "/samples/2024-full.pdf": "光伏简报_GLM完整资料.pdf",
+    "/samples/2024-missing.pdf": "光伏简报_GLM缺装机资料.pdf",
+}
 
 
 def observations_csv(rows):
@@ -73,6 +78,11 @@ def make_server(service, host="127.0.0.1", port=8000):
                 path = urlsplit(self.path).path
                 task = re.fullmatch(r"/api/research/([a-f0-9]{32})(?:/(approve|pdf|ask|retry|plan|write|edit|scope|markdown|evidence\.json|review(?:\.json)?))?", path)
                 if method == "GET":
+                    if path in SAMPLE_PDFS:
+                        sample = SAMPLE_DIR / SAMPLE_PDFS[path]
+                        if not sample.is_file():
+                            raise AppError("此安装未附带中期实测样张", 404)
+                        return self.respond(200, sample.read_bytes(), "application/pdf")
                     if path == "/api/comparisons/catalog":
                         from .province_comparison import comparison_catalog
                         return self.respond(200, comparison_catalog())
